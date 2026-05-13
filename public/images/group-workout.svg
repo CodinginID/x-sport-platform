@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" fill="none">
+  <!-- Background -->
+  <rect width="600" height="300" rx="32" fill="#8B5CF6" opacity="0.05"/>
+  
+  <!-- Person 1 - running -->
+  <circle cx="150" cy="120" r="18" fill="#8B5CF6" opacity="0.8"/>
+  <path d="M150 140 L150 200" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M150 160 L130 180" stroke="#8B5CF6" stroke-width="5" stroke-linecap="round"/>
+  <path d="M150 160 L170 145" stroke="#8B5CF6" stroke-width="5" stroke-linecap="round"/>
+  <path d="M150 200 L130 250" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M150 200 L175 245" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Person 2 - stretching -->
+  <circle cx="300" cy="110" r="18" fill="#06B6D4" opacity="0.8"/>
+  <path d="M300 130 L300 200" stroke="#06B6D4" stroke-width="6" stroke-linecap="round"/>
+  <path d="M300 150 L260 130" stroke="#06B6D4" stroke-width="5" stroke-linecap="round"/>
+  <path d="M300 150 L340 130" stroke="#06B6D4" stroke-width="5" stroke-linecap="round"/>
+  <path d="M300 200 L280 255" stroke="#06B6D4" stroke-width="6" stroke-linecap="round"/>
+  <path d="M300 200 L320 255" stroke="#06B6D4" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Person 3 - lifting -->
+  <circle cx="450" cy="120" r="18" fill="#8B5CF6" opacity="0.8"/>
+  <path d="M450 140 L450 210" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M450 155 L420 135" stroke="#8B5CF6" stroke-width="5" stroke-linecap="round"/>
+  <path d="M450 155 L480 135" stroke="#8B5CF6" stroke-width="5" stroke-linecap="round"/>
+  <path d="M450 210 L435 260" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"/>
+  <path d="M450 210 L465 260" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"/>
+  <!-- Barbell -->
+  <rect x="405" y="128" width="90" height="6" rx="3" fill="#0F172A" opacity="0.3"/>
+  <rect x="400" y="122" width="12" height="18" rx="4" fill="#0F172A" opacity="0.3"/>
+  <rect x="488" y="122" width="12" height="18" rx="4" fill="#0F172A" opacity="0.3"/>
+  
+  <!-- Decorative dots -->
+  <circle cx="80" cy="80" r="5" fill="#8B5CF6" opacity="0.2"/>
+  <circle cx="520" cy="60" r="4" fill="#06B6D4" opacity="0.3"/>
+  <circle cx="550" cy="250" r="6" fill="#8B5CF6" opacity="0.15"/>
+  <circle cx="50" cy="220" r="4" fill="#06B6D4" opacity="0.2"/>
+</svg>

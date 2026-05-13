@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" fill="none">
+  <!-- Background blobs -->
+  <circle cx="300" cy="250" r="200" fill="#8B5CF6" opacity="0.08"/>
+  <circle cx="420" cy="150" r="80" fill="#06B6D4" opacity="0.1"/>
+  <circle cx="180" cy="380" r="60" fill="#8B5CF6" opacity="0.06"/>
+  
+  <!-- Floor -->
+  <ellipse cx="300" cy="430" rx="180" ry="20" fill="#8B5CF6" opacity="0.08"/>
+  
+  <!-- Person doing yoga/stretching -->
+  <!-- Body -->
+  <path d="M280 200 C280 180 300 160 320 160 C340 160 350 180 350 200 L345 280 L285 280 Z" fill="#8B5CF6" opacity="0.9"/>
+  <!-- Head -->
+  <circle cx="315" cy="140" r="30" fill="#F8FAFC" stroke="#8B5CF6" stroke-width="3"/>
+  <!-- Hair -->
+  <path d="M290 130 C290 110 315 100 340 115 C340 130 335 135 315 135" fill="#0F172A"/>
+  <!-- Left arm stretched -->
+  <path d="M280 210 L200 170 L190 175" stroke="#8B5CF6" stroke-width="8" stroke-linecap="round"/>
+  <!-- Right arm up -->
+  <path d="M350 210 L400 150 L410 140" stroke="#8B5CF6" stroke-width="8" stroke-linecap="round"/>
+  <!-- Left leg -->
+  <path d="M295 280 L260 380 L250 420" stroke="#8B5CF6" stroke-width="10" stroke-linecap="round"/>
+  <!-- Right leg stretched -->
+  <path d="M335 280 L400 350 L430 420" stroke="#8B5CF6" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Dumbbell left -->
+  <rect x="170" y="160" width="30" height="8" rx="4" fill="#06B6D4"/>
+  <rect x="165" y="155" width="8" height="18" rx="4" fill="#06B6D4"/>
+  <rect x="195" y="155" width="8" height="18" rx="4" fill="#06B6D4"/>
+  
+  <!-- Energy lines -->
+  <path d="M420 120 L440 110" stroke="#06B6D4" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <path d="M430 140 L455 135" stroke="#06B6D4" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+  <path d="M425 160 L445 160" stroke="#06B6D4" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+  
+  <!-- Stars/sparkles -->
+  <circle cx="450" cy="100" r="4" fill="#8B5CF6" opacity="0.5"/>
+  <circle cx="180" cy="120" r="3" fill="#06B6D4" opacity="0.5"/>
+  <circle cx="480" cy="200" r="5" fill="#06B6D4" opacity="0.3"/>
+  <circle cx="140" cy="300" r="4" fill="#8B5CF6" opacity="0.4"/>
+</svg>

@@ -1,6 +1,0 @@
-{
-  "name": "ZenFlow Pilates Studio",
-  "description": "A multi-tenant Pilates Studio Management System for bookings, memberships, and coach commissions.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["Class Bookings", "Membership Management", "Coach Commissions"]
-}
