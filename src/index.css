@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Outfit", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --color-zen-bg: #F8FAFC;
+  --color-zen-brand: #8B5CF6;
+  --color-zen-accent: #06B6D4;
+  --color-zen-ink: #0F172A;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-zen-bg text-zen-ink antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-serif;
+  }
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.5rem;
+}
+
+.glass-card {
+  @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-xl shadow-zen-ink/5;
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-zen-brand to-zen-accent;
+}
+
+.btn-primary {
+  @apply bg-zen-brand text-white px-8 py-4 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-zen-ink transition-all duration-300 shadow-lg shadow-zen-brand/20 active:scale-95;
+}
