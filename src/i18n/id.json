@@ -29,8 +29,7 @@
     "submit": "Masuk",
     "loading": "Memproses...",
     "error": "Email atau password salah",
-    "demo": "Owner: admin@studio.com / admin123 | Staff: staff@studio.com / staff123",
-    "back": "Kembali ke Beranda"
+    "demo": "Owner: admin@studio.com / admin123 | Staff: staff@studio.com / staff123"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -43,8 +42,9 @@
     "payments": "Pembayaran",
     "commissions": "Komisi",
     "reports": "Laporan",
+    "settings": "Pengaturan",
     "logout": "Keluar",
-    "language": "Bahasa"
+    "more": "Lainnya"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -76,19 +76,22 @@
     "female": "Perempuan",
     "other": "Lainnya",
     "search": "Cari member...",
-    "archive": "Arsipkan",
-    "edit": "Edit",
-    "save": "Simpan"
+    "archive": "Arsip",
+    "back": "Kembali"
   },
   "coaches": {
     "title": "Coach",
     "add": "Tambah Coach",
+    "name": "Nama Lengkap",
+    "phone": "No. Telepon",
+    "email": "Email",
     "commission_type": "Tipe Komisi",
     "commission_pct": "Komisi (%)",
     "percentage": "Persentase",
     "fixed": "Tetap",
     "deactivate": "Nonaktifkan",
-    "activate": "Aktifkan"
+    "activate": "Aktifkan",
+    "notes": "Catatan"
   },
   "products": {
     "title": "Produk",
@@ -129,7 +132,10 @@
     "booked": "Terjadwal",
     "attended": "Hadir",
     "cancelled": "Dibatalkan",
-    "completed": "Selesai"
+    "completed": "Selesai",
+    "select_member": "-- Pilih Member --",
+    "select_coach": "-- Pilih Coach --",
+    "select_package": "-- Pilih Paket --"
   },
   "payments": {
     "sales_title": "Penjualan Produk",
@@ -140,28 +146,82 @@
     "method": "Metode Bayar",
     "total": "Total",
     "add_item": "Tambah Item",
-    "quantity": "Qty"
+    "quantity": "Qty",
+    "amount": "Jumlah",
+    "select_product": "-- Pilih Produk --",
+    "select_member": "-- Pilih Member --",
+    "select_package": "-- Pilih Paket --"
   },
   "commissions": {
     "title": "Komisi Coach",
     "total": "Total Komisi",
     "coach": "Coach",
-    "amount": "Jumlah"
+    "amount": "Jumlah",
+    "date": "Tanggal",
+    "member": "Member",
+    "pct": "%"
   },
   "reports": {
     "title": "Laporan",
-    "sales": "Penjualan Produk",
-    "member_payments": "Pembayaran Member",
-    "member_detail": "Detail Member",
-    "member_balance": "Saldo Member",
-    "coach_commission": "Komisi Coach",
+    "sales": "Penjualan",
+    "member_payments": "Pembayaran",
+    "member_detail": "Detail",
+    "member_balance": "Saldo",
+    "coach_commission": "Komisi",
     "profit": "Profit",
     "net_profit": "Keuntungan Bersih",
     "total_income": "Total Pemasukan",
-    "total_commission": "Total Komisi"
+    "total_commission": "Total Komisi",
+    "select_member": "-- Pilih Member --",
+    "select_coach": "-- Semua Coach --",
+    "print_pdf": "Cetak PDF",
+    "booking_count": "Booking",
+    "attendance": "Hadir",
+    "active_packages": "Paket Aktif",
+    "total_paid": "Total Bayar",
+    "remaining_sessions": "Sisa Sesi",
+    "expired": "Expired",
+    "member_income": "Pembayaran Member",
+    "product_income": "Penjualan Produk",
+    "coach_cost": "Komisi Coach"
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "account": "Akun",
+    "language": "Bahasa",
+    "select_language": "Pilih bahasa / Select language",
+    "about": "Tentang",
+    "version": "Versi",
+    "platform": "Platform",
+    "database": "Database",
+    "build": "Build",
+    "backup_cloud": "☁️ Cloud Backup",
+    "backup_local": "📁 Backup Lokal",
+    "studio_id": "Studio ID",
+    "pin": "PIN Backup",
+    "last_backup": "Backup Terakhir",
+    "never": "Belum pernah",
+    "auto_backup": "Auto Backup (setiap 5 menit)",
+    "backup_now": "Backup Sekarang",
+    "backing_up": "Backing up...",
+    "restore": "Restore",
+    "restore_title": "Restore Data",
+    "restore_desc": "Masukkan Studio ID dan PIN untuk mengambil data dari cloud.",
+    "restore_warning": "⚠️ Ini akan mengganti semua data lokal dengan data dari backup.",
+    "restoring": "Restoring...",
+    "export_json": "Export JSON",
+    "import_json": "Import JSON",
+    "pin_warning": "Simpan Studio ID & PIN Anda. Diperlukan untuk restore data di device baru.",
+    "backup_success": "✅ Backup berhasil!",
+    "backup_failed": "❌ Backup gagal. Cek koneksi internet.",
+    "restore_success": "✅ Data berhasil di-restore!",
+    "restore_failed": "❌ Restore gagal. Cek Studio ID dan PIN.",
+    "import_success": "✅ Import berhasil!",
+    "import_failed": "❌ Import gagal."
   },
   "common": {
     "save": "Simpan",
+    "add": "Tambah",
     "cancel": "Batal",
     "edit": "Edit",
     "delete": "Hapus",
@@ -169,6 +229,10 @@
     "no_data": "Tidak ada data",
     "loading": "Memuat...",
     "from": "Dari",
-    "to": "Sampai"
+    "to": "Sampai",
+    "actions": "Aksi",
+    "all": "Semua",
+    "filter": "Filter",
+    "back": "Kembali"
   }
 }

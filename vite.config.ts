@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico'],
+      includeAssets: ['favicon.svg', 'pwa-192x192.svg', 'pwa-512x512.svg'],
       manifest: {
         name: 'X-Sport Studio Platform',
         short_name: 'XSport',
@@ -22,14 +22,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'https://cdn.jsdelivr.net/gh/webmaxru/vite-pwa-assets/logo-192.png',
+            src: '/pwa-192x192.svg',
             sizes: '192x192',
-            type: 'image/png',
+            type: 'image/svg+xml',
           },
           {
-            src: 'https://cdn.jsdelivr.net/gh/webmaxru/vite-pwa-assets/logo-512.png',
+            src: '/pwa-512x512.svg',
             sizes: '512x512',
-            type: 'image/png',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
           },
         ],
       },
@@ -51,9 +52,27 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      'html2canvas': path.resolve(__dirname, 'src/utils/empty.ts'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-dexie': ['dexie'],
+          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+        },
+      },
     },
   },
   server: {
     port: 5173,
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
   },
 });

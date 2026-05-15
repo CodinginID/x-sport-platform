@@ -40,7 +40,7 @@ export default function LoginPage() {
           {error && <div className="bg-red-50 text-red-600 text-xs font-bold uppercase tracking-widest p-4 rounded-2xl mb-6">{error}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Input label={t('login.email')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input label={t('login.email')} type="text" placeholder="Email atau username" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <div className="relative">
               <Input label={t('login.password')} type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-8 text-zen-ink/40 hover:text-zen-ink transition-colors">

@@ -1,6 +1,7 @@
 import { db } from '@/database/db';
 import type { User, Member, Coach, Product, Package, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
 import { format, subDays, addDays } from 'date-fns';
+import { hashPassword } from '@/utils';
 
 export async function seedDatabase() {
   const userCount = await db.users.count();
@@ -31,7 +32,7 @@ export async function seedDatabase() {
     {
       id: crypto.randomUUID(),
       email: 'admin@studio.com',
-      password_hash: btoa('admin123'),
+      password_hash: await hashPassword('admin123'),
       full_name: 'Owner Studio',
       role: 'owner',
       created_at: now,
@@ -39,7 +40,7 @@ export async function seedDatabase() {
     {
       id: crypto.randomUUID(),
       email: 'staff@studio.com',
-      password_hash: btoa('staff123'),
+      password_hash: await hashPassword('staff123'),
       full_name: 'Karyawan Studio',
       role: 'staff',
       created_at: now,
@@ -103,15 +104,15 @@ export async function seedDatabase() {
   ];
 
   await db.transaction('rw', [db.users, db.members, db.coaches, db.products, db.packages, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
-    await db.users.bulkAdd(users);
-    await db.members.bulkAdd(members);
-    await db.coaches.bulkAdd(coaches);
-    await db.products.bulkAdd(products);
-    await db.packages.bulkAdd(packages);
-    await db.memberPackages.bulkAdd(memberPackages);
-    await db.bookings.bulkAdd(bookings);
-    await db.productSales.bulkAdd(productSales);
-    await db.memberPayments.bulkAdd(memberPayments);
-    await db.coachCommissions.bulkAdd(coachCommissions);
+    await db.users.bulkPut(users);
+    await db.members.bulkPut(members);
+    await db.coaches.bulkPut(coaches);
+    await db.products.bulkPut(products);
+    await db.packages.bulkPut(packages);
+    await db.memberPackages.bulkPut(memberPackages);
+    await db.bookings.bulkPut(bookings);
+    await db.productSales.bulkPut(productSales);
+    await db.memberPayments.bulkPut(memberPayments);
+    await db.coachCommissions.bulkPut(coachCommissions);
   });
 }

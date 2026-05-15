@@ -3,8 +3,10 @@ import { usePackages, usePackageMutation } from "@/hooks";
 import { formatCurrency } from "@/utils";
 import { DataTable, Button, Modal } from "@/components/ui";
 import { Package } from "@/types";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function PackagesPage() {
+  const { t } = useTranslation();
   const { data: packages = [], isLoading } = usePackages();
   const mutation = usePackageMutation();
   const [modal, setModal] = useState(false);
@@ -28,18 +30,18 @@ export default function PackagesPage() {
   };
 
   const columns = [
-    { key: "package_name", label: "Nama Paket" },
-    { key: "package_type", label: "Tipe" },
-    { key: "session_count", label: "Jumlah Sesi" },
-    { key: "valid_days", label: "Masa Berlaku (Hari)" },
-    { key: "package_price", label: "Harga", render: (row: Package) => formatCurrency(row.package_price) },
-    { key: "active_status", label: "Status", render: (row: Package) => row.active_status ? "Aktif" : "Nonaktif" },
+    { key: "package_name", label: t('packages.name') },
+    { key: "package_type", label: t('packages.type') },
+    { key: "session_count", label: t('packages.session_count') },
+    { key: "valid_days", label: t('packages.valid_days') },
+    { key: "package_price", label: t('packages.price'), render: (row: Package) => formatCurrency(row.package_price) },
+    { key: "active_status", label: "Status", render: (row: Package) => row.active_status ? t('members.active') : t('members.inactive') },
     {
-      key: "actions", label: "Aksi", render: (row: Package) => (
+      key: "actions", label: t('common.actions'), render: (row: Package) => (
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => openEdit(row)}>Edit</Button>
+          <Button size="sm" onClick={() => openEdit(row)}>{t('common.edit')}</Button>
           <Button size="sm" variant={row.active_status ? "danger" : "primary"} onClick={() => toggleActive(row)}>
-            {row.active_status ? "Nonaktifkan" : "Aktifkan"}
+            {row.active_status ? t('coaches.deactivate') : t('coaches.activate')}
           </Button>
         </div>
       ),
@@ -49,22 +51,22 @@ export default function PackagesPage() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Paket</h1>
-        <Button onClick={openCreate}>Tambah Paket</Button>
+        <h1 className="text-2xl font-bold">{t('packages.title')}</h1>
+        <Button onClick={openCreate}>{t('packages.add')}</Button>
       </div>
       <DataTable columns={columns} data={packages} />
-      <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Edit Paket" : "Tambah Paket"}>
+      <Modal open={modal} onClose={() => setModal(false)} title={editing ? t('common.edit') + ' ' + t('packages.title') : t('packages.add')}>
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
-          <input className="w-full border p-2 rounded" placeholder="Nama Paket" value={form.package_name} onChange={(e) => setForm({ ...form, package_name: e.target.value })} required />
+          <input className="w-full border p-2 rounded" placeholder={t('packages.name')} value={form.package_name} onChange={(e) => setForm({ ...form, package_name: e.target.value })} required />
           <select className="w-full border p-2 rounded" value={form.package_type} onChange={(e) => setForm({ ...form, package_type: e.target.value as Package["package_type"] })}>
-            <option value="session">Session</option>
-            <option value="duration">Duration</option>
+            <option value="session">{t('packages.session')}</option>
+            <option value="duration">{t('packages.duration')}</option>
           </select>
-          <input className="w-full border p-2 rounded" type="number" placeholder="Jumlah Sesi" value={form.session_count} onChange={(e) => setForm({ ...form, session_count: +e.target.value })} />
-          <input className="w-full border p-2 rounded" type="number" placeholder="Masa Berlaku (Hari)" value={form.valid_days} onChange={(e) => setForm({ ...form, valid_days: +e.target.value })} />
-          <input className="w-full border p-2 rounded" type="number" placeholder="Harga" value={form.package_price} onChange={(e) => setForm({ ...form, package_price: +e.target.value })} />
-          <textarea className="w-full border p-2 rounded" placeholder="Deskripsi" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <Button type="submit" className="w-full">{editing ? "Simpan" : "Tambah"}</Button>
+          <input className="w-full border p-2 rounded" type="number" placeholder={t('packages.session_count')} value={form.session_count} onChange={(e) => setForm({ ...form, session_count: +e.target.value })} />
+          <input className="w-full border p-2 rounded" type="number" placeholder={t('packages.valid_days')} value={form.valid_days} onChange={(e) => setForm({ ...form, valid_days: +e.target.value })} />
+          <input className="w-full border p-2 rounded" type="number" placeholder={t('packages.price')} value={form.package_price} onChange={(e) => setForm({ ...form, package_price: +e.target.value })} />
+          <textarea className="w-full border p-2 rounded" placeholder={t('packages.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Button type="submit" className="w-full">{editing ? t('common.save') : t('common.add')}</Button>
         </form>
       </Modal>
     </div>

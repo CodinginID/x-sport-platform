@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useProducts, useProductSales, useProductSaleMutation } from "@/hooks";
+import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { generateSaleReceipt, previewPdf } from "@/utils/pdf";
 import { Button, Modal, Input, Select, DataTable, DateRangeFilter, Card } from "@/components/ui";
@@ -13,6 +14,7 @@ interface SaleItemForm {
 }
 
 export default function ProductSalesPage() {
+  const { t } = useTranslation();
   const today = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
@@ -34,7 +36,7 @@ export default function ProductSalesPage() {
 
   const total = items.reduce((sum, item) => sum + calcSubtotal(item), 0);
 
-  const productOptions = [{ value: "", label: "-- Pilih Produk --" }, ...products.map(p => ({ value: p.product_id, label: p.product_name }))];
+  const productOptions = [{ value: "", label: t('payments.select_product') }, ...products.map(p => ({ value: p.product_id, label: p.product_name }))];
 
   const addItem = () => setItems([...items, { product_id: "", quantity: 1 }]);
   const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
@@ -53,13 +55,13 @@ export default function ProductSalesPage() {
   };
 
   const columns = [
-    { key: "transaction_date", label: "Tanggal", render: (row: any) => formatDate(row.transaction_date) },
-    { key: "customer_name", label: "Pelanggan" },
+    { key: "transaction_date", label: t('bookings.date'), render: (row: any) => formatDate(row.transaction_date) },
+    { key: "customer_name", label: t('payments.customer') },
     { key: "items", label: "Item", render: (row: any) => row.items.map((i: ProductSaleItem) => `${i.product_name} x${i.quantity}`).join(", ") },
-    { key: "total", label: "Total", render: (row: any) => formatCurrency(row.total) },
+    { key: "total", label: t('payments.total'), render: (row: any) => formatCurrency(row.total) },
     { key: "actions", label: "", render: (row: any) => (
-      <Button size="sm" variant="ghost" onClick={() => {
-        const doc = generateSaleReceipt(row);
+      <Button size="sm" variant="ghost" onClick={async () => {
+        const doc = await generateSaleReceipt(row);
         setPdfUrl(previewPdf(doc));
       }}><Printer size={14} /></Button>
     )},
@@ -68,33 +70,33 @@ export default function ProductSalesPage() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Penjualan Produk</h1>
-        <Button onClick={() => setModalOpen(true)}>Catat Penjualan</Button>
+        <h1 className="text-2xl font-bold">{t('payments.sales_title')}</h1>
+        <Button onClick={() => setModalOpen(true)}>{t('payments.add_sale')}</Button>
       </div>
 
       <DateRangeFilter startDate={startDate} endDate={endDate} onStartChange={setStartDate} onEndChange={setEndDate} />
 
-      <DataTable columns={columns} data={sales} emptyMessage="Belum ada transaksi" />
+      <DataTable columns={columns} data={sales} emptyMessage={t('common.no_data')} />
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Catat Penjualan" size="lg">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('payments.add_sale')} size="lg">
         <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-          <Input label="Nama Pelanggan" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+          <Input label={t('payments.customer')} value={customerName} onChange={e => setCustomerName(e.target.value)} />
 
           {items.map((item, i) => (
             <div key={i} className="flex gap-2 items-end">
-              <Select label="Produk" options={productOptions} value={item.product_id} onChange={e => updateItem(i, "product_id", e.target.value)} className="flex-1" />
-              <Input label="Qty" type="number" min={1} value={item.quantity} onChange={e => updateItem(i, "quantity", +e.target.value)} className="w-20" />
+              <Select label={t('products.title')} options={productOptions} value={item.product_id} onChange={e => updateItem(i, "product_id", e.target.value)} className="flex-1" />
+              <Input label={t('payments.quantity')} type="number" min={1} value={item.quantity} onChange={e => updateItem(i, "quantity", +e.target.value)} className="w-20" />
               <span className="pb-2 text-sm whitespace-nowrap">{formatCurrency(calcSubtotal(item))}</span>
               {items.length > 1 && <Button variant="danger" size="sm" onClick={() => removeItem(i)}>✕</Button>}
             </div>
           ))}
 
-          <Button variant="secondary" size="sm" onClick={addItem}>+ Tambah Item</Button>
+          <Button variant="secondary" size="sm" onClick={addItem}>{t('payments.add_item')}</Button>
 
-          <div className="text-right font-bold text-lg">Total: {formatCurrency(total)}</div>
+          <div className="text-right font-bold text-lg">{t('payments.total')}: {formatCurrency(total)}</div>
 
           <Button onClick={handleSubmit} className="w-full" disabled={!customerName || items.every(i => !i.product_id)}>
-            Simpan
+            {t('common.save')}
           </Button>
         </div>
       </Modal>

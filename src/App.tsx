@@ -1,38 +1,41 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
+import { lazy, Suspense } from 'react';
 import { useAuthStore } from '@/stores/auth';
+import { ToastContainer } from '@/components/Toast';
+import { ConfirmDialogProvider } from '@/components/ConfirmDialog';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { InstallPWA } from '@/components/InstallPWA';
 import AppLayout from '@/layouts/AppLayout';
-import LandingPage from '@/modules/landing/LandingPage';
-import LoginPage from '@/modules/auth/LoginPage';
-import DashboardPage from '@/modules/dashboard/DashboardPage';
-import MembersPage from '@/modules/members/MembersPage';
-import MemberDetailPage from '@/modules/members/MemberDetailPage';
-import CoachesPage from '@/modules/coaches/CoachesPage';
-import ProductsPage from '@/modules/products/ProductsPage';
-import PackagesPage from '@/modules/packages/PackagesPage';
-import BookingsPage from '@/modules/bookings/BookingsPage';
-import ProductSalesPage from '@/modules/payments/ProductSalesPage';
-import MemberPaymentPage from '@/modules/payments/MemberPaymentPage';
-import CommissionsPage from '@/modules/commissions/CommissionsPage';
-import ReportsPage from '@/modules/reports/ReportsPage';
-import SettingsPage from '@/modules/settings/SettingsPage';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+const LandingPage = lazy(() => import('@/modules/landing/LandingPage'));
+const LoginPage = lazy(() => import('@/modules/auth/LoginPage'));
+const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'));
+const MembersPage = lazy(() => import('@/modules/members/MembersPage'));
+const MemberDetailPage = lazy(() => import('@/modules/members/MemberDetailPage'));
+const CoachesPage = lazy(() => import('@/modules/coaches/CoachesPage'));
+const ProductsPage = lazy(() => import('@/modules/products/ProductsPage'));
+const PackagesPage = lazy(() => import('@/modules/packages/PackagesPage'));
+const BookingsPage = lazy(() => import('@/modules/bookings/BookingsPage'));
+const ProductSalesPage = lazy(() => import('@/modules/payments/ProductSalesPage'));
+const MemberPaymentPage = lazy(() => import('@/modules/payments/MemberPaymentPage'));
+const CommissionsPage = lazy(() => import('@/modules/commissions/CommissionsPage'));
+const ReportsPage = lazy(() => import('@/modules/reports/ReportsPage'));
+const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'));
+
+function ProtectedRoute({ children, ownerOnly }: { children: React.ReactNode; ownerOnly?: boolean }) {
+  const { isAuthenticated, user } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (ownerOnly && user?.role !== 'owner') return <Navigate to="/dashboard" replace />;
   return <AppLayout>{children}</AppLayout>;
 }
 
 function PageTransition({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.25, ease: 'easeInOut' }}
-    >
-      {children}
-    </motion.div>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 border-4 border-zen-brand/20 border-t-zen-brand rounded-full animate-spin" /></div>}>
+      <div className="animate-page-in">
+        {children}
+      </div>
+    </Suspense>
   );
 }
 
@@ -40,8 +43,7 @@ function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+    <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><LandingPage /></PageTransition>} />
         <Route path="/login" element={<PageTransition><LoginPage /></PageTransition>} />
         <Route path="/dashboard" element={<ProtectedRoute><PageTransition><DashboardPage /></PageTransition></ProtectedRoute>} />
@@ -53,12 +55,11 @@ function AnimatedRoutes() {
         <Route path="/bookings" element={<ProtectedRoute><PageTransition><BookingsPage /></PageTransition></ProtectedRoute>} />
         <Route path="/sales" element={<ProtectedRoute><PageTransition><ProductSalesPage /></PageTransition></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute><PageTransition><MemberPaymentPage /></PageTransition></ProtectedRoute>} />
-        <Route path="/commissions" element={<ProtectedRoute><PageTransition><CommissionsPage /></PageTransition></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute><PageTransition><ReportsPage /></PageTransition></ProtectedRoute>} />
+        <Route path="/commissions" element={<ProtectedRoute ownerOnly><PageTransition><CommissionsPage /></PageTransition></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute ownerOnly><PageTransition><ReportsPage /></PageTransition></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><PageTransition><SettingsPage /></PageTransition></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </AnimatePresence>
   );
 }
 
@@ -66,6 +67,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <AnimatedRoutes />
+      <ToastContainer />
+      <ConfirmDialogProvider />
+      <OfflineIndicator />
+      <InstallPWA />
     </BrowserRouter>
   );
 }

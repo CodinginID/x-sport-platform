@@ -7,7 +7,7 @@ interface AuthState {
   user: null | { id: string; email: string; full_name: string; role: 'owner' | 'staff' };
   isAuthenticated: boolean;
   rememberMe: boolean;
-  login: (email: string, password: string, rememberMe: boolean) => Promise<boolean>;
+  login: (identifier: string, password: string, rememberMe: boolean) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -17,10 +17,16 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       rememberMe: false,
-      login: async (email, password, rememberMe) => {
-        const user = await db.users.where('email').equals(email).first();
+      login: async (identifier, password, rememberMe) => {
+        // Support login by email or username (part before @)
+        let user = await db.users.where('email').equals(identifier).first();
+        if (!user) {
+          // Try matching by username prefix (e.g. "admin" matches "admin@studio.com")
+          const allUsers = await db.users.toArray();
+          user = allUsers.find(u => u.email.split('@')[0] === identifier);
+        }
         if (!user) return false;
-        if (!verifyPassword(password, user.password_hash)) return false;
+        if (!(await verifyPassword(password, user.password_hash))) return false;
         set({
           user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
           isAuthenticated: true,
@@ -32,10 +38,6 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'xsport-auth',
-      partialize: (state) =>
-        state.rememberMe
-          ? { user: state.user, isAuthenticated: state.isAuthenticated, rememberMe: state.rememberMe }
-          : ({} as any),
     }
   )
 );

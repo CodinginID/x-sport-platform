@@ -1,11 +1,15 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { formatCurrency, formatDate } from '@/utils';
 
 const STUDIO_NAME = 'X-Sport Studio';
 const STUDIO_ADDRESS = 'Jl. Olahraga No. 1, Jakarta';
 
-function header(doc: jsPDF, title: string) {
+async function getJsPDF() {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+  return { jsPDF, autoTable };
+}
+
+function header(doc: any, title: string) {
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text(STUDIO_NAME, 14, 20);
@@ -21,11 +25,12 @@ function header(doc: jsPDF, title: string) {
   return 42;
 }
 
-export function generatePaymentReceipt(payment: {
+export async function generatePaymentReceipt(payment: {
   payment_id: string; payment_date: string; member_name: string;
   package_name: string; amount: number; payment_method: string; notes?: string;
 }) {
-  const doc = new jsPDF({ format: [80, 150], unit: 'mm' }); // receipt size
+  const { jsPDF } = await getJsPDF();
+  const doc = new jsPDF({ format: [80, 150], unit: 'mm' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(STUDIO_NAME, 40, 8, { align: 'center' });
@@ -58,11 +63,12 @@ export function generatePaymentReceipt(payment: {
   return doc;
 }
 
-export function generateSaleReceipt(sale: {
+export async function generateSaleReceipt(sale: {
   transaction_id: string; transaction_date: string; customer_name: string;
   items: { product_name: string; quantity: number; unit_price: number; subtotal: number }[];
   total: number;
 }) {
+  const { jsPDF } = await getJsPDF();
   const doc = new jsPDF({ format: [80, 150], unit: 'mm' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -96,7 +102,8 @@ export function generateSaleReceipt(sale: {
   return doc;
 }
 
-export function generateReport(title: string, columns: string[], rows: string[][], summary?: { label: string; value: string }[]) {
+export async function generateReport(title: string, columns: string[], rows: string[][], summary?: { label: string; value: string }[]) {
+  const { jsPDF, autoTable } = await getJsPDF();
   const doc = new jsPDF();
   let y = header(doc, title);
   doc.setFontSize(8);
@@ -123,10 +130,10 @@ export function generateReport(title: string, columns: string[], rows: string[][
   return doc;
 }
 
-export function previewPdf(doc: jsPDF): string {
+export function previewPdf(doc: any): string {
   return doc.output('bloburl').toString();
 }
 
-export function downloadPdf(doc: jsPDF, filename: string) {
+export function downloadPdf(doc: any, filename: string) {
   doc.save(filename);
 }

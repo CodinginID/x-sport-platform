@@ -103,3 +103,17 @@ button, a, [role="button"] {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* Page transition */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-page-in {
+  animation: page-in 0.25s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
