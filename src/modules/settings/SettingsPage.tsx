@@ -71,7 +71,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex justify-between py-2">
             <span className="text-zen-ink/40">{t('settings.build')}</span>
-            <span className="font-bold">2024.05</span>
+            <span className="font-bold">2026.05</span>
           </div>
         </div>
       </Card>

@@ -15,15 +15,10 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 pt-4">
         <div className="max-w-6xl mx-auto glass-card h-16 rounded-[28px] px-6 flex justify-between items-center">
           <span className="text-xl font-bold tracking-tighter">X<span className="text-zen-brand italic">Sport</span></span>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-bold text-zen-ink/50 hover:text-zen-brand transition-colors">
-              <Globe size={14} /> {lang === 'id' ? 'EN' : 'ID'}
-            </button>
-            <Link to="/login" className="bg-zen-brand text-white px-5 py-2.5 rounded-2xl text-[10px] uppercase tracking-widest font-bold hover:bg-zen-ink transition-all">
-              {t('landing.cta_login')}
-            </Link>
-          </div>
+          <button onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
+            className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-bold text-zen-ink/50 hover:text-zen-brand transition-colors">
+            <Globe size={14} /> {lang === 'id' ? 'EN' : 'ID'}
+          </button>
         </div>
       </nav>
 

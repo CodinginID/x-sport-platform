@@ -42,10 +42,19 @@ async function decrypt(data: ArrayBuffer, pin: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
+export type BackupResult = { ok: true } | { ok: false; error: string };
+
+function describeError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'object' && e !== null && 'message' in e) return String((e as { message: unknown }).message);
+  return String(e);
+}
+
 // Upload encrypted backup to Supabase Storage
-export async function performBackup(): Promise<boolean> {
+export async function performBackup(): Promise<BackupResult> {
   const { studioId, pin, setLastBackup, setIsBackingUp } = useBackupStore.getState();
-  if (!studioId || !pin || !navigator.onLine) return false;
+  if (!studioId || !pin) return { ok: false, error: 'Studio ID atau PIN belum ada' };
+  if (!navigator.onLine) return { ok: false, error: 'Offline — backup akan otomatis jalan saat online' };
 
   setIsBackingUp(true);
   try {
@@ -60,22 +69,23 @@ export async function performBackup(): Promise<boolean> {
     if (error) throw error;
     const now = new Date().toISOString();
     setLastBackup(now);
-    return true;
+    return { ok: true };
   } catch (e) {
+    const msg = describeError(e);
     console.error('Backup failed:', e);
-    return false;
+    return { ok: false, error: msg };
   } finally {
     setIsBackingUp(false);
   }
 }
 
 // Download and restore from Supabase Storage
-export async function performRestore(studioId: string, pin: string): Promise<boolean> {
-  if (!navigator.onLine) return false;
+export async function performRestore(studioId: string, pin: string): Promise<BackupResult> {
+  if (!navigator.onLine) return { ok: false, error: 'Offline — koneksi internet diperlukan untuk restore' };
   try {
     const path = `${studioId}/backup.enc`;
     const { data, error } = await supabase.storage.from(BACKUP_BUCKET).download(path);
-    if (error || !data) throw error || new Error('No data');
+    if (error || !data) throw error || new Error('Backup tidak ditemukan untuk Studio ID ini');
 
     const buffer = await data.arrayBuffer();
     const json = await decrypt(buffer, pin);
@@ -96,10 +106,11 @@ export async function performRestore(studioId: string, pin: string): Promise<boo
     });
 
     useBackupStore.getState().setCredentials(studioId, pin);
-    return true;
+    return { ok: true };
   } catch (e) {
+    const msg = describeError(e);
     console.error('Restore failed:', e);
-    return false;
+    return { ok: false, error: msg };
   }
 }
 
@@ -116,7 +127,7 @@ export async function exportToFile(): Promise<void> {
 }
 
 // Import from local JSON file
-export async function importFromFile(file: File): Promise<boolean> {
+export async function importFromFile(file: File): Promise<BackupResult> {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
@@ -133,10 +144,11 @@ export async function importFromFile(file: File): Promise<boolean> {
       if (data.memberPayments?.length) await db.memberPayments.bulkAdd(data.memberPayments);
       if (data.coachCommissions?.length) await db.coachCommissions.bulkAdd(data.coachCommissions);
     });
-    return true;
+    return { ok: true };
   } catch (e) {
+    const msg = describeError(e);
     console.error('Import failed:', e);
-    return false;
+    return { ok: false, error: msg };
   }
 }
 

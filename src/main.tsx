@@ -14,6 +14,16 @@ const queryClient = new QueryClient({
 });
 
 async function init() {
+  // Request persistent storage so the browser won't evict IndexedDB under
+  // storage pressure or after periods of inactivity. Critical for offline data
+  // safety — without this, Safari iOS clears IndexedDB after ~7 days idle.
+  if (navigator.storage?.persist) {
+    const granted = await navigator.storage.persist();
+    if (!granted) {
+      console.warn('[storage] Persistent storage NOT granted — data may be evicted by the browser. Install the app to the home screen to improve persistence.');
+    }
+  }
+
   await seedDatabase();
 
   // Generate Studio ID + PIN on first open

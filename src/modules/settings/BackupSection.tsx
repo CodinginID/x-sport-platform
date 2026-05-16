@@ -24,27 +24,36 @@ export function BackupSection() {
   });
 
   const handleBackup = async () => {
-    const ok = await performBackup();
-    setMessage(ok ? '✅ Backup cloud berhasil!' : '❌ Backup gagal. Cek koneksi internet.');
-    setTimeout(() => setMessage(''), 3000);
+    const result = await performBackup();
+    setMessage(result.ok ? '✅ Backup cloud berhasil!' : `❌ Backup gagal: ${result.error}`);
+    setTimeout(() => setMessage(''), 6000);
   };
 
   const handleRestore = async () => {
     setRestoring(true);
-    const ok = await performRestore(restoreId, restorePin);
+    const result = await performRestore(restoreId, restorePin);
     setRestoring(false);
-    if (ok) { setRestoreOpen(false); setMessage('✅ Data berhasil di-restore!'); setTimeout(() => window.location.reload(), 1000); }
-    else setMessage('❌ Restore gagal. Cek Studio ID dan PIN.');
-    setTimeout(() => setMessage(''), 3000);
+    if (result.ok) {
+      setRestoreOpen(false);
+      setMessage('✅ Data berhasil di-restore!');
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      setMessage(`❌ Restore gagal: ${result.error}`);
+      setTimeout(() => setMessage(''), 6000);
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const ok = await importFromFile(file);
-    setMessage(ok ? '✅ Import berhasil!' : '❌ Import gagal.');
-    if (ok) setTimeout(() => window.location.reload(), 1000);
-    else setTimeout(() => setMessage(''), 3000);
+    const result = await importFromFile(file);
+    if (result.ok) {
+      setMessage('✅ Import berhasil!');
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      setMessage(`❌ Import gagal: ${result.error}`);
+      setTimeout(() => setMessage(''), 6000);
+    }
   };
 
   return (
