@@ -27,8 +27,6 @@ export interface Coach {
   full_name: string;
   phone_number: string;
   email: string;
-  commission_type: 'percentage' | 'fixed';
-  commission_percentage: number;
   active_status: boolean;
   notes: string;
   created_at: string;
@@ -59,6 +57,14 @@ export interface Package {
   active_status: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface PackageCoach {
+  package_coach_id: string;
+  package_id: string;
+  coach_id: string;
+  commission_percentage: number;
+  created_at: string;
 }
 
 export interface MemberPackage {
@@ -95,12 +101,25 @@ export interface ProductSaleItem {
   subtotal: number;
 }
 
+export type PaymentMethod = 'cash' | 'transfer' | 'qris';
+
 export interface ProductSale {
   transaction_id: string;
   transaction_date: string;
   customer_name: string;
   items: ProductSaleItem[];
+  /** Sum of item subtotals before discount. */
+  subtotal: number;
+  /** Flat discount amount applied to the subtotal (>= 0, <= subtotal). */
+  discount: number;
+  /** Final amount the customer must pay = subtotal - discount. */
   total: number;
+  payment_method: PaymentMethod;
+  /** Amount of cash handed by customer. Only relevant when payment_method = 'cash'. */
+  cash_received: number;
+  /** Change returned to customer = cash_received - total. 0 for non-cash methods. */
+  change: number;
+  notes: string;
   created_at: string;
 }
 
@@ -110,7 +129,7 @@ export interface MemberPayment {
   member_id: string;
   package_id: string;
   amount: number;
-  payment_method: 'cash' | 'transfer' | 'qris';
+  payment_method: PaymentMethod;
   notes: string;
   created_at: string;
 }

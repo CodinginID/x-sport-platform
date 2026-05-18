@@ -4,8 +4,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { Card } from '@/components/ui';
 import { Globe, Info, User } from 'lucide-react';
 import { BackupSection } from './BackupSection';
-
-const APP_VERSION = '1.0.0';
+import { StudioSection } from './StudioSection';
 
 export default function SettingsPage() {
   const { lang, setLang } = useLanguageStore();
@@ -28,6 +27,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Studio */}
+      <StudioSection />
 
       {/* Language */}
       <Card title={t('settings.language')}>
@@ -59,7 +61,7 @@ export default function SettingsPage() {
         <div className="space-y-2 text-sm">
           <div className="flex justify-between py-2 border-b border-zen-brand/5">
             <span className="text-zen-ink/40">{t('settings.version')}</span>
-            <span className="font-bold">v{APP_VERSION}</span>
+            <span className="font-bold">v1.0.0</span>
           </div>
           <div className="flex justify-between py-2 border-b border-zen-brand/5">
             <span className="text-zen-ink/40">{t('settings.platform')}</span>

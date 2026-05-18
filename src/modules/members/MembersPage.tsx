@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMembers, useMemberMutation } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirmStore } from '@/components/ConfirmDialog';
-import { Button, Input, Select, Modal, DataTable, Badge, Card, TableSkeleton, QueryError } from '@/components/ui';
+import { Button, Input, Select, Modal, DataTable, Badge, Card, TableSkeleton, QueryError, ActionButtons } from '@/components/ui';
 import type { Member } from '@/types';
 import { formatDate } from '@/utils';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
@@ -52,10 +52,10 @@ export default function MembersPage() {
     { key: 'status_active', label: t('members.status'), render: (r: any) => <Badge variant={r.status_active ? 'success' : 'danger'}>{r.status_active ? t('members.active') : t('members.inactive')}</Badge> },
     {
       key: 'actions', label: t('common.actions'), render: (r: any) => (
-        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-          <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>{t('common.edit')}</Button>
-          {useAuthStore.getState().user?.role === 'owner' && <Button size="sm" variant="danger" onClick={() => archive(r)}>{t('members.archive')}</Button>}
-        </div>
+        <ActionButtons actions={[
+          { action: 'edit', onClick: () => openEdit(r) },
+          ...(useAuthStore.getState().user?.role === 'owner' ? [{ action: 'delete' as const, onClick: () => archive(r), tooltip: t('members.archive') }] : []),
+        ]} />
       ),
     },
   ];

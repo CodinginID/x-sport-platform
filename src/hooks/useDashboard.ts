@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { db } from '@/database/db'
+import { useStudioStore } from '@/stores/studio'
 
 export function useDashboardStats() {
   return useQuery({
@@ -20,7 +21,8 @@ export function useDashboardStats() {
       const todaySales = sales.filter(s => s.transaction_date === today)
       const todayIncome = todayPayments.reduce((sum, p) => sum + p.amount, 0) + todaySales.reduce((sum, s) => sum + s.total, 0)
       const totalIncome = payments.reduce((sum, p) => sum + p.amount, 0) + sales.reduce((sum, s) => sum + s.total, 0)
-      const lowStockProducts = products.filter(p => p.stock < 5 && p.active_status)
+      const threshold = useStudioStore.getState().lowStockThreshold
+      const lowStockProducts = products.filter(p => p.stock < threshold && p.active_status)
       const activeCoaches = coaches.filter(c => c.active_status)
       const totalBookings = bookings.length
       return { activeMembersCount, todayBookings, todayIncome, totalIncome, lowStockProducts, activeCoaches, totalBookings }

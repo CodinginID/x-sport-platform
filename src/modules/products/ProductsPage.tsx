@@ -3,7 +3,7 @@ import { useProducts, useProductMutation } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { formatCurrency } from '@/utils';
-import { DataTable, Button, Modal, Badge, Input, QueryError } from '@/components/ui';
+import { DataTable, Button, Modal, Badge, Input, QueryError, ActionButtons, NumericInput } from '@/components/ui';
 import { Product } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -65,10 +65,10 @@ export default function ProductsPage() {
     { key: 'cost_price', label: t('products.cost_price'), render: (row: Product) => formatCurrency(row.cost_price) },
     {
       key: 'actions', label: t('common.actions'), render: (row: Product) => (
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>{t('common.edit')}</Button>
-          <Button size="sm" variant="ghost" onClick={() => setStockModal({ id: row.product_id, name: row.product_name })}>{t('products.stock')}</Button>
-        </div>
+        <ActionButtons actions={[
+          { action: 'edit', onClick: () => openEdit(row) },
+          { action: 'stock', onClick: () => setStockModal({ id: row.product_id, name: row.product_name }) },
+        ]} />
       ),
     },
   ];
@@ -88,8 +88,8 @@ export default function ProductsPage() {
           <Input label={t('products.category')} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} />
           <Input label={t('products.stock')} type="number" value={form.stock} onChange={e => setForm({ ...form, stock: +e.target.value })} />
           <Input label={t('products.unit')} value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
-          <Input label={t('products.selling_price')} type="number" value={form.selling_price} onChange={e => setForm({ ...form, selling_price: +e.target.value })} />
-          <Input label={t('products.cost_price')} type="number" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: +e.target.value })} />
+          <NumericInput label={t('products.selling_price')} value={form.selling_price} onChange={v => setForm({ ...form, selling_price: v })} />
+          <NumericInput label={t('products.cost_price')} value={form.cost_price} onChange={v => setForm({ ...form, cost_price: v })} />
           <Button onClick={handleSubmit} className="w-full">{editId ? t('common.save') : t('common.add')}</Button>
         </div>
       </Modal>

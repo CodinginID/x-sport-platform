@@ -62,18 +62,22 @@ export function useBookingMutation() {
 
       const coach = await db.coaches.get(booking.coach_id)
       if (coach) {
-        const commission: CoachCommission = {
-          commission_id: generateId(),
-          coach_id: coach.coach_id,
-          booking_id: booking.booking_id,
-          member_id: booking.member_id,
-          package_price: booking.package_price,
-          commission_percentage: coach.commission_percentage,
-          commission_amount: booking.package_price * coach.commission_percentage / 100,
-          date: booking.booking_date,
-          created_at: now,
+        const pc = await db.packageCoaches.where({ package_id: booking.package_id, coach_id: booking.coach_id }).first()
+        const commissionPct = pc?.commission_percentage ?? 0
+        if (commissionPct > 0) {
+          const commission: CoachCommission = {
+            commission_id: generateId(),
+            coach_id: coach.coach_id,
+            booking_id: booking.booking_id,
+            member_id: booking.member_id,
+            package_price: booking.package_price,
+            commission_percentage: commissionPct,
+            commission_amount: booking.package_price * commissionPct / 100,
+            date: booking.booking_date,
+            created_at: now,
+          }
+          await db.coachCommissions.add(commission)
         }
-        await db.coachCommissions.add(commission)
       }
       await db.bookings.update(booking.booking_id, { booking_status: 'attended', updated_at: now })
     },

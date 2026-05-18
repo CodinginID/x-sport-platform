@@ -1,7 +1,10 @@
 import { formatCurrency, formatDate } from '@/utils';
+import { useStudioStore } from '@/stores/studio';
 
-const STUDIO_NAME = 'X-Sport Studio';
-const STUDIO_ADDRESS = 'Jl. Olahraga No. 1, Jakarta';
+function studio() {
+  const s = useStudioStore.getState();
+  return { name: s.name, address: s.address };
+}
 
 async function getJsPDF() {
   const { default: jsPDF } = await import('jspdf');
@@ -10,12 +13,13 @@ async function getJsPDF() {
 }
 
 function header(doc: any, title: string) {
+  const s = studio();
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text(STUDIO_NAME, 14, 20);
+  doc.text(s.name, 14, 20);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(STUDIO_ADDRESS, 14, 26);
+  doc.text(s.address, 14, 26);
   doc.setDrawColor(139, 92, 246);
   doc.setLineWidth(0.5);
   doc.line(14, 30, 196, 30);
@@ -30,13 +34,14 @@ export async function generatePaymentReceipt(payment: {
   package_name: string; amount: number; payment_method: string; notes?: string;
 }) {
   const { jsPDF } = await getJsPDF();
+  const s = studio();
   const doc = new jsPDF({ format: [80, 150], unit: 'mm' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(STUDIO_NAME, 40, 8, { align: 'center' });
+  doc.text(s.name, 40, 8, { align: 'center' });
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text(STUDIO_ADDRESS, 40, 12, { align: 'center' });
+  doc.text(s.address, 40, 12, { align: 'center' });
   doc.text('--------------------------------', 40, 16, { align: 'center' });
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
@@ -69,13 +74,14 @@ export async function generateSaleReceipt(sale: {
   total: number;
 }) {
   const { jsPDF } = await getJsPDF();
+  const s = studio();
   const doc = new jsPDF({ format: [80, 150], unit: 'mm' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(STUDIO_NAME, 40, 8, { align: 'center' });
+  doc.text(s.name, 40, 8, { align: 'center' });
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text(STUDIO_ADDRESS, 40, 12, { align: 'center' });
+  doc.text(s.address, 40, 12, { align: 'center' });
   doc.text('--------------------------------', 40, 16, { align: 'center' });
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
@@ -105,7 +111,7 @@ export async function generateSaleReceipt(sale: {
 export async function generateReport(title: string, columns: string[], rows: string[][], summary?: { label: string; value: string }[]) {
   const { jsPDF, autoTable } = await getJsPDF();
   const doc = new jsPDF();
-  let y = header(doc, title);
+  const y = header(doc, title);
   doc.setFontSize(8);
   doc.text(`Dicetak: ${formatDate(new Date().toISOString())}`, 196, 38, { align: 'right' });
 

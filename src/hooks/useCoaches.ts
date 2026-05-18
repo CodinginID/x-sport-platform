@@ -23,8 +23,6 @@ export function useCoachMutation() {
           full_name: data.coach.full_name || '',
           phone_number: data.coach.phone_number || '',
           email: data.coach.email || '',
-          commission_type: data.coach.commission_type || 'percentage',
-          commission_percentage: data.coach.commission_percentage ?? 0,
           active_status: data.coach.active_status ?? true,
           notes: data.coach.notes || '',
           created_at: now,

@@ -148,8 +148,6 @@ describe('useBookingMutation attend', () => {
       full_name: 'Coach A',
       phone_number: '08123',
       email: 'coach@test.com',
-      commission_type: 'percentage',
-      commission_percentage: 20,
       active_status: true,
       notes: '',
       created_at: '2024-01-01',
@@ -209,7 +207,7 @@ describe('useDashboardStats', () => {
     ]);
 
     await db.coaches.add({
-      coach_id: 'c1', full_name: 'Coach', phone_number: '', email: '', commission_type: 'percentage', commission_percentage: 10, active_status: true, notes: '', created_at: today, updated_at: today,
+      coach_id: 'c1', full_name: 'Coach', phone_number: '', email: '', active_status: true, notes: '', created_at: today, updated_at: today,
     });
 
     await db.products.add({

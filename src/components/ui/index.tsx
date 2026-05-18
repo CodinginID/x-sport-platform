@@ -15,8 +15,8 @@ export function Button({ children, variant = 'primary', size = 'md', className, 
   };
   const sizes = { sm: 'px-4 py-2 text-xs', md: 'px-6 py-3 text-xs', lg: 'px-8 py-4 text-sm' };
   return (
-    <button type={type} disabled={disabled} aria-disabled={disabled} onClick={onClick}
-      className={cn('rounded-2xl font-bold uppercase tracking-widest transition-all duration-300 disabled:opacity-50 active:scale-95', variants[variant], sizes[size], className)}>
+    <button type={type} disabled={disabled} aria-disabled={disabled} onClick={disabled ? undefined : onClick}
+      className={cn('rounded-2xl font-bold uppercase tracking-widest transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none active:scale-95', variants[variant], sizes[size], className)}>
       {children}
     </button>
   );
@@ -68,10 +68,10 @@ export function Card({ children, className, title, action }: { children: ReactNo
 
 // Modal
 export function Modal({ open, onClose, title, children, size = 'md' }: {
-  open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'md' | 'lg';
+  open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
   if (!open) return null;
-  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' };
+  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' };
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={onClose} />
@@ -253,6 +253,36 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+export { ActionButtons } from './ActionButtons';
+
+// NumericInput - displays formatted number with thousand separators
+export function NumericInput({ label, value, onChange, error, className, min, max, ...rest }: {
+  label?: string; value: number; onChange: (val: number) => void; error?: string; className?: string; min?: number; max?: number;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>) {
+  const format = (n: number) => n ? n.toLocaleString('id-ID') : '';
+  const [display, setDisplay] = useState(format(value));
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    if (raw === '') { setDisplay(''); onChange(0); return; }
+    let num = parseInt(raw, 10);
+    if (max !== undefined && num > max) num = max;
+    if (min !== undefined && num < min) num = min;
+    setDisplay(num.toLocaleString('id-ID'));
+    onChange(num);
+  };
+
+  return (
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      {label && <label className="text-xs uppercase tracking-[0.2em] font-bold opacity-60">{label}</label>}
+      <input {...rest} type="text" inputMode="numeric" value={display || format(value)}
+        onChange={handleChange} onFocus={e => e.target.select()}
+        className={cn('w-full px-5 py-4 bg-zen-bg border-0 rounded-2xl focus:ring-2 focus:ring-zen-brand outline-none transition-all font-medium text-sm', error && 'ring-2 ring-red-400')} />
+      {error && <span className="text-xs text-red-500 font-medium">{error}</span>}
     </div>
   );
 }

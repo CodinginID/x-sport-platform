@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages } from "@/hooks";
-import { Modal, Button, Input, Select, DataTable, Badge, Card, QueryError } from "@/components/ui";
+import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches } from "@/hooks";
+import { Modal, Button, Input, Select, DataTable, Badge, Card, QueryError, ActionButtons } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -23,11 +23,16 @@ export default function BookingsPage() {
   const { data: members = [] } = useMembers();
   const { data: coaches = [] } = useCoaches();
   const { data: packages = [] } = usePackages();
+  const { data: allPackageCoaches = [] } = usePackageCoaches();
 
   const handlePackageChange = (package_id: string) => {
     const pkg = packages.find(p => p.package_id === package_id);
-    setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0 });
+    setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0, coach_id: "" });
   };
+
+  const filteredCoaches = form.package_id
+    ? coaches.filter(c => allPackageCoaches.some(pc => pc.package_id === form.package_id && pc.coach_id === c.coach_id))
+    : coaches.filter(c => c.active_status);
 
   const handleSubmit = () => {
     bookingMutation.mutate({ action: 'create', booking: { ...form } });
@@ -45,10 +50,10 @@ export default function BookingsPage() {
     { key: "booking_status", label: t('bookings.status'), render: (row: any) => statusBadge(row.booking_status) },
     {
       key: "actions", label: "", render: (row: any) => row.booking_status === 'booked' && (
-        <div className="flex gap-2">
-          <Button size="sm" variant="primary" onClick={() => bookingMutation.mutate({ action: 'attend', booking: { booking_id: row.booking_id } })}>{t('bookings.checkin')}</Button>
-          <Button size="sm" variant="danger" onClick={() => bookingMutation.mutate({ action: 'cancel', booking: { booking_id: row.booking_id } })}>{t('bookings.cancel')}</Button>
-        </div>
+        <ActionButtons actions={[
+          { action: 'checkin', onClick: () => bookingMutation.mutate({ action: 'attend', booking: { booking_id: row.booking_id } }) },
+          { action: 'cancel', onClick: () => bookingMutation.mutate({ action: 'cancel', booking: { booking_id: row.booking_id } }) },
+        ]} />
       ),
     },
   ];
@@ -69,11 +74,11 @@ export default function BookingsPage() {
         <div className="space-y-4">
           <Select label={t('bookings.member')} value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}
             options={[{ value: "", label: t('bookings.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]} />
-          <Select label={t('bookings.coach')} value={form.coach_id} onChange={e => setForm({ ...form, coach_id: e.target.value })}
-            options={[{ value: "", label: t('bookings.select_coach') }, ...coaches.map(c => ({ value: c.coach_id, label: c.full_name }))]} />
           <Select label={t('bookings.package')} value={form.package_id} onChange={e => handlePackageChange(e.target.value)}
             options={[{ value: "", label: t('bookings.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]} />
-          <Input label={t('bookings.price')} type="number" value={form.package_price} readOnly />
+          <Select label={t('bookings.coach')} value={form.coach_id} onChange={e => setForm({ ...form, coach_id: e.target.value })}
+            options={[{ value: "", label: t('bookings.select_coach') }, ...filteredCoaches.map(c => ({ value: c.coach_id, label: c.full_name }))]} />
+          <Input label={t('bookings.price')} value={form.package_price ? formatCurrency(form.package_price) : ''} readOnly />
           <Input label={t('bookings.date')} type="date" value={form.booking_date} onChange={e => setForm({ ...form, booking_date: e.target.value })} />
           <Input label={t('bookings.time')} type="time" value={form.booking_time} onChange={e => setForm({ ...form, booking_time: e.target.value })} />
           <Button onClick={handleSubmit} disabled={!form.member_id || !form.coach_id || !form.package_id || !form.booking_date || !form.booking_time}>{t('common.save')}</Button>

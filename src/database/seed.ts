@@ -1,5 +1,5 @@
 import { db } from '@/database/db';
-import type { User, Member, Coach, Product, Package, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
+import type { User, Member, Coach, Product, Package, PackageCoach, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
 import { format, subDays, addDays } from 'date-fns';
 import { hashPassword } from '@/utils';
 
@@ -54,8 +54,8 @@ export async function seedDatabase() {
   ];
 
   const coaches: Coach[] = [
-    { coach_id: coachId1, full_name: 'Rizky Firmansyah', phone_number: '081511223344', email: 'rizky@studio.com', commission_type: 'percentage', commission_percentage: 15, active_status: true, notes: 'Specialist badminton', created_at: now, updated_at: now },
-    { coach_id: coachId2, full_name: 'Dewi Lestari', phone_number: '081655667788', email: 'dewi@studio.com', commission_type: 'fixed', commission_percentage: 50000, active_status: true, notes: 'Yoga & pilates', created_at: now, updated_at: now },
+    { coach_id: coachId1, full_name: 'Rizky Firmansyah', phone_number: '081511223344', email: 'rizky@studio.com', active_status: true, notes: 'Specialist badminton', created_at: now, updated_at: now },
+    { coach_id: coachId2, full_name: 'Dewi Lestari', phone_number: '081655667788', email: 'dewi@studio.com', active_status: true, notes: 'Yoga & pilates', created_at: now, updated_at: now },
   ];
 
   const products: Product[] = [
@@ -68,6 +68,13 @@ export async function seedDatabase() {
     { package_id: packageId1, package_name: 'Paket 10 Sesi Badminton', package_type: 'session', session_count: 10, valid_days: 30, package_price: 500000, description: '10 sesi latihan badminton', active_status: true, created_at: now, updated_at: now },
     { package_id: packageId2, package_name: 'Paket Bulanan Gym', package_type: 'duration', session_count: null, valid_days: 30, package_price: 350000, description: 'Akses gym 30 hari', active_status: true, created_at: now, updated_at: now },
     { package_id: packageId3, package_name: 'Paket 5 Sesi Yoga', package_type: 'session', session_count: 5, valid_days: 14, package_price: 300000, description: '5 sesi yoga privat', active_status: true, created_at: now, updated_at: now },
+  ];
+
+  const packageCoaches: PackageCoach[] = [
+    { package_coach_id: crypto.randomUUID(), package_id: packageId1, coach_id: coachId1, commission_percentage: 15, created_at: now },
+    { package_coach_id: crypto.randomUUID(), package_id: packageId3, coach_id: coachId2, commission_percentage: 20, created_at: now },
+    { package_coach_id: crypto.randomUUID(), package_id: packageId2, coach_id: coachId1, commission_percentage: 10, created_at: now },
+    { package_coach_id: crypto.randomUUID(), package_id: packageId2, coach_id: coachId2, commission_percentage: 10, created_at: now },
   ];
 
   const memberPackages: MemberPackage[] = [
@@ -89,7 +96,13 @@ export async function seedDatabase() {
       { product_id: productId1, product_name: 'Shuttlecock Yonex', quantity: 2, unit_price: 85000, subtotal: 170000 },
       { product_id: productId3, product_name: 'Air Mineral 600ml', quantity: 3, unit_price: 5000, subtotal: 15000 },
     ],
+    subtotal: 185000,
+    discount: 0,
     total: 185000,
+    payment_method: 'cash',
+    cash_received: 200000,
+    change: 15000,
+    notes: '',
     created_at: now,
   }];
 
@@ -103,12 +116,13 @@ export async function seedDatabase() {
     { commission_id: crypto.randomUUID(), coach_id: coachId2, booking_id: bookingId2, member_id: memberId2, package_price: 300000, commission_percentage: 15, commission_amount: 45000, date: format(subDays(new Date(), 2), 'yyyy-MM-dd'), created_at: now },
   ];
 
-  await db.transaction('rw', [db.users, db.members, db.coaches, db.products, db.packages, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
+  await db.transaction('rw', [db.users, db.members, db.coaches, db.products, db.packages, db.packageCoaches, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
     await db.users.bulkPut(users);
     await db.members.bulkPut(members);
     await db.coaches.bulkPut(coaches);
     await db.products.bulkPut(products);
     await db.packages.bulkPut(packages);
+    await db.packageCoaches.bulkPut(packageCoaches);
     await db.memberPackages.bulkPut(memberPackages);
     await db.bookings.bulkPut(bookings);
     await db.productSales.bulkPut(productSales);

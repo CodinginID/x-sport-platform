@@ -3,9 +3,8 @@ import { useMembers, usePackages, useMemberPayments, useMemberPaymentMutation } 
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { generatePaymentReceipt, previewPdf } from "@/utils/pdf";
-import { Button, Modal, Input, Select, DataTable, DateRangeFilter } from "@/components/ui";
+import { Button, Modal, Input, Select, DataTable, DateRangeFilter, ActionButtons } from "@/components/ui";
 import { PrintPreview } from "@/components/PrintPreview";
-import { Printer } from "lucide-react";
 
 export default function MemberPaymentPage() {
   const { t } = useTranslation();
@@ -44,10 +43,9 @@ export default function MemberPaymentPage() {
     { key: "amount", label: t('payments.amount'), render: (row: any) => formatCurrency(row.amount) },
     { key: "payment_method", label: t('payments.method'), render: (row: any) => row.payment_method.toUpperCase() },
     { key: "actions", label: "", render: (row: any) => (
-      <Button size="sm" variant="ghost" onClick={async () => {
-        const doc = await generatePaymentReceipt({ payment_id: row.payment_id, payment_date: row.payment_date, member_name: getMemberName(row.member_id), package_name: getPackageName(row.package_id), amount: row.amount, payment_method: row.payment_method, notes: row.notes });
-        setPdfUrl(previewPdf(doc));
-      }}><Printer size={14} /></Button>
+      <ActionButtons actions={[
+        { action: 'print', onClick: async () => { const doc = await generatePaymentReceipt({ payment_id: row.payment_id, payment_date: row.payment_date, member_name: getMemberName(row.member_id), package_name: getPackageName(row.package_id), amount: row.amount, payment_method: row.payment_method, notes: row.notes }); setPdfUrl(previewPdf(doc)); } },
+      ]} />
     )},
   ];
 
