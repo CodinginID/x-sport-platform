@@ -1,6 +1,7 @@
-import { InputHTMLAttributes, SelectHTMLAttributes, ReactNode, forwardRef, useState } from 'react';
+import { InputHTMLAttributes, SelectHTMLAttributes, ReactNode, forwardRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/utils';
+import { X } from 'lucide-react';
 
 // Button
 export function Button({ children, variant = 'primary', size = 'md', className, disabled, onClick, type = 'button' }: {
@@ -29,7 +30,7 @@ export const Input = forwardRef<HTMLInputElement, { label?: string; error?: stri
     return (
       <div className={cn('flex flex-col gap-1.5', className)}>
         {label && <label className="text-xs uppercase tracking-[0.2em] font-bold opacity-60">{label}</label>}
-        <input ref={ref} id={id} aria-invalid={!!error} aria-describedby={error && errorId ? errorId : undefined} {...rest} className={cn('w-full px-5 py-4 bg-zen-bg border-0 rounded-2xl focus:ring-2 focus:ring-zen-brand outline-none transition-all font-medium text-sm', error && 'ring-2 ring-red-400')} />
+        <input ref={ref} id={id} aria-invalid={!!error} aria-describedby={error && errorId ? errorId : undefined} {...rest} className={cn('w-full px-4 py-3 bg-zen-bg border border-transparent rounded-2xl focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20 outline-none transition-all font-medium text-sm placeholder:text-zen-ink/25', error && 'border-red-400 ring-2 ring-red-400/20')} />
         {error && <span id={errorId} className="text-xs text-red-500 font-medium">{error}</span>}
       </div>
     );
@@ -42,7 +43,7 @@ export const Select = forwardRef<HTMLSelectElement, { label?: string; error?: st
   ({ label, error, options, className, ...rest }, ref) => (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && <label className="text-xs uppercase tracking-[0.2em] font-bold opacity-60">{label}</label>}
-      <select ref={ref} aria-invalid={!!error} {...rest} className={cn('w-full px-5 py-4 bg-zen-bg border-0 rounded-2xl focus:ring-2 focus:ring-zen-brand outline-none transition-all font-medium text-sm', error && 'ring-2 ring-red-400')}>
+      <select ref={ref} aria-invalid={!!error} {...rest} className={cn('w-full px-4 py-3 bg-zen-bg border border-transparent rounded-2xl focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20 outline-none transition-all font-medium text-sm', error && 'border-red-400 ring-2 ring-red-400/20')}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       {error && <span className="text-xs text-red-500 font-medium">{error}</span>}
@@ -66,21 +67,67 @@ export function Card({ children, className, title, action }: { children: ReactNo
   );
 }
 
-// Modal
+// Modal — bottom sheet on mobile, centered dialog on desktop
 export function Modal({ open, onClose, title, children, size = 'md' }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
+  // Lock body scroll while open
+  useEffect(() => {
+    if (open) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
   if (!open) return null;
-  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' };
+
+  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-labelledby="modal-title" className={cn('relative w-full glass-card rounded-[32px] p-8 max-h-[90vh] overflow-y-auto', sizes[size])}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 id="modal-title" className="text-xl font-bold tracking-tight">{title}</h2>
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors">✕</button>
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-zen-ink/50 backdrop-blur-sm animate-fade-in-bg"
+        onClick={onClose}
+      />
+
+      {/* ── Mobile: bottom sheet ── */}
+      <div className="md:hidden absolute inset-x-0 bottom-0 bg-white rounded-t-[28px] max-h-[92vh] flex flex-col animate-slide-up shadow-2xl">
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-9 h-1 bg-zen-ink/10 rounded-full" />
         </div>
-        {children}
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zen-ink/5 shrink-0">
+          <h2 className="text-base font-bold">{title}</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-2xl bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+        {/* Scrollable content */}
+        <div className="overflow-y-auto px-6 py-5 flex-1">{children}</div>
+        {/* Safe area spacer */}
+        <div className="shrink-0 h-safe-bottom pb-4" />
+      </div>
+
+      {/* ── Desktop: centered dialog ── */}
+      <div className="hidden md:flex absolute inset-0 items-center justify-center p-6">
+        <div className={cn('relative bg-white rounded-3xl w-full shadow-2xl shadow-zen-ink/10 max-h-[88vh] flex flex-col animate-scale-in', sizes[size])}>
+          {/* Sticky header */}
+          <div className="flex items-center justify-between px-7 py-5 border-b border-zen-ink/5 shrink-0 rounded-t-3xl bg-white">
+            <h2 className="text-lg font-bold">{title}</h2>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-2xl bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          {/* Scrollable content */}
+          <div className="overflow-y-auto px-7 py-6 flex-1">{children}</div>
+        </div>
       </div>
     </div>,
     document.body
@@ -281,7 +328,7 @@ export function NumericInput({ label, value, onChange, error, className, min, ma
       {label && <label className="text-xs uppercase tracking-[0.2em] font-bold opacity-60">{label}</label>}
       <input {...rest} type="text" inputMode="numeric" value={display || format(value)}
         onChange={handleChange} onFocus={e => e.target.select()}
-        className={cn('w-full px-5 py-4 bg-zen-bg border-0 rounded-2xl focus:ring-2 focus:ring-zen-brand outline-none transition-all font-medium text-sm', error && 'ring-2 ring-red-400')} />
+        className={cn('w-full px-4 py-3 bg-zen-bg border border-transparent rounded-2xl focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20 outline-none transition-all font-medium text-sm', error && 'border-red-400 ring-2 ring-red-400/20')} />
       {error && <span className="text-xs text-red-500 font-medium">{error}</span>}
     </div>
   );

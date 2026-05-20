@@ -9,7 +9,11 @@ import { useBackupStore, createNewCredentials } from '@/stores/backup';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 1000 * 60, retry: false },
+    queries: {
+      staleTime: 1000 * 60 * 5,  // 5 min — local IndexedDB data doesn't go stale fast
+      gcTime: 1000 * 60 * 10,    // keep cache 10 min after last subscriber unmounts
+      retry: false,
+    },
   },
 });
 
