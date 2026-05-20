@@ -1,13 +1,27 @@
 import { useState } from "react";
 import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches } from "@/hooks";
-import { Modal, Button, Input, Select, DataTable, Badge, Card, QueryError, ActionButtons } from "@/components/ui";
+import { Modal, Button, Input, Select, QueryError } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import { Calendar, Plus, CheckCircle2, XCircle, CalendarX } from "lucide-react";
 
-const statusBadge = (status: string) => {
-  const map: Record<string, 'info' | 'success' | 'danger' | 'default'> = { booked: 'info', attended: 'success', cancelled: 'danger', completed: 'default' };
-  return <Badge variant={map[status] ?? 'default'}>{status}</Badge>;
-};
+function initials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    booked: 'bg-blue-100 text-blue-700',
+    attended: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-600',
+    completed: 'bg-zen-bg text-zen-ink/60',
+  };
+  return (
+    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${map[status] ?? 'bg-zen-bg text-zen-ink/50'}`}>
+      {status}
+    </span>
+  );
+}
 
 const defaultForm = { member_id: "", coach_id: "", package_id: "", package_price: 0, booking_date: "", booking_time: "" };
 
@@ -25,6 +39,10 @@ export default function BookingsPage() {
   const { data: packages = [] } = usePackages();
   const { data: allPackageCoaches = [] } = usePackageCoaches();
 
+  const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
+  const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
+  const packageMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
+
   const handlePackageChange = (package_id: string) => {
     const pkg = packages.find(p => p.package_id === package_id);
     setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0, coach_id: "" });
@@ -40,36 +58,98 @@ export default function BookingsPage() {
     setOpen(false);
   };
 
-  const columns = [
-    { key: "booking_date", label: t('bookings.date'), render: (row: any) => formatDate(row.booking_date) },
-    { key: "booking_time", label: t('bookings.time') },
-    { key: "member_id", label: t('bookings.member'), render: (row: any) => members.find(m => m.member_id === row.member_id)?.full_name ?? "-" },
-    { key: "coach_id", label: t('bookings.coach'), render: (row: any) => coaches.find(c => c.coach_id === row.coach_id)?.full_name ?? "-" },
-    { key: "package_id", label: t('bookings.package'), render: (row: any) => packages.find(p => p.package_id === row.package_id)?.package_name ?? "-" },
-    { key: "package_price", label: t('bookings.price'), render: (row: any) => formatCurrency(row.package_price) },
-    { key: "booking_status", label: t('bookings.status'), render: (row: any) => statusBadge(row.booking_status) },
-    {
-      key: "actions", label: "", render: (row: any) => row.booking_status === 'booked' && (
-        <ActionButtons actions={[
-          { action: 'checkin', onClick: () => bookingMutation.mutate({ action: 'attend', booking: { booking_id: row.booking_id } }) },
-          { action: 'cancel', onClick: () => bookingMutation.mutate({ action: 'cancel', booking: { booking_id: row.booking_id } }) },
-        ]} />
-      ),
-    },
+  const STATUS_OPTS = [
+    { value: "", label: t("common.all") },
+    { value: "booked", label: t("bookings.booked") },
+    { value: "attended", label: t("bookings.attended") },
+    { value: "cancelled", label: t("bookings.cancelled") },
+    { value: "completed", label: t("bookings.completed") },
   ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('bookings.title')}</h1>
-        <Button onClick={() => { setForm(defaultForm); setOpen(true); }}>{t('bookings.add')}</Button>
+        <Button onClick={() => { setForm(defaultForm); setOpen(true); }}>
+          <span className="flex items-center gap-1.5"><Plus size={15} />{t('bookings.add')}</span>
+        </Button>
       </div>
-      <div className="flex gap-4 mb-4">
-        <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} label={t('bookings.date')} />
-        <Select label={t('bookings.status')} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          options={[{ value: "", label: t("common.all") }, { value: "booked", label: t("bookings.booked") }, { value: "attended", label: t("bookings.attended") }, { value: "cancelled", label: t("bookings.cancelled") }, { value: "completed", label: t("bookings.completed") }]} />
+
+      {/* Filters */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative">
+          <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
+          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+            className="pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20" />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {STATUS_OPTS.map(opt => (
+            <button key={opt.value} onClick={() => setFilterStatus(opt.value)}
+              className={`px-3 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${filterStatus === opt.value ? 'bg-zen-brand text-white' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
-      {isError ? <QueryError onRetry={() => refetch()} /> : <DataTable columns={columns} data={bookings} emptyMessage={t("common.no_data")} />}
+
+      {/* List */}
+      {isError ? <QueryError onRetry={() => refetch()} /> : (
+        <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+          {bookings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
+              <CalendarX size={32} className="mb-3" />
+              <p className="text-sm">{t("common.no_data")}</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zen-ink/5">
+              {bookings.map(b => {
+                const memberName = memberMap[b.member_id] || '?';
+                const coachName = coachMap[b.coach_id] || '—';
+                const pkgName = packageMap[b.package_id] || '—';
+                return (
+                  <div key={b.booking_id} className="flex items-center gap-3 px-5 py-4">
+                    <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
+                      {initials(memberName)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{memberName}</p>
+                      <p className="text-xs text-zen-ink/40 truncate">{coachName} · {pkgName}</p>
+                    </div>
+                    <div className="text-right shrink-0 hidden sm:block">
+                      <p className="text-xs font-bold">{formatDate(b.booking_date)}</p>
+                      <p className="text-xs text-zen-ink/40">{b.booking_time}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <StatusBadge status={b.booking_status} />
+                      {b.booking_status === 'booked' && (
+                        <>
+                          <button
+                            onClick={() => bookingMutation.mutate({ action: 'attend', booking: { booking_id: b.booking_id } })}
+                            className="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors"
+                            title="Hadir"
+                          >
+                            <CheckCircle2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => bookingMutation.mutate({ action: 'cancel', booking: { booking_id: b.booking_id } })}
+                            className="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors"
+                            title="Batalkan"
+                          >
+                            <XCircle size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title={t('bookings.add')}>
         <div className="space-y-4">
           <Select label={t('bookings.member')} value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}
@@ -81,7 +161,12 @@ export default function BookingsPage() {
           <Input label={t('bookings.price')} value={form.package_price ? formatCurrency(form.package_price) : ''} readOnly />
           <Input label={t('bookings.date')} type="date" value={form.booking_date} onChange={e => setForm({ ...form, booking_date: e.target.value })} />
           <Input label={t('bookings.time')} type="time" value={form.booking_time} onChange={e => setForm({ ...form, booking_time: e.target.value })} />
-          <Button onClick={handleSubmit} disabled={!form.member_id || !form.coach_id || !form.package_id || !form.booking_date || !form.booking_time}>{t('common.save')}</Button>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={handleSubmit} disabled={!form.member_id || !form.coach_id || !form.package_id || !form.booking_date || !form.booking_time}>
+              {t('common.save')}
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

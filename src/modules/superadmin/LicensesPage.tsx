@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import {
-  RefreshCw, Check, Copy, X, Loader2, CheckCircle2,
-  XCircle, Clock, AlertTriangle, Mail, Phone, Package, Calendar,
-  KeyRound, Building2,
+  RefreshCw, Check, Copy, X, Loader2, CheckCircle2, XCircle,
+  Clock, AlertTriangle, Mail, Phone, Package, Calendar, KeyRound,
+  Building2, ShieldAlert, HardDrive, TrendingUp,
 } from 'lucide-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface License {
   id: string;
@@ -15,11 +17,33 @@ interface License {
   owner_phone: string | null;
   plan: string | null;
   created_at: string;
+  expires_at: string;
+  activated_at: string | null;
   is_active: boolean;
+  storage_quota_mb: number;
+  storage_used_mb: number;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso));
+}
+
+function daysUntil(iso: string) {
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+}
+
+function expiryColor(days: number) {
+  if (days < 0) return 'text-red-600 bg-red-50';
+  if (days <= 30) return 'text-red-500 bg-red-50';
+  if (days <= 90) return 'text-amber-600 bg-amber-50';
+  return 'text-green-600 bg-green-50';
+}
+
+function storagePercent(used: number, quota: number) {
+  if (!quota) return 0;
+  return Math.min(100, Math.round((used / quota) * 100));
 }
 
 // ─── License Key Modal ────────────────────────────────────────────────────────
@@ -28,21 +52,12 @@ function LicenseKeyModal({ licenseKey, studioName, onClose }: {
   licenseKey: string; studioName: string | null; onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(licenseKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const copy = () => { navigator.clipboard.writeText(licenseKey); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={onClose}>
-      <div
-        className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[32px] rounded-t-[32px] p-8 space-y-6 animate-slide-up sm:animate-page-in"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Handle bar mobile */}
+      <div className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[32px] rounded-t-[32px] p-8 space-y-6 animate-slide-up sm:animate-page-in" onClick={e => e.stopPropagation()}>
         <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto sm:hidden -mt-2 mb-2" />
-
         <div className="text-center">
           <div className="w-16 h-16 bg-green-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 size={32} className="text-green-500" />
@@ -50,24 +65,15 @@ function LicenseKeyModal({ licenseKey, studioName, onClose }: {
           <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1">Lisensi Disetujui</p>
           <h2 className="text-lg font-bold">{studioName || 'Studio'}</h2>
         </div>
-
-        <button
-          onClick={copy}
-          className="w-full bg-zen-bg rounded-2xl p-5 relative group active:scale-[0.98] transition-transform cursor-pointer text-left"
-        >
+        <button onClick={copy} className="w-full bg-zen-bg rounded-2xl p-5 relative group active:scale-[0.98] transition-transform cursor-pointer text-left">
           <p className="text-[10px] uppercase tracking-widest font-bold opacity-40 mb-2">License Key</p>
           <p className="text-lg font-mono font-bold tracking-[0.1em] text-zen-brand break-all pr-8">{licenseKey}</p>
           <div className="absolute top-4 right-4 text-zen-ink/30">
             {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
           </div>
         </button>
-
-        <p className="text-xs text-center text-zen-ink/40">Tap box di atas untuk menyalin, lalu kirim ke studio owner.</p>
-
-        <button
-          onClick={onClose}
-          className="w-full py-4 bg-zen-brand text-white text-sm font-bold rounded-2xl active:scale-[0.98] transition-transform min-h-[52px]"
-        >
+        <p className="text-xs text-center text-zen-ink/40">Tap untuk menyalin, lalu kirim ke studio owner.</p>
+        <button onClick={onClose} className="w-full py-4 bg-zen-brand text-white text-sm font-bold rounded-2xl active:scale-[0.98] transition-transform min-h-[52px]">
           Selesai
         </button>
       </div>
@@ -83,26 +89,15 @@ function ConfirmSheet({ title, message, variant, onConfirm, onCancel }: {
 }) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={onCancel}>
-      <div
-        className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[24px] rounded-t-[24px] p-6 space-y-4 animate-slide-up sm:animate-page-in"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[24px] rounded-t-[24px] p-6 space-y-4 animate-slide-up sm:animate-page-in" onClick={e => e.stopPropagation()}>
         <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto sm:hidden" />
         <h2 className="text-base font-bold pt-1">{title}</h2>
         <p className="text-sm text-zen-ink/60 leading-relaxed">{message}</p>
         <div className="flex flex-col gap-2 pt-1">
-          <button
-            onClick={onConfirm}
-            className={`w-full py-4 text-sm font-bold rounded-2xl text-white min-h-[52px] active:scale-[0.98] transition-transform ${
-              variant === 'danger' ? 'bg-red-500' : 'bg-amber-500'
-            }`}
-          >
+          <button onClick={onConfirm} className={`w-full py-4 text-sm font-bold rounded-2xl text-white min-h-[52px] active:scale-[0.98] transition-transform ${variant === 'danger' ? 'bg-red-500' : 'bg-amber-500'}`}>
             {variant === 'danger' ? 'Ya, Hapus' : 'Ya, Setujui'}
           </button>
-          <button
-            onClick={onCancel}
-            className="w-full py-4 text-sm font-bold rounded-2xl border border-zen-ink/10 text-zen-ink/60 min-h-[52px] active:scale-[0.98] transition-transform"
-          >
+          <button onClick={onCancel} className="w-full py-4 text-sm font-bold rounded-2xl border border-zen-ink/10 text-zen-ink/60 min-h-[52px] active:scale-[0.98] transition-transform">
             Batal
           </button>
         </div>
@@ -118,13 +113,16 @@ function SkeletonCard() {
   return (
     <div className="bg-white rounded-3xl p-5 space-y-4 border border-zen-ink/5">
       <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <div className="h-5 w-36 bg-zen-ink/8 rounded-xl animate-pulse" />
-          <div className="h-3 w-20 bg-zen-ink/5 rounded-xl animate-pulse" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-zen-ink/5 rounded-2xl animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-32 bg-zen-ink/8 rounded-xl animate-pulse" />
+            <div className="h-3 w-20 bg-zen-ink/5 rounded-xl animate-pulse" />
+          </div>
         </div>
         <div className="h-6 w-20 bg-zen-ink/5 rounded-full animate-pulse" />
       </div>
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1">
         {[1, 2, 3].map(i => (
           <div key={i} className="flex items-center gap-2">
             <div className="h-3 w-3 bg-zen-ink/5 rounded animate-pulse" />
@@ -139,13 +137,12 @@ function SkeletonCard() {
 // ─── License Card ─────────────────────────────────────────────────────────────
 
 function LicenseCard({ license, onApprove, onReject, isProcessing }: {
-  license: License;
-  onApprove: () => void;
-  onReject: () => void;
-  isProcessing: boolean;
+  license: License; onApprove: () => void; onReject: () => void; isProcessing: boolean;
 }) {
   const [keyCopied, setKeyCopied] = useState(false);
   const isPending = !license.is_active;
+  const days = daysUntil(license.expires_at);
+  const pct = storagePercent(license.storage_used_mb, license.storage_quota_mb);
 
   const copyKey = () => {
     navigator.clipboard.writeText(license.license_key);
@@ -154,28 +151,19 @@ function LicenseCard({ license, onApprove, onReject, isProcessing }: {
   };
 
   return (
-    <div className={`rounded-3xl overflow-hidden border transition-all ${
-      isPending
-        ? 'bg-amber-50 border-amber-200'
-        : 'bg-white border-zen-ink/5'
-    }`}>
-      {/* Card header */}
+    <div className={`rounded-3xl overflow-hidden border transition-all ${isPending ? 'bg-amber-50 border-amber-200' : 'bg-white border-zen-ink/5'}`}>
+      {/* Header */}
       <div className="p-5 pb-4">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-              isPending ? 'bg-amber-100' : 'bg-green-50'
-            }`}>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isPending ? 'bg-amber-100' : 'bg-green-50'}`}>
               <Building2 size={18} className={isPending ? 'text-amber-600' : 'text-green-500'} />
             </div>
             <div className="min-w-0">
               <p className="font-bold text-sm truncate">{license.studio_name || 'Studio Tanpa Nama'}</p>
-              <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mt-0.5">
-                {formatDate(license.created_at)}
-              </p>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mt-0.5">{formatDate(license.created_at)}</p>
             </div>
           </div>
-
           {isPending ? (
             <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] uppercase tracking-widest font-bold px-2.5 py-1.5 rounded-full shrink-0">
               <Clock size={9} /> Menunggu
@@ -201,50 +189,63 @@ function LicenseCard({ license, onApprove, onReject, isProcessing }: {
               <p className="text-sm text-zen-ink/70 font-mono">{license.owner_phone}</p>
             </div>
           )}
-          <div className="flex items-center gap-2.5">
-            <Package size={13} className="text-zen-ink/30 shrink-0" />
-            <span className="text-[10px] uppercase tracking-widest font-bold text-zen-brand bg-zen-brand/10 px-2 py-0.5 rounded-full">
-              {license.plan || 'basic'}
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <Package size={13} className="text-zen-ink/30 shrink-0" />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-zen-brand bg-zen-brand/10 px-2 py-0.5 rounded-full">
+                {license.plan || 'basic'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Calendar size={13} className="text-zen-ink/30 shrink-0" />
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${expiryColor(days)}`}>
+                {days < 0 ? 'Expired' : days === 0 ? 'Hari ini' : `${days} hari lagi`}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Storage bar (active only) */}
+        {!isPending && license.storage_quota_mb > 0 && (
+          <div className="mt-4 pt-4 border-t border-zen-ink/5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <HardDrive size={11} className="text-zen-ink/30" />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Storage</span>
+              </div>
+              <span className="text-[10px] font-bold text-zen-ink/50">
+                {license.storage_used_mb.toFixed(0)} / {license.storage_quota_mb} MB
+              </span>
+            </div>
+            <div className="h-1.5 bg-zen-ink/5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${pct > 90 ? 'bg-red-400' : pct > 70 ? 'bg-amber-400' : 'bg-zen-brand'}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* License key (active only) */}
+      {/* License key row (active) */}
       {!isPending && (
-        <button
-          onClick={copyKey}
-          className="w-full px-5 py-3.5 border-t border-zen-ink/5 flex items-center justify-between gap-3 active:bg-zen-bg transition-colors"
-        >
+        <button onClick={copyKey} className="w-full px-5 py-3.5 border-t border-zen-ink/5 flex items-center justify-between gap-3 active:bg-zen-bg transition-colors">
           <div className="flex items-center gap-2.5 min-w-0">
             <KeyRound size={13} className="text-zen-brand shrink-0" />
             <p className="text-xs font-mono font-bold text-zen-brand truncate">{license.license_key}</p>
           </div>
-          {keyCopied
-            ? <Check size={14} className="text-green-500 shrink-0" />
-            : <Copy size={14} className="text-zen-ink/30 shrink-0" />
-          }
+          {keyCopied ? <Check size={14} className="text-green-500 shrink-0" /> : <Copy size={14} className="text-zen-ink/30 shrink-0" />}
         </button>
       )}
 
-      {/* Action buttons (pending only) */}
+      {/* Action buttons (pending) */}
       {isPending && (
         <div className="px-5 pb-5 pt-1 grid grid-cols-2 gap-2">
-          <button
-            onClick={onReject}
-            disabled={isProcessing}
-            className="py-3.5 border border-red-200 text-red-500 text-xs font-bold rounded-2xl active:scale-[0.97] transition-transform disabled:opacity-40 min-h-[48px] flex items-center justify-center gap-1.5"
-          >
-            {isProcessing ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />}
-            Tolak
+          <button onClick={onReject} disabled={isProcessing} className="py-3.5 border border-red-200 text-red-500 text-xs font-bold rounded-2xl active:scale-[0.97] transition-transform disabled:opacity-40 min-h-[48px] flex items-center justify-center gap-1.5">
+            {isProcessing ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />} Tolak
           </button>
-          <button
-            onClick={onApprove}
-            disabled={isProcessing}
-            className="py-3.5 bg-green-500 text-white text-xs font-bold rounded-2xl active:scale-[0.97] transition-transform disabled:opacity-40 min-h-[48px] flex items-center justify-center gap-1.5"
-          >
-            {isProcessing ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-            Approve
+          <button onClick={onApprove} disabled={isProcessing} className="py-3.5 bg-green-500 text-white text-xs font-bold rounded-2xl active:scale-[0.97] transition-transform disabled:opacity-40 min-h-[48px] flex items-center justify-center gap-1.5">
+            {isProcessing ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve
           </button>
         </div>
       )}
@@ -269,8 +270,8 @@ export default function LicensesPage() {
     setLoading(true);
     const { data, error: fetchErr } = await supabase
       .from('licenses')
-      .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, is_active')
-      .order('is_active', { ascending: true })   // pending first
+      .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, storage_quota_mb, storage_used_mb')
+      .order('is_active', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (fetchErr) setError('Gagal memuat: ' + fetchErr.message);
@@ -288,11 +289,7 @@ export default function LicensesPage() {
       variant: 'warning',
       onConfirm: async () => {
         setActionLoading(license.id);
-        const { error: updateErr } = await supabase
-          .from('licenses')
-          .update({ is_active: true })
-          .eq('id', license.id);
-
+        const { error: updateErr } = await supabase.from('licenses').update({ is_active: true }).eq('id', license.id);
         if (updateErr) { setError('Gagal approve: ' + updateErr.message); setActionLoading(null); return; }
         await fetchLicenses();
         setActionLoading(null);
@@ -317,8 +314,17 @@ export default function LicensesPage() {
     });
   };
 
-  const pendingCount = licenses.filter(l => !l.is_active).length;
-  const activeCount = licenses.filter(l => l.is_active).length;
+  // Derived stats
+  const pendingCount   = licenses.filter(l => !l.is_active).length;
+  const activeCount    = licenses.filter(l => l.is_active).length;
+  const activatedCount = licenses.filter(l => l.activated_at).length;
+  const expiringSoon   = licenses.filter(l => l.is_active && daysUntil(l.expires_at) <= 30 && daysUntil(l.expires_at) >= 0).length;
+  const expiredCount   = licenses.filter(l => daysUntil(l.expires_at) < 0).length;
+  const planCounts     = licenses.reduce<Record<string, number>>((acc, l) => {
+    const p = l.plan || 'basic';
+    acc[p] = (acc[p] || 0) + 1;
+    return acc;
+  }, {});
 
   const filtered = licenses.filter(l => {
     if (filter === 'pending') return !l.is_active;
@@ -327,20 +333,20 @@ export default function LicensesPage() {
   });
 
   return (
-    <div className="space-y-5 pb-4">
-      {/* Header */}
+    <div className="space-y-6 pb-4">
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Lisensi</h1>
-        <button
-          onClick={fetchLicenses}
-          disabled={loading}
-          className="w-10 h-10 rounded-2xl border border-zen-ink/10 flex items-center justify-center text-zen-ink/50 active:bg-zen-bg transition-colors disabled:opacity-40"
-        >
+        <div>
+          <h1 className="text-2xl font-bold">Manajemen Lisensi</h1>
+          <p className="text-xs text-zen-ink/40 mt-0.5">{licenses.length} studio terdaftar</p>
+        </div>
+        <button onClick={fetchLicenses} disabled={loading} className="w-10 h-10 rounded-2xl border border-zen-ink/10 flex items-center justify-center text-zen-ink/50 active:bg-zen-bg transition-colors disabled:opacity-40">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {/* Error */}
+      {/* ── Error ── */}
       {error && (
         <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3">
           <AlertTriangle size={15} className="text-red-500 shrink-0" />
@@ -349,8 +355,8 @@ export default function LicensesPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* ── Stats grid ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-white rounded-2xl p-4 border border-zen-ink/5">
           <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5">Total</p>
           <p className="text-2xl font-bold">{loading ? '—' : licenses.length}</p>
@@ -363,47 +369,146 @@ export default function LicensesPage() {
           <p className="text-[9px] uppercase tracking-widest font-bold text-green-500/80 mb-1.5">Aktif</p>
           <p className="text-2xl font-bold text-green-500">{loading ? '—' : activeCount}</p>
         </div>
+        <div className={`rounded-2xl p-4 border ${expiringSoon > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5'}`}>
+          <p className={`text-[9px] uppercase tracking-widest font-bold mb-1.5 ${expiringSoon > 0 ? 'text-red-500/80' : 'text-zen-ink/40'}`}>Mau Expired</p>
+          <p className={`text-2xl font-bold ${expiringSoon > 0 ? 'text-red-500' : 'text-zen-ink'}`}>{loading ? '—' : expiringSoon}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-zen-ink/5 col-span-2 sm:col-span-1">
+          <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5">Terpakai</p>
+          <p className="text-2xl font-bold">{loading ? '—' : activatedCount}</p>
+          <p className="text-[9px] text-zen-ink/30 mt-0.5">dari {activeCount} aktif</p>
+        </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 bg-zen-bg rounded-2xl p-1">
-        {(['all', 'pending', 'active'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`flex-1 py-2.5 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-all ${
-              filter === f
-                ? 'bg-white text-zen-ink shadow-sm'
-                : 'text-zen-ink/40'
-            }`}
-          >
-            {f === 'all' ? 'Semua' : f === 'pending' ? 'Menunggu' : 'Aktif'}
-          </button>
-        ))}
-      </div>
+      {/* ── Desktop: 2-col layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      {/* Card list */}
-      <div className="space-y-3">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-zen-ink/5">
-            <Calendar size={32} className="text-zen-ink/20 mx-auto mb-3" />
-            <p className="text-sm text-zen-ink/40">
-              {filter === 'pending' ? 'Tidak ada yang menunggu' : filter === 'active' ? 'Belum ada yang aktif' : 'Belum ada pendaftaran'}
-            </p>
+        {/* Left: card list (2/3 width) */}
+        <div className="lg:col-span-2 space-y-4">
+
+          {/* Pending alert */}
+          {!loading && pendingCount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+              <Clock size={16} className="text-amber-600 shrink-0" />
+              <p className="text-sm font-bold text-amber-800">
+                {pendingCount} pendaftaran menunggu persetujuan Anda
+              </p>
+            </div>
+          )}
+
+          {/* Filter tabs */}
+          <div className="flex gap-2 bg-zen-bg rounded-2xl p-1">
+            {(['all', 'pending', 'active'] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={`flex-1 py-2.5 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-all ${filter === f ? 'bg-white text-zen-ink shadow-sm' : 'text-zen-ink/40'}`}>
+                {f === 'all' ? `Semua (${licenses.length})` : f === 'pending' ? `Menunggu (${pendingCount})` : `Aktif (${activeCount})`}
+              </button>
+            ))}
           </div>
-        ) : (
-          filtered.map(license => (
-            <LicenseCard
-              key={license.id}
-              license={license}
-              onApprove={() => handleApprove(license)}
-              onReject={() => handleReject(license)}
-              isProcessing={actionLoading === license.id}
-            />
-          ))
-        )}
+
+          {/* Cards */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+            ) : filtered.length === 0 ? (
+              <div className="xl:col-span-2 bg-white rounded-3xl p-12 text-center border border-zen-ink/5">
+                <Calendar size={32} className="text-zen-ink/20 mx-auto mb-3" />
+                <p className="text-sm text-zen-ink/40">
+                  {filter === 'pending' ? 'Tidak ada yang menunggu' : filter === 'active' ? 'Belum ada yang aktif' : 'Belum ada pendaftaran'}
+                </p>
+              </div>
+            ) : (
+              filtered.map(license => (
+                <LicenseCard
+                  key={license.id}
+                  license={license}
+                  onApprove={() => handleApprove(license)}
+                  onReject={() => handleReject(license)}
+                  isProcessing={actionLoading === license.id}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Right: summary panel (1/3 width, desktop only) */}
+        <div className="space-y-4">
+
+          {/* Plan distribution */}
+          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp size={15} className="text-zen-brand" />
+              <h3 className="text-sm font-bold">Distribusi Plan</h3>
+            </div>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="h-8 bg-zen-ink/5 rounded-xl animate-pulse" />)}
+              </div>
+            ) : Object.keys(planCounts).length === 0 ? (
+              <p className="text-xs text-zen-ink/40">Belum ada data</p>
+            ) : (
+              <div className="space-y-2.5">
+                {Object.entries(planCounts).map(([plan, count]) => (
+                  <div key={plan} className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-xs font-bold capitalize">{plan}</span>
+                        <span className="text-xs text-zen-ink/50">{count} studio</span>
+                      </div>
+                      <div className="h-1.5 bg-zen-ink/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-zen-brand rounded-full" style={{ width: `${(count / licenses.length) * 100}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Expiry alerts */}
+          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldAlert size={15} className="text-zen-brand" />
+              <h3 className="text-sm font-bold">Status Expiry</h3>
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <div key={i} className="h-8 bg-zen-ink/5 rounded-xl animate-pulse" />)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[
+                  { label: 'Sudah expired', value: expiredCount, color: 'text-red-600 bg-red-50' },
+                  { label: '≤ 30 hari lagi', value: expiringSoon, color: 'text-amber-600 bg-amber-50' },
+                  { label: 'Aman (> 30 hari)', value: activeCount - expiringSoon - expiredCount, color: 'text-green-600 bg-green-50' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className={`flex items-center justify-between px-3 py-2.5 rounded-2xl ${color}`}>
+                    <span className="text-xs font-bold">{label}</span>
+                    <span className="text-sm font-bold">{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Expiring soon list */}
+          {!loading && expiringSoon > 0 && (
+            <div className="bg-red-50 rounded-3xl p-5 border border-red-100">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-red-500/80 mb-3">Segera Expired</p>
+              <div className="space-y-3">
+                {licenses
+                  .filter(l => l.is_active && daysUntil(l.expires_at) <= 30 && daysUntil(l.expires_at) >= 0)
+                  .slice(0, 5)
+                  .map(l => (
+                    <div key={l.id} className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-bold truncate">{l.studio_name || l.owner_email}</p>
+                      <span className="text-xs font-bold text-red-600 shrink-0">{daysUntil(l.expires_at)}h</span>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {confirm.open && (

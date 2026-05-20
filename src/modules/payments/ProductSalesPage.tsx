@@ -4,10 +4,20 @@ import { useProducts, useProductSales, useProductSaleMutation } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { generateSaleReceipt, previewPdf } from "@/utils/pdf";
-import { Button, Input, DataTable, DateRangeFilter, Badge, ActionButtons, NumericInput } from "@/components/ui";
+import { Button, Input, NumericInput } from "@/components/ui";
 import { PrintPreview } from "@/components/PrintPreview";
-import { Plus, Minus, Trash2, ShoppingCart, Coins, X } from "lucide-react";
+import { Plus, Minus, Trash2, ShoppingCart, Coins, X, Printer, ShoppingBag, Calendar } from "lucide-react";
 import type { Product, ProductSaleItem, PaymentMethod } from "@/types";
+
+type Preset = '7d' | '30d' | 'month' | 'custom';
+function getPresetDates(p: Preset) {
+  const now = new Date(); const end = now.toISOString().split('T')[0];
+  if (p === '7d') { const s = new Date(now); s.setDate(s.getDate() - 6); return { start: s.toISOString().split('T')[0], end }; }
+  if (p === '30d') { const s = new Date(now); s.setDate(s.getDate() - 29); return { start: s.toISOString().split('T')[0], end }; }
+  return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0], end };
+}
+function initials(name: string) { return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
+const METHOD_COLOR: Record<string, string> = { cash: 'bg-green-100 text-green-700', transfer: 'bg-blue-100 text-blue-700', qris: 'bg-purple-100 text-purple-700' };
 
 interface CartItem {
   product_id: string;
@@ -16,17 +26,14 @@ interface CartItem {
   unit_price: number;
 }
 
-const methodBadge: Record<PaymentMethod, { label: string; variant: 'success' | 'info' | 'warning' }> = {
-  cash: { label: 'Tunai', variant: 'success' },
-  transfer: { label: 'Transfer', variant: 'info' },
-  qris: { label: 'QRIS', variant: 'warning' },
-};
 
 export default function ProductSalesPage() {
   const { t } = useTranslation();
   const today = new Date().toISOString().split("T")[0];
-  const [startDate, setStartDate] = useState(today);
+  const [preset, setPreset] = useState<Preset>('month');
+  const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
   const [endDate, setEndDate] = useState(today);
+  const handlePreset = (p: Preset) => { setPreset(p); if (p !== 'custom') { const d = getPresetDates(p); setStartDate(d.start); setEndDate(d.end); } };
   const { data: sales = [] } = useProductSales({ startDate, endDate });
   const { data: products = [] } = useProducts();
   const mutation = useProductSaleMutation();
@@ -124,54 +131,92 @@ export default function ProductSalesPage() {
     setCategoryFilter("");
   };
 
-  const columns = [
-    { key: "transaction_date", label: t('bookings.date'), render: (row: any) => (
-      <span className="text-xs whitespace-nowrap">{formatDate(row.transaction_date)}</span>
-    )},
-    { key: "customer_name", label: t('payments.customer'), render: (row: any) => (
-      <span className="font-semibold text-sm">{row.customer_name}</span>
-    )},
-    { key: "items", label: "Item", render: (row: any) => (
-      <div className="space-y-0.5">
-        {row.items.slice(0, 2).map((i: ProductSaleItem, idx: number) => (
-          <div key={idx} className="text-xs text-zen-ink/70 whitespace-nowrap">
-            {i.product_name} <span className="font-bold">x{i.quantity}</span>
-          </div>
-        ))}
-        {row.items.length > 2 && (
-          <div className="text-[10px] text-zen-ink/40">+{row.items.length - 2} lainnya</div>
-        )}
-      </div>
-    )},
-    { key: "payment_method", label: t('payments.method'), render: (row: any) => {
-      const m = methodBadge[row.payment_method as PaymentMethod] || methodBadge.cash;
-      return <Badge variant={m.variant}>{m.label}</Badge>;
-    }},
-    { key: "total", label: t('payments.total'), render: (row: any) => (
-      <div className="text-right">
-        <div className="font-bold text-sm">{formatCurrency(row.total)}</div>
-        {row.discount > 0 && (
-          <div className="text-[9px] text-red-400">-{formatCurrency(row.discount)}</div>
-        )}
-      </div>
-    )},
-    { key: "actions", label: "", render: (row: any) => (
-      <ActionButtons actions={[
-        { action: 'print', onClick: async () => { const doc = await generateSaleReceipt(row); setPdfUrl(previewPdf(doc)); } },
-      ]} />
-    )},
-  ];
+  const totalSales = sales.reduce((s, r) => s + r.total, 0);
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex justify-between items-center">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('payments.sales_title')}</h1>
-        <Button onClick={() => { resetForm(); setModalOpen(true); }}>{t('payments.add_sale')}</Button>
+        <Button onClick={() => { resetForm(); setModalOpen(true); }}>
+          <span className="flex items-center gap-1.5"><Plus size={15} />{t('payments.add_sale')}</span>
+        </Button>
       </div>
 
-      <DateRangeFilter startDate={startDate} endDate={endDate} onStartChange={setStartDate} onEndChange={setEndDate} />
+      {/* Hero */}
+      <div className="bg-zen-brand rounded-3xl p-6 text-white">
+        <p className="text-[10px] uppercase tracking-widest font-bold text-white/60 mb-2">Total Penjualan</p>
+        <p className="text-4xl font-bold tracking-tight">{formatCurrency(totalSales)}</p>
+        <p className="text-xs text-white/50 mt-2">{sales.length} transaksi</p>
+      </div>
 
-      <DataTable columns={columns} data={sales} emptyMessage={t('common.no_data')} />
+      {/* Date presets */}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          {(['7d', '30d', 'month', 'custom'] as Preset[]).map(p => (
+            <button key={p} onClick={() => handlePreset(p)}
+              className={`flex-1 py-2 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-all ${preset === p ? 'bg-zen-brand text-white shadow-sm' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
+              {p === '7d' ? '7 Hari' : p === '30d' ? '30 Hari' : p === 'month' ? 'Bulan Ini' : 'Custom'}
+            </button>
+          ))}
+        </div>
+        {preset === 'custom' && (
+          <div className="flex gap-2 items-center">
+            <div className="flex-1 relative">
+              <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20" />
+            </div>
+            <span className="text-zen-ink/30">—</span>
+            <div className="flex-1 relative">
+              <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sales list */}
+      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+        {sales.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
+            <ShoppingBag size={32} className="mb-3" />
+            <p className="text-sm">{t('common.no_data')}</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-zen-ink/5">
+            {sales.map(row => (
+              <div key={row.transaction_id} className="flex items-center gap-3 px-5 py-4">
+                <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
+                  {initials(row.customer_name || '?')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{row.customer_name || '—'}</p>
+                  <p className="text-xs text-zen-ink/40 truncate">
+                    {row.items.slice(0, 2).map((i: ProductSaleItem) => `${i.product_name} x${i.quantity}`).join(', ')}
+                    {row.items.length > 2 && ` +${row.items.length - 2}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline ${METHOD_COLOR[row.payment_method] || 'bg-zen-bg text-zen-ink/50'}`}>
+                    {row.payment_method?.toUpperCase()}
+                  </span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">{formatCurrency(row.total)}</p>
+                    {row.discount > 0 && <p className="text-[10px] text-red-400">-{formatCurrency(row.discount)}</p>}
+                  </div>
+                  <button onClick={async () => { const doc = await generateSaleReceipt(row); setPdfUrl(previewPdf(doc)); }}
+                    className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/30 hover:text-zen-brand transition-colors"
+                    title="Cetak struk">
+                    <Printer size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {modalOpen && createPortal(
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
