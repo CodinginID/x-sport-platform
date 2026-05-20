@@ -13,7 +13,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "license:generate": "node scripts/generate-license.mjs",
+    "license:approve": "node scripts/approve-license.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

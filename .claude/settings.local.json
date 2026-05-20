@@ -4,7 +4,14 @@
       "Skill(superpowers:systematic-debugging)",
       "Bash(npm run *)",
       "Bash(npm test *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(xargs ls)",
+      "Bash(supabase --version)",
+      "Bash(brew --version)",
+      "Bash(supabase init *)",
+      "Bash(supabase link *)",
+      "Bash(supabase db *)",
+      "Bash(supabase migration *)"
     ]
   }
 }

@@ -6,7 +6,7 @@ import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { cn } from '@/utils';
 import {
   LayoutDashboard, Users, UserCheck, Package, ShoppingBag,
-  Calendar, CreditCard, PieChart, DollarSign, LogOut, MoreHorizontal, Settings,
+  Calendar, CreditCard, PieChart, DollarSign, LogOut, MoreHorizontal, Settings, ShieldCheck,
 } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -30,6 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { label: t('nav.commissions'), icon: DollarSign, path: '/commissions', roles: ['owner'] },
     { label: t('nav.reports'), icon: PieChart, path: '/reports', roles: ['owner'] },
     { label: t('nav.settings'), icon: Settings, path: '/settings', roles: ['owner', 'staff'] },
+    { label: 'Manajemen Lisensi', icon: ShieldCheck, path: '/licenses', roles: ['superadmin'] },
   ];
 
   const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'staff'));

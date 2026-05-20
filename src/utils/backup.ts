@@ -1,6 +1,7 @@
 import { db } from '@/database/db';
 import { useBackupStore } from '@/stores/backup';
 import { supabase, BACKUP_BUCKET } from '@/lib/supabase';
+import { getStoredLicense } from '@/services/license';
 
 // Serialize all Dexie tables to JSON
 async function serializeDB(): Promise<string> {
@@ -56,10 +57,23 @@ export async function performBackup(): Promise<BackupResult> {
   if (!studioId || !pin) return { ok: false, error: 'Studio ID atau PIN belum ada' };
   if (!navigator.onLine) return { ok: false, error: 'Offline — backup akan otomatis jalan saat online' };
 
+  // Check license quota
+  const license = getStoredLicense();
+  if (license && license.storage_used_mb >= license.storage_quota_mb) {
+    return { ok: false, error: `Storage penuh (${license.storage_used_mb}/${license.storage_quota_mb} MB). Upgrade untuk menambah kapasitas.` };
+  }
+
   setIsBackingUp(true);
   try {
     const json = await serializeDB();
     const encrypted = await encrypt(json, pin);
+    const sizeMB = encrypted.byteLength / (1024 * 1024);
+
+    // Check if this backup would exceed quota
+    if (license && (license.storage_used_mb + sizeMB) > license.storage_quota_mb) {
+      return { ok: false, error: `Backup (${sizeMB.toFixed(1)} MB) melebihi sisa quota. Upgrade storage.` };
+    }
+
     const path = `${studioId}/backup.enc`;
 
     const { error } = await supabase.storage
@@ -67,6 +81,12 @@ export async function performBackup(): Promise<BackupResult> {
       .upload(path, encrypted, { contentType: 'application/octet-stream', upsert: true });
 
     if (error) throw error;
+
+    // Update storage_used on server
+    if (license) {
+      await supabase.from('licenses').update({ storage_used_mb: sizeMB }).eq('license_key', license.license_key);
+    }
+
     const now = new Date().toISOString();
     setLastBackup(now);
     return { ok: true };

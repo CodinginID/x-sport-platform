@@ -4,7 +4,7 @@ import { db } from '@/database/db';
 import { verifyPassword } from '@/utils';
 
 interface AuthState {
-  user: null | { id: string; email: string; full_name: string; role: 'owner' | 'staff' };
+  user: null | { id: string; email: string; full_name: string; role: 'owner' | 'staff' | 'superadmin' };
   isAuthenticated: boolean;
   rememberMe: boolean;
   login: (identifier: string, password: string, rememberMe: boolean) => Promise<boolean>;
@@ -18,10 +18,24 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       rememberMe: false,
       login: async (identifier, password, rememberMe) => {
-        // Support login by email or username (part before @)
+        // Check superadmin credentials from env vars first
+        const adminEmail = import.meta.env.VITE_SUPERADMIN_EMAIL as string | undefined;
+        const adminPassword = import.meta.env.VITE_SUPERADMIN_PASSWORD as string | undefined;
+        if (adminEmail && adminPassword) {
+          const matchEmail = identifier === adminEmail || identifier === adminEmail.split('@')[0];
+          if (matchEmail && password === adminPassword) {
+            set({
+              user: { id: 'superadmin', email: adminEmail, full_name: 'Super Admin', role: 'superadmin' },
+              isAuthenticated: true,
+              rememberMe,
+            });
+            return true;
+          }
+        }
+
+        // Normal IndexedDB check
         let user = await db.users.where('email').equals(identifier).first();
         if (!user) {
-          // Try matching by username prefix (e.g. "admin" matches "admin@studio.com")
           const allUsers = await db.users.toArray();
           user = allUsers.find(u => u.email.split('@')[0] === identifier);
         }

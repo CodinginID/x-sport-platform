@@ -47,10 +47,16 @@ export default function LandingPage() {
                   <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 </Link>
               ) : (
-                <Link to="/login" className="btn-primary flex items-center group">
-                  {t('landing.cta_login')}
-                  <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                </Link>
+                <>
+                  <Link to="/login" className="btn-primary flex items-center group">
+                    {t('landing.cta_login')}
+                    <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                  <Link to="/register" className="px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest border border-zen-ink/10 text-zen-ink hover:bg-zen-ink hover:text-white transition-all duration-300 flex items-center group">
+                    Daftar Studio
+                    <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -101,10 +107,16 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">{t('landing.section3_title')}</h2>
           <p className="text-zen-ink/50 text-lg max-w-xl mx-auto mb-10">{t('landing.section3_desc')}</p>
-          <Link to="/login" className="btn-primary inline-flex items-center group">
-            {t('landing.cta_login')}
-            <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
-          </Link>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link to="/register" className="btn-primary inline-flex items-center group">
+              Daftar Studio Gratis
+              <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link to="/login" className="px-8 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest border border-zen-ink/10 text-zen-ink hover:bg-zen-ink hover:text-white transition-all duration-300 inline-flex items-center group">
+              {t('landing.cta_login')}
+              <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
         </div>
       </section>
 

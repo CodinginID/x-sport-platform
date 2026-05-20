@@ -1,11 +1,10 @@
 import { db } from '@/database/db';
-import type { User, Member, Coach, Product, Package, PackageCoach, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
+import type { Member, Coach, Product, Package, PackageCoach, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
 import { format, subDays, addDays } from 'date-fns';
-import { hashPassword } from '@/utils';
 
 export async function seedDatabase() {
-  const userCount = await db.users.count();
-  if (userCount > 0) return;
+  const memberCount = await db.members.count();
+  if (memberCount > 0) return;
 
   const now = format(new Date(), 'yyyy-MM-dd\'T\'HH:mm:ss');
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -27,25 +26,6 @@ export async function seedDatabase() {
   const bookingId1 = crypto.randomUUID();
   const bookingId2 = crypto.randomUUID();
   const bookingId3 = crypto.randomUUID();
-
-  const users: User[] = [
-    {
-      id: crypto.randomUUID(),
-      email: 'admin@studio.com',
-      password_hash: await hashPassword('admin123'),
-      full_name: 'Owner Studio',
-      role: 'owner',
-      created_at: now,
-    },
-    {
-      id: crypto.randomUUID(),
-      email: 'staff@studio.com',
-      password_hash: await hashPassword('staff123'),
-      full_name: 'Karyawan Studio',
-      role: 'staff',
-      created_at: now,
-    },
-  ];
 
   const members: Member[] = [
     { member_id: memberId1, full_name: 'Andi Pratama', phone_number: '081234567890', email: 'andi@email.com', gender: 'male', birth_date: '1995-03-15', address: 'Jl. Sudirman No. 10, Jakarta', join_date: format(subDays(new Date(), 60), 'yyyy-MM-dd'), status_active: true, notes: '', created_at: now, updated_at: now },
@@ -116,8 +96,7 @@ export async function seedDatabase() {
     { commission_id: crypto.randomUUID(), coach_id: coachId2, booking_id: bookingId2, member_id: memberId2, package_price: 300000, commission_percentage: 15, commission_amount: 45000, date: format(subDays(new Date(), 2), 'yyyy-MM-dd'), created_at: now },
   ];
 
-  await db.transaction('rw', [db.users, db.members, db.coaches, db.products, db.packages, db.packageCoaches, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
-    await db.users.bulkPut(users);
+  await db.transaction('rw', [db.members, db.coaches, db.products, db.packages, db.packageCoaches, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
     await db.members.bulkPut(members);
     await db.coaches.bulkPut(coaches);
     await db.products.bulkPut(products);
