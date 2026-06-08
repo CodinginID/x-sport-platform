@@ -3,11 +3,12 @@ import { createPortal } from "react-dom";
 import { useProducts, useProductSales, useProductSaleMutation } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
-import { generateSaleReceipt, previewPdf } from "@/utils/pdf";
+import { usePrintReceipt } from "@/hooks/usePrintReceipt";
+import { usePrinterStore } from "@/stores/printer";
 import { Button, Input, NumericInput } from "@/components/ui";
 import { PrintPreview } from "@/components/PrintPreview";
 import { Plus, Minus, Trash2, ShoppingCart, Coins, X, Printer, ShoppingBag, Calendar } from "lucide-react";
-import type { Product, ProductSaleItem, PaymentMethod } from "@/types";
+import type { Product, ProductSale, ProductSaleItem, PaymentMethod } from "@/types";
 
 type Preset = '7d' | '30d' | 'month' | 'custom';
 function getPresetDates(p: Preset) {
@@ -37,6 +38,7 @@ export default function ProductSalesPage() {
   const { data: sales = [] } = useProductSales({ startDate, endDate });
   const { data: products = [] } = useProducts();
   const mutation = useProductSaleMutation();
+  const { printSale } = usePrintReceipt();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -114,9 +116,13 @@ export default function ProductSalesPage() {
       change,
       notes,
     }, {
-      onSuccess: () => {
+      onSuccess: async (saved: ProductSale) => {
         setModalOpen(false);
         resetForm();
+        if (usePrinterStore.getState().autoPrint) {
+          const fallbackUrl = await printSale(saved);
+          if (fallbackUrl) setPdfUrl(fallbackUrl);
+        }
       },
     });
   };
@@ -206,7 +212,7 @@ export default function ProductSalesPage() {
                     <p className="text-sm font-bold">{formatCurrency(row.total)}</p>
                     {row.discount > 0 && <p className="text-[10px] text-red-400">-{formatCurrency(row.discount)}</p>}
                   </div>
-                  <button onClick={async () => { const doc = await generateSaleReceipt(row); setPdfUrl(previewPdf(doc)); }}
+                  <button onClick={async () => { const url = await printSale(row); if (url) setPdfUrl(url); }}
                     className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/30 hover:text-zen-brand transition-colors"
                     title="Cetak struk">
                     <Printer size={14} />

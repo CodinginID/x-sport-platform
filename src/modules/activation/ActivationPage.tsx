@@ -40,16 +40,18 @@ export default function ActivationPage() {
     (async () => {
       setFetching(true);
       setFetchError('');
-      const { data, error: sbError } = await supabase
+      // Use limit(1) + order — .maybeSingle() errors when owner has multiple licenses
+      const { data: rows, error: sbError } = await supabase
         .from('licenses')
         .select('license_key, is_active, studio_name, activated_at')
         .eq('owner_email', user.email)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (sbError) {
         setFetchError(sbError.message);
       }
-      setLicenseStatus(data ?? null);
+      setLicenseStatus(rows?.[0] ?? null);
       setFetching(false);
     })();
   }, [user?.email]);
@@ -96,11 +98,10 @@ export default function ActivationPage() {
     });
     setLoading(false);
     if (!result.ok) { setError(result.error); return; }
-    const stored = localStorage.getItem('xsport-license');
-    if (stored) {
-      const lic = JSON.parse(stored);
-      if (lic.studio_name) setStudioName(lic.studio_name);
-      if (lic.studio_address) setStudioAddress(lic.studio_address);
+    if (result.data) {
+      await useAuthStore.getState().updateLicenseInfo(result.data);
+      if (result.data.studio_name) setStudioName(result.data.studio_name);
+      if (result.data.studio_address) setStudioAddress(result.data.studio_address);
     }
     setSuccess(true);
   };

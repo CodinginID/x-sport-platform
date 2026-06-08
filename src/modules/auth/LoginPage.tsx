@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Button, Input } from '@/components/ui';
 import { Eye, EyeOff, ChevronLeft } from 'lucide-react';
-import { db } from '@/database/db';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -31,15 +31,25 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    let user = await db.users.where('email').equals(email.trim()).first();
-    if (!user) {
-      const allUsers = await db.users.toArray();
-      user = allUsers.find(u => u.email.split('@')[0] === email.trim());
-    }
-    setLoading(false);
+    // Fetch ALL matching rows — .maybeSingle() errors when email appears multiple times
+    const { data: luList } = await supabase.from('license_users')
+      .select('full_name, email')
+      .eq('email', email.trim())
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (!user) { setError('Akun tidak ditemukan'); return; }
-    setUserFound({ full_name: user.full_name });
+    const lu = luList?.[0];
+    if (lu) { setLoading(false); setUserFound({ full_name: lu.full_name }); return; }
+
+    // Try username prefix
+    const { data: allLu } = await supabase.from('license_users')
+      .select('full_name, email')
+      .ilike('email', `${email.trim()}@%`);
+    const match = (allLu ?? []).find(u => u.email.split('@')[0] === email.trim());
+    if (match) { setLoading(false); setUserFound({ full_name: match.full_name }); return; }
+
+    setLoading(false);
+    setError('Akun tidak ditemukan');
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -69,7 +79,6 @@ export default function LoginPage() {
           {error && <div className="bg-red-50 text-red-600 text-xs font-bold uppercase tracking-widest p-4 rounded-2xl mb-6">{error}</div>}
 
           {!userFound ? (
-            /* Step 1: Email/username */
             <form onSubmit={handleCheckEmail} className="space-y-6 animate-page-in">
               <Input label={t('login.email')} type="text" placeholder="Email atau username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus required />
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
@@ -77,7 +86,6 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-            /* Step 2: Password */
             <form onSubmit={handleLogin} className="space-y-6 animate-page-in">
               <div className="flex items-center gap-3 p-4 bg-zen-bg rounded-2xl">
                 <button type="button" onClick={resetToEmail} className="text-zen-ink/40 hover:text-zen-ink transition-colors">
