@@ -24,26 +24,33 @@ interface AuthState {
 }
 
 async function lookupUser(email: string) {
-  // 1. Try license_users (all registered studio owners)
-  const { data: lu } = await supabase.from('license_users')
+  // 1. Try license_users — fetch ALL rows for this email, pick most recent
+  //    (.maybeSingle() silently returns null when there are multiple rows)
+  const { data: luList } = await supabase.from('license_users')
     .select('email, password_hash, full_name, role, license_id')
     .eq('email', email)
-    .maybeSingle();
-  if (lu) return { ...lu, source: 'license_users' as const, studioId: lu.license_id };
+    .order('created_at', { ascending: false });
 
-  // 2. Try username prefix match in license_users
+  if (luList?.length) {
+    const lu = luList[0];
+    return { ...lu, source: 'license_users' as const, studioId: lu.license_id };
+  }
+
+  // 2. Username prefix match in license_users
   const { data: allLu } = await supabase.from('license_users')
     .select('email, password_hash, full_name, role, license_id')
-    .ilike('email', `${email}@%`);
+    .ilike('email', `${email}@%`)
+    .order('created_at', { ascending: false });
   const luMatch = (allLu ?? []).find(u => u.email.split('@')[0] === email);
   if (luMatch) return { ...luMatch, source: 'license_users' as const, studioId: luMatch.license_id };
 
-  // 3. Try users table (staff added after activation, not in license_users)
-  const { data: u } = await supabase.from('users')
+  // 3. Try users table (staff added after activation)
+  const { data: uList } = await supabase.from('users')
     .select('id, email, password_hash, full_name, role, studio_id')
     .eq('email', email)
-    .limit(1)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const u = uList?.[0];
   if (u) return { ...u, source: 'users' as const, studioId: u.studio_id };
 
   return null;

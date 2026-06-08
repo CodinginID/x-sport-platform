@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import {
   RefreshCw, Check, Copy, X, Loader2, CheckCircle2, XCircle,
-  Clock, AlertTriangle, Mail, Phone, Package, Calendar, KeyRound,
-  Building2, ShieldAlert, HardDrive, TrendingUp,
+  Clock, AlertTriangle, Mail, Phone, KeyRound, Building2,
+  Search, Wifi, WifiOff, Calendar, ChevronDown, ChevronUp,
+  CircleDot, HardDrive, Package,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,27 +25,61 @@ interface License {
   storage_used_mb: number;
 }
 
+interface SessionRow {
+  studio_id: string;
+  last_used_at: string;
+  expires_at: string;
+  user_email: string;
+  user_full_name: string;
+}
+
+type SessionStatus = 'online' | 'today' | 'recent' | 'idle' | 'none';
+
+interface LicenseRow extends License {
+  sessionStatus: SessionStatus;
+  sessionLastUsed: string | null;
+  sessionUser: string | null;
+  sessionCount: number;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso));
 }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return 'baru saja';
+  if (min < 60) return `${min} mnt lalu`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} jam lalu`;
+  const d = Math.floor(h / 24);
+  return `${d} hari lalu`;
+}
+
 function daysUntil(iso: string) {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 }
 
-function expiryColor(days: number) {
-  if (days < 0) return 'text-red-600 bg-red-50';
-  if (days <= 30) return 'text-red-500 bg-red-50';
-  if (days <= 90) return 'text-amber-600 bg-amber-50';
-  return 'text-green-600 bg-green-50';
+function getSessionStatus(lastUsed: string | null, sessionExpires: string | null): SessionStatus {
+  if (!lastUsed || !sessionExpires) return 'none';
+  if (new Date(sessionExpires) < new Date()) return 'idle';
+  const minAgo = (Date.now() - new Date(lastUsed).getTime()) / 60_000;
+  if (minAgo < 30) return 'online';
+  if (minAgo < 60 * 24) return 'today';
+  if (minAgo < 60 * 24 * 7) return 'recent';
+  return 'idle';
 }
 
-function storagePercent(used: number, quota: number) {
-  if (!quota) return 0;
-  return Math.min(100, Math.round((used / quota) * 100));
-}
+const SESSION_CONFIG: Record<SessionStatus, { label: string; dot: string; text: string }> = {
+  online: { label: 'Online',        dot: 'bg-green-500 animate-pulse', text: 'text-green-600' },
+  today:  { label: 'Aktif hari ini',dot: 'bg-amber-400',               text: 'text-amber-600' },
+  recent: { label: 'Aktif minggu ini', dot: 'bg-blue-400',             text: 'text-blue-600'  },
+  idle:   { label: 'Tidak aktif',   dot: 'bg-zen-ink/20',              text: 'text-zen-ink/40' },
+  none:   { label: 'Belum login',   dot: 'bg-zen-ink/10',              text: 'text-zen-ink/30' },
+};
 
 // ─── License Key Modal ────────────────────────────────────────────────────────
 
@@ -53,7 +88,6 @@ function LicenseKeyModal({ licenseKey, studioName, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
   const copy = () => { navigator.clipboard.writeText(licenseKey); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={onClose}>
       <div className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[32px] rounded-t-[32px] p-8 space-y-6 animate-slide-up sm:animate-page-in" onClick={e => e.stopPropagation()}>
@@ -82,7 +116,7 @@ function LicenseKeyModal({ licenseKey, studioName, onClose }: {
   );
 }
 
-// ─── Bottom Sheet Confirm ─────────────────────────────────────────────────────
+// ─── Confirm Sheet ────────────────────────────────────────────────────────────
 
 function ConfirmSheet({ title, message, variant, onConfirm, onCancel }: {
   title: string; message: string; variant: 'danger' | 'warning'; onConfirm: () => void; onCancel: () => void;
@@ -107,148 +141,245 @@ function ConfirmSheet({ title, message, variant, onConfirm, onCancel }: {
   );
 }
 
-// ─── Skeleton Card ────────────────────────────────────────────────────────────
+// ─── Session Detail Drawer ────────────────────────────────────────────────────
 
-function SkeletonCard() {
-  return (
-    <div className="bg-white rounded-3xl p-5 space-y-4 border border-zen-ink/5">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-zen-ink/5 rounded-2xl animate-pulse" />
-          <div className="space-y-2">
-            <div className="h-4 w-32 bg-zen-ink/8 rounded-xl animate-pulse" />
-            <div className="h-3 w-20 bg-zen-ink/5 rounded-xl animate-pulse" />
-          </div>
+function SessionDrawer({ license, sessions, onClose }: {
+  license: LicenseRow; sessions: SessionRow[]; onClose: () => void;
+}) {
+  const mySessions = sessions
+    .filter(s => s.studio_id === license.id)
+    .sort((a, b) => new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime());
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-md sm:mx-4 sm:rounded-[28px] rounded-t-[28px] p-6 space-y-5 max-h-[80vh] overflow-y-auto animate-slide-up sm:animate-page-in" onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto sm:hidden -mt-1" />
+        <div>
+          <h2 className="text-base font-bold">{license.studio_name || 'Studio'}</h2>
+          <p className="text-xs text-zen-ink/40 mt-0.5">Riwayat sesi aktif</p>
         </div>
-        <div className="h-6 w-20 bg-zen-ink/5 rounded-full animate-pulse" />
-      </div>
-      <div className="space-y-2.5 pt-1">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="h-3 w-3 bg-zen-ink/5 rounded animate-pulse" />
-            <div className="h-3 bg-zen-ink/5 rounded-xl animate-pulse" style={{ width: `${40 + i * 15}%` }} />
+
+        {mySessions.length === 0 ? (
+          <div className="text-center py-8">
+            <WifiOff size={28} className="text-zen-ink/20 mx-auto mb-2" />
+            <p className="text-sm text-zen-ink/40">Tidak ada sesi aktif</p>
           </div>
-        ))}
+        ) : (
+          <div className="space-y-3">
+            {mySessions.map((s, i) => {
+              const status = getSessionStatus(s.last_used_at, s.expires_at);
+              const cfg = SESSION_CONFIG[status];
+              const expired = new Date(s.expires_at) < new Date();
+              return (
+                <div key={i} className={`rounded-2xl p-4 border ${expired ? 'bg-zen-bg border-zen-ink/5 opacity-50' : 'bg-white border-zen-ink/10'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <span className={`text-[10px] uppercase tracking-widest font-bold ${cfg.text}`}>
+                        {expired ? 'Kedaluwarsa' : cfg.label}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zen-ink/40">{timeAgo(s.last_used_at)}</span>
+                  </div>
+                  <p className="text-sm font-bold truncate">{s.user_full_name}</p>
+                  <p className="text-xs text-zen-ink/50 truncate">{s.user_email}</p>
+                  <p className="text-[10px] text-zen-ink/30 mt-1">
+                    Berakhir: {formatDate(s.expires_at)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <button onClick={onClose} className="w-full py-3.5 border border-zen-ink/10 text-zen-ink/60 text-sm font-bold rounded-2xl min-h-[48px]">
+          Tutup
+        </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
-// ─── License Card ─────────────────────────────────────────────────────────────
+// ─── License Row (table row) ──────────────────────────────────────────────────
 
-function LicenseCard({ license, onApprove, onReject, isProcessing }: {
-  license: License; onApprove: () => void; onReject: () => void; isProcessing: boolean;
+function LicenseTableRow({ row, onApprove, onReject, onCopyKey, onShowSessions, isProcessing, copiedId }: {
+  row: LicenseRow;
+  onApprove: () => void;
+  onReject: () => void;
+  onCopyKey: () => void;
+  onShowSessions: () => void;
+  isProcessing: boolean;
+  copiedId: string | null;
 }) {
-  const [keyCopied, setKeyCopied] = useState(false);
-  const isPending = !license.is_active;
-  const days = daysUntil(license.expires_at);
-  const pct = storagePercent(license.storage_used_mb, license.storage_quota_mb);
-
-  const copyKey = () => {
-    navigator.clipboard.writeText(license.license_key);
-    setKeyCopied(true);
-    setTimeout(() => setKeyCopied(false), 2000);
-  };
+  const [expanded, setExpanded] = useState(false);
+  const isPending = !row.is_active;
+  const days = daysUntil(row.expires_at);
+  const cfg = SESSION_CONFIG[row.sessionStatus];
+  const isCopied = copiedId === row.id;
+  const pct = row.storage_quota_mb ? Math.min(100, Math.round((row.storage_used_mb / row.storage_quota_mb) * 100)) : 0;
 
   return (
-    <div className={`rounded-3xl overflow-hidden border transition-all ${isPending ? 'bg-amber-50 border-amber-200' : 'bg-white border-zen-ink/5'}`}>
-      {/* Header */}
-      <div className="p-5 pb-4">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isPending ? 'bg-amber-100' : 'bg-green-50'}`}>
-              <Building2 size={18} className={isPending ? 'text-amber-600' : 'text-green-500'} />
-            </div>
-            <div className="min-w-0">
-              <p className="font-bold text-sm truncate">{license.studio_name || 'Studio Tanpa Nama'}</p>
-              <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mt-0.5">{formatDate(license.created_at)}</p>
-            </div>
-          </div>
+    <>
+      {/* ─ Main row ─ */}
+      <div
+        className={`flex items-center gap-3 px-4 py-3.5 border-b border-zen-ink/5 transition-colors cursor-pointer hover:bg-zen-bg/60 ${isPending ? 'bg-amber-50/60' : ''}`}
+        onClick={() => setExpanded(e => !e)}
+      >
+        {/* Status dot */}
+        <div className="shrink-0 w-8 flex justify-center">
           {isPending ? (
-            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] uppercase tracking-widest font-bold px-2.5 py-1.5 rounded-full shrink-0">
-              <Clock size={9} /> Menunggu
-            </span>
+            <Clock size={15} className="text-amber-500" />
           ) : (
-            <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] uppercase tracking-widest font-bold px-2.5 py-1.5 rounded-full shrink-0">
-              <CheckCircle2 size={9} /> Aktif
+            <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+          )}
+        </div>
+
+        {/* Studio */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold truncate">{row.studio_name || <span className="text-zen-ink/30 italic">Tanpa nama</span>}</p>
+          <p className="text-[11px] text-zen-ink/40 truncate">{row.owner_email}</p>
+        </div>
+
+        {/* Plan badge — hidden on small */}
+        <div className="hidden sm:block shrink-0">
+          <span className="text-[10px] uppercase tracking-widest font-bold text-zen-brand bg-zen-brand/10 px-2 py-1 rounded-full">
+            {row.plan || 'basic'}
+          </span>
+        </div>
+
+        {/* Session status — hidden on small */}
+        <div className="hidden md:flex items-center gap-1.5 shrink-0 w-28">
+          {isPending ? (
+            <span className="text-[11px] text-zen-ink/30">—</span>
+          ) : (
+            <>
+              <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+              <span className={`text-[11px] font-bold ${cfg.text}`}>{cfg.label}</span>
+            </>
+          )}
+        </div>
+
+        {/* Expiry */}
+        <div className="hidden lg:block shrink-0 w-24 text-right">
+          {isPending ? (
+            <span className="text-[11px] text-amber-500 font-bold">Menunggu</span>
+          ) : (
+            <span className={`text-[11px] font-bold ${days < 0 ? 'text-red-500' : days <= 30 ? 'text-amber-500' : 'text-zen-ink/40'}`}>
+              {days < 0 ? 'Expired' : `${days}h lagi`}
             </span>
           )}
         </div>
 
-        {/* Info rows */}
-        <div className="space-y-2.5">
-          {license.owner_email && (
-            <div className="flex items-center gap-2.5">
-              <Mail size={13} className="text-zen-ink/30 shrink-0" />
-              <p className="text-sm text-zen-ink/70 truncate">{license.owner_email}</p>
-            </div>
-          )}
-          {license.owner_phone && (
-            <div className="flex items-center gap-2.5">
-              <Phone size={13} className="text-zen-ink/30 shrink-0" />
-              <p className="text-sm text-zen-ink/70 font-mono">{license.owner_phone}</p>
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <Package size={13} className="text-zen-ink/30 shrink-0" />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-zen-brand bg-zen-brand/10 px-2 py-0.5 rounded-full">
-                {license.plan || 'basic'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <Calendar size={13} className="text-zen-ink/30 shrink-0" />
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${expiryColor(days)}`}>
-                {days < 0 ? 'Expired' : days === 0 ? 'Hari ini' : `${days} hari lagi`}
-              </span>
-            </div>
-          </div>
+        {/* Expand chevron */}
+        <div className="shrink-0 text-zen-ink/30">
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </div>
-
-        {/* Storage bar (active only) */}
-        {!isPending && license.storage_quota_mb > 0 && (
-          <div className="mt-4 pt-4 border-t border-zen-ink/5">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-1.5">
-                <HardDrive size={11} className="text-zen-ink/30" />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Storage</span>
-              </div>
-              <span className="text-[10px] font-bold text-zen-ink/50">
-                {license.storage_used_mb.toFixed(0)} / {license.storage_quota_mb} MB
-              </span>
-            </div>
-            <div className="h-1.5 bg-zen-ink/5 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${pct > 90 ? 'bg-red-400' : pct > 70 ? 'bg-amber-400' : 'bg-zen-brand'}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* License key row (active) */}
-      {!isPending && (
-        <button onClick={copyKey} className="w-full px-5 py-3.5 border-t border-zen-ink/5 flex items-center justify-between gap-3 active:bg-zen-bg transition-colors">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <KeyRound size={13} className="text-zen-brand shrink-0" />
-            <p className="text-xs font-mono font-bold text-zen-brand truncate">{license.license_key}</p>
+      {/* ─ Expanded detail ─ */}
+      {expanded && (
+        <div className={`px-4 pb-4 pt-2 border-b border-zen-ink/5 space-y-4 ${isPending ? 'bg-amber-50/30' : 'bg-zen-bg/40'}`}>
+          {/* Info grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {row.owner_phone && (
+              <div className="col-span-2 sm:col-span-1 flex items-center gap-2">
+                <Phone size={12} className="text-zen-ink/30 shrink-0" />
+                <span className="text-[11px] text-zen-ink/60 font-mono">{row.owner_phone}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Calendar size={12} className="text-zen-ink/30 shrink-0" />
+              <span className="text-[11px] text-zen-ink/50">Daftar: {formatDate(row.created_at)}</span>
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-1 col-span-2">
+              <Package size={12} className="text-zen-ink/30 shrink-0" />
+              <span className="text-[11px] text-zen-ink/50">
+                {row.is_active && row.activated_at ? `Aktif sejak ${formatDate(row.activated_at)}` : 'Belum aktivasi perangkat'}
+              </span>
+            </div>
+            {!isPending && row.storage_quota_mb > 0 && (
+              <div className="col-span-2 flex items-center gap-2">
+                <HardDrive size={12} className="text-zen-ink/30 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[10px] text-zen-ink/40">Storage</span>
+                    <span className="text-[10px] text-zen-ink/40">{pct}%</span>
+                  </div>
+                  <div className="h-1 bg-zen-ink/10 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${pct > 90 ? 'bg-red-400' : pct > 70 ? 'bg-amber-400' : 'bg-zen-brand'}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          {keyCopied ? <Check size={14} className="text-green-500 shrink-0" /> : <Copy size={14} className="text-zen-ink/30 shrink-0" />}
-        </button>
-      )}
 
-      {/* Action buttons (pending) */}
-      {isPending && (
-        <div className="px-5 pb-5 pt-1 grid grid-cols-2 gap-2">
-          <button onClick={onReject} disabled={isProcessing} className="py-3.5 border border-red-200 text-red-500 text-xs font-bold rounded-2xl active:scale-[0.97] transition-transform disabled:opacity-40 min-h-[48px] flex items-center justify-center gap-1.5">
-            {isProcessing ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />} Tolak
-          </button>
-          <button onClick={onApprove} disabled={isProcessing} className="py-3.5 bg-green-500 text-white text-xs font-bold rounded-2xl active:scale-[0.97] transition-transform disabled:opacity-40 min-h-[48px] flex items-center justify-center gap-1.5">
-            {isProcessing ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve
-          </button>
+          {/* Session last used */}
+          {!isPending && row.sessionStatus !== 'none' && (
+            <button
+              onClick={e => { e.stopPropagation(); onShowSessions(); }}
+              className="flex items-center gap-2 text-[11px] text-zen-ink/50 hover:text-zen-brand transition-colors"
+            >
+              <Wifi size={12} />
+              Terakhir diakses oleh <strong>{row.sessionUser}</strong> · {row.sessionLastUsed ? timeAgo(row.sessionLastUsed) : '—'}
+              <span className="text-zen-brand underline">({row.sessionCount} sesi)</span>
+            </button>
+          )}
+          {!isPending && row.sessionStatus === 'none' && (
+            <div className="flex items-center gap-2 text-[11px] text-zen-ink/30">
+              <WifiOff size={12} />
+              Belum pernah login
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {!isPending && (
+              <button onClick={e => { e.stopPropagation(); onCopyKey(); }} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zen-ink/10 rounded-2xl text-[11px] font-bold text-zen-ink/60 hover:border-zen-brand/30 hover:text-zen-brand transition-colors min-h-[40px]">
+                <KeyRound size={12} />
+                {isCopied ? (
+                  <><Check size={12} className="text-green-500" /> Disalin!</>
+                ) : (
+                  <><Copy size={12} /> Salin License Key</>
+                )}
+              </button>
+            )}
+            {!isPending && row.sessionCount > 0 && (
+              <button onClick={e => { e.stopPropagation(); onShowSessions(); }} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zen-ink/10 rounded-2xl text-[11px] font-bold text-zen-ink/60 hover:border-zen-brand/30 hover:text-zen-brand transition-colors min-h-[40px]">
+                <CircleDot size={12} /> Lihat Sesi
+              </button>
+            )}
+            {isPending && (
+              <>
+                <button onClick={e => { e.stopPropagation(); onReject(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-500 text-[11px] font-bold rounded-2xl hover:bg-red-50 transition-colors min-h-[40px] disabled:opacity-40">
+                  {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />} Tolak
+                </button>
+                <button onClick={e => { e.stopPropagation(); onApprove(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white text-[11px] font-bold rounded-2xl hover:bg-green-600 transition-colors min-h-[40px] disabled:opacity-40">
+                  {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Approve
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
+    </>
+  );
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3.5 border-b border-zen-ink/5">
+      <div className="w-8 flex justify-center"><div className="w-2.5 h-2.5 rounded-full bg-zen-ink/8 animate-pulse" /></div>
+      <div className="flex-1 space-y-1.5">
+        <div className="h-3.5 w-36 bg-zen-ink/8 rounded-xl animate-pulse" />
+        <div className="h-2.5 w-24 bg-zen-ink/5 rounded-xl animate-pulse" />
+      </div>
+      <div className="hidden sm:block w-14 h-5 bg-zen-ink/5 rounded-full animate-pulse" />
+      <div className="hidden md:block w-24 h-3 bg-zen-ink/5 rounded-xl animate-pulse" />
+      <div className="hidden lg:block w-16 h-3 bg-zen-ink/5 rounded-xl animate-pulse" />
+      <div className="w-4 h-4 bg-zen-ink/5 rounded animate-pulse" />
     </div>
   );
 }
@@ -257,91 +388,128 @@ function LicenseCard({ license, onApprove, onReject, isProcessing }: {
 
 export default function LicensesPage() {
   const [licenses, setLicenses] = useState<License[]>([]);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [approvedLicense, setApprovedLicense] = useState<License | null>(null);
+  const [sessionDrawer, setSessionDrawer] = useState<LicenseRow | null>(null);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'active'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'online'>('all');
+  const [search, setSearch] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
     open: boolean; title: string; message: string; variant: 'danger' | 'warning'; onConfirm: () => void;
   }>({ open: false, title: '', message: '', variant: 'warning', onConfirm: () => {} });
 
-  const fetchLicenses = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
-    const { data, error: fetchErr } = await supabase
-      .from('licenses')
-      .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, storage_quota_mb, storage_used_mb')
-      .order('is_active', { ascending: true })
-      .order('created_at', { ascending: false });
-
-    if (fetchErr) setError('Gagal memuat: ' + fetchErr.message);
-    else setLicenses((data as License[]) ?? []);
+    const [licRes, sessRes] = await Promise.all([
+      supabase
+        .from('licenses')
+        .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, storage_quota_mb, storage_used_mb')
+        .order('is_active', { ascending: true })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('sessions')
+        .select('studio_id, last_used_at, expires_at, user_email, user_full_name')
+        .order('last_used_at', { ascending: false }),
+    ]);
+    if (licRes.error) setError('Gagal memuat lisensi: ' + licRes.error.message);
+    else setLicenses((licRes.data as License[]) ?? []);
+    if (!sessRes.error) setSessions((sessRes.data as SessionRow[]) ?? []);
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchLicenses(); }, [fetchLicenses]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleApprove = (license: License) => {
-    setConfirm({
-      open: true,
-      title: 'Setujui Lisensi?',
-      message: `Aktifkan lisensi untuk "${license.studio_name || license.owner_email}"?`,
-      variant: 'warning',
-      onConfirm: async () => {
-        setActionLoading(license.id);
-        const { error: updateErr } = await supabase.from('licenses').update({ is_active: true }).eq('id', license.id);
-        if (updateErr) { setError('Gagal approve: ' + updateErr.message); setActionLoading(null); return; }
-        await fetchLicenses();
-        setActionLoading(null);
-        setApprovedLicense({ ...license, is_active: true });
-      },
-    });
-  };
+  // Build rows with session data
+  const rows: LicenseRow[] = licenses.map(lic => {
+    const mySessions = sessions.filter(s => s.studio_id === lic.id);
+    // Pick the most recently used session
+    const latest = mySessions.sort((a, b) => new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime())[0];
+    const status = getSessionStatus(latest?.last_used_at ?? null, latest?.expires_at ?? null);
+    return {
+      ...lic,
+      sessionStatus: status,
+      sessionLastUsed: latest?.last_used_at ?? null,
+      sessionUser: latest?.user_full_name ?? latest?.user_email ?? null,
+      sessionCount: mySessions.length,
+    };
+  });
 
-  const handleReject = (license: License) => {
-    setConfirm({
-      open: true,
-      title: 'Tolak & Hapus?',
-      message: `Hapus pendaftaran dari "${license.studio_name || license.owner_email}"? Tidak bisa dibatalkan.`,
-      variant: 'danger',
-      onConfirm: async () => {
-        setActionLoading(license.id);
-        const { error: delErr } = await supabase.from('licenses').delete().eq('id', license.id);
-        if (delErr) { setError('Gagal hapus: ' + delErr.message); setActionLoading(null); return; }
-        await fetchLicenses();
-        setActionLoading(null);
-      },
-    });
-  };
+  // Stats
+  const pendingCount  = rows.filter(r => !r.is_active).length;
+  const activeCount   = rows.filter(r => r.is_active).length;
+  const onlineCount   = rows.filter(r => r.sessionStatus === 'online').length;
+  const todayCount    = rows.filter(r => r.sessionStatus === 'today').length;
+  const expiringSoon  = rows.filter(r => r.is_active && daysUntil(r.expires_at) <= 30 && daysUntil(r.expires_at) >= 0).length;
+  const expiredCount  = rows.filter(r => r.is_active && daysUntil(r.expires_at) < 0).length;
 
-  // Derived stats
-  const pendingCount   = licenses.filter(l => !l.is_active).length;
-  const activeCount    = licenses.filter(l => l.is_active).length;
-  const activatedCount = licenses.filter(l => l.activated_at).length;
-  const expiringSoon   = licenses.filter(l => l.is_active && daysUntil(l.expires_at) <= 30 && daysUntil(l.expires_at) >= 0).length;
-  const expiredCount   = licenses.filter(l => daysUntil(l.expires_at) < 0).length;
-  const planCounts     = licenses.reduce<Record<string, number>>((acc, l) => {
-    const p = l.plan || 'basic';
-    acc[p] = (acc[p] || 0) + 1;
-    return acc;
-  }, {});
-
-  const filtered = licenses.filter(l => {
-    if (filter === 'pending') return !l.is_active;
-    if (filter === 'active') return l.is_active;
+  // Filter + search
+  const filtered = rows.filter(r => {
+    if (filter === 'pending') { if (r.is_active) return false; }
+    else if (filter === 'active') { if (!r.is_active) return false; }
+    else if (filter === 'online') { if (r.sessionStatus !== 'online' && r.sessionStatus !== 'today') return false; }
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        (r.studio_name ?? '').toLowerCase().includes(q) ||
+        (r.owner_email ?? '').toLowerCase().includes(q) ||
+        r.license_key.toLowerCase().includes(q)
+      );
+    }
     return true;
   });
 
+  const handleApprove = (lic: LicenseRow) => {
+    setConfirm({
+      open: true,
+      title: 'Setujui Lisensi?',
+      message: `Aktifkan lisensi untuk "${lic.studio_name || lic.owner_email}"?`,
+      variant: 'warning',
+      onConfirm: async () => {
+        setActionLoading(lic.id);
+        const { error: updateErr } = await supabase.from('licenses').update({ is_active: true }).eq('id', lic.id);
+        if (updateErr) { setError('Gagal approve: ' + updateErr.message); setActionLoading(null); return; }
+        await fetchAll();
+        setActionLoading(null);
+        setApprovedLicense({ ...lic, is_active: true });
+      },
+    });
+  };
+
+  const handleReject = (lic: LicenseRow) => {
+    setConfirm({
+      open: true,
+      title: 'Tolak & Hapus?',
+      message: `Hapus pendaftaran "${lic.studio_name || lic.owner_email}"? Tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: async () => {
+        setActionLoading(lic.id);
+        const { error: delErr } = await supabase.from('licenses').delete().eq('id', lic.id);
+        if (delErr) { setError('Gagal hapus: ' + delErr.message); setActionLoading(null); return; }
+        await fetchAll();
+        setActionLoading(null);
+      },
+    });
+  };
+
+  const handleCopyKey = (row: LicenseRow) => {
+    navigator.clipboard.writeText(row.license_key);
+    setCopiedId(row.id);
+    setTimeout(() => setCopiedId(id => id === row.id ? null : id), 2000);
+  };
+
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-5 pb-4">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Manajemen Lisensi</h1>
-          <p className="text-xs text-zen-ink/40 mt-0.5">{licenses.length} studio terdaftar</p>
+          <p className="text-xs text-zen-ink/40 mt-0.5">{loading ? '...' : `${licenses.length} studio terdaftar`}</p>
         </div>
-        <button onClick={fetchLicenses} disabled={loading} className="w-10 h-10 rounded-2xl border border-zen-ink/10 flex items-center justify-center text-zen-ink/50 active:bg-zen-bg transition-colors disabled:opacity-40">
+        <button onClick={fetchAll} disabled={loading} className="w-10 h-10 rounded-2xl border border-zen-ink/10 flex items-center justify-center text-zen-ink/50 hover:bg-zen-bg transition-colors disabled:opacity-40">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
@@ -355,162 +523,113 @@ export default function LicensesPage() {
         </div>
       )}
 
-      {/* ── Stats grid ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-zen-ink/5">
-          <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5">Total</p>
-          <p className="text-2xl font-bold">{loading ? '—' : licenses.length}</p>
-        </div>
-        <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100">
-          <p className="text-[9px] uppercase tracking-widest font-bold text-amber-500/80 mb-1.5">Menunggu</p>
-          <p className="text-2xl font-bold text-amber-500">{loading ? '—' : pendingCount}</p>
-        </div>
-        <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
-          <p className="text-[9px] uppercase tracking-widest font-bold text-green-500/80 mb-1.5">Aktif</p>
-          <p className="text-2xl font-bold text-green-500">{loading ? '—' : activeCount}</p>
-        </div>
-        <div className={`rounded-2xl p-4 border ${expiringSoon > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5'}`}>
-          <p className={`text-[9px] uppercase tracking-widest font-bold mb-1.5 ${expiringSoon > 0 ? 'text-red-500/80' : 'text-zen-ink/40'}`}>Mau Expired</p>
-          <p className={`text-2xl font-bold ${expiringSoon > 0 ? 'text-red-500' : 'text-zen-ink'}`}>{loading ? '—' : expiringSoon}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-zen-ink/5 col-span-2 sm:col-span-1">
-          <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5">Terpakai</p>
-          <p className="text-2xl font-bold">{loading ? '—' : activatedCount}</p>
-          <p className="text-[9px] text-zen-ink/30 mt-0.5">dari {activeCount} aktif</p>
-        </div>
+      {/* ── Stats strip ── */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {[
+          { label: 'Total',      val: licenses.length,  color: 'bg-white border-zen-ink/5',           text: 'text-zen-ink'   },
+          { label: 'Menunggu',   val: pendingCount,      color: 'bg-amber-50 border-amber-100',        text: 'text-amber-500' },
+          { label: 'Aktif',      val: activeCount,       color: 'bg-green-50 border-green-100',        text: 'text-green-500' },
+          { label: '● Online',   val: onlineCount,       color: 'bg-emerald-50 border-emerald-100',    text: 'text-emerald-600' },
+          { label: 'Mau Exp',    val: expiringSoon,      color: expiringSoon > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5', text: expiringSoon > 0 ? 'text-red-500' : 'text-zen-ink' },
+          { label: 'Expired',    val: expiredCount,      color: expiredCount > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5', text: expiredCount > 0 ? 'text-red-600' : 'text-zen-ink' },
+        ].map(({ label, val, color, text }) => (
+          <div key={label} className={`rounded-2xl p-3 border ${color} text-center`}>
+            <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1">{label}</p>
+            <p className={`text-xl font-bold ${text}`}>{loading ? '—' : val}</p>
+          </div>
+        ))}
       </div>
 
-      {/* ── Desktop: 2-col layout ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ── Pending alert ── */}
+      {!loading && pendingCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+          <Clock size={15} className="text-amber-600 shrink-0" />
+          <p className="text-sm font-bold text-amber-800">{pendingCount} pendaftaran baru menunggu persetujuan</p>
+          <button onClick={() => setFilter('pending')} className="ml-auto text-[10px] font-bold text-amber-700 underline whitespace-nowrap">Lihat</button>
+        </div>
+      )}
 
-        {/* Left: card list (2/3 width) */}
-        <div className="lg:col-span-2 space-y-4">
-
-          {/* Pending alert */}
-          {!loading && pendingCount > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
-              <Clock size={16} className="text-amber-600 shrink-0" />
-              <p className="text-sm font-bold text-amber-800">
-                {pendingCount} pendaftaran menunggu persetujuan Anda
-              </p>
-            </div>
-          )}
-
-          {/* Filter tabs */}
-          <div className="flex gap-2 bg-zen-bg rounded-2xl p-1">
-            {(['all', 'pending', 'active'] as const).map(f => (
-              <button key={f} onClick={() => setFilter(f)} className={`flex-1 py-2.5 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-all ${filter === f ? 'bg-white text-zen-ink shadow-sm' : 'text-zen-ink/40'}`}>
-                {f === 'all' ? `Semua (${licenses.length})` : f === 'pending' ? `Menunggu (${pendingCount})` : `Aktif (${activeCount})`}
-              </button>
-            ))}
-          </div>
-
-          {/* Cards */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-            ) : filtered.length === 0 ? (
-              <div className="xl:col-span-2 bg-white rounded-3xl p-12 text-center border border-zen-ink/5">
-                <Calendar size={32} className="text-zen-ink/20 mx-auto mb-3" />
-                <p className="text-sm text-zen-ink/40">
-                  {filter === 'pending' ? 'Tidak ada yang menunggu' : filter === 'active' ? 'Belum ada yang aktif' : 'Belum ada pendaftaran'}
-                </p>
-              </div>
-            ) : (
-              filtered.map(license => (
-                <LicenseCard
-                  key={license.id}
-                  license={license}
-                  onApprove={() => handleApprove(license)}
-                  onReject={() => handleReject(license)}
-                  isProcessing={actionLoading === license.id}
-                />
-              ))
-            )}
-          </div>
+      {/* ── Filter + Search ── */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        {/* Filter tabs */}
+        <div className="flex gap-1 bg-zen-bg rounded-2xl p-1 flex-1 sm:max-w-xs">
+          {([
+            ['all',    `Semua (${licenses.length})`],
+            ['pending',`Menunggu (${pendingCount})`],
+            ['active', `Aktif (${activeCount})`],
+            ['online', `Online (${onlineCount + todayCount})`],
+          ] as const).map(([f, label]) => (
+            <button key={f} onClick={() => setFilter(f)} className={`flex-1 py-2 text-[9px] uppercase tracking-widest font-bold rounded-xl transition-all ${filter === f ? 'bg-white text-zen-ink shadow-sm' : 'text-zen-ink/40'}`}>
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Right: summary panel (1/3 width, desktop only) */}
-        <div className="space-y-4">
-
-          {/* Plan distribution */}
-          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={15} className="text-zen-brand" />
-              <h3 className="text-sm font-bold">Distribusi Plan</h3>
-            </div>
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => <div key={i} className="h-8 bg-zen-ink/5 rounded-xl animate-pulse" />)}
-              </div>
-            ) : Object.keys(planCounts).length === 0 ? (
-              <p className="text-xs text-zen-ink/40">Belum ada data</p>
-            ) : (
-              <div className="space-y-2.5">
-                {Object.entries(planCounts).map(([plan, count]) => (
-                  <div key={plan} className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-xs font-bold capitalize">{plan}</span>
-                        <span className="text-xs text-zen-ink/50">{count} studio</span>
-                      </div>
-                      <div className="h-1.5 bg-zen-ink/5 rounded-full overflow-hidden">
-                        <div className="h-full bg-zen-brand rounded-full" style={{ width: `${(count / licenses.length) * 100}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Expiry alerts */}
-          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldAlert size={15} className="text-zen-brand" />
-              <h3 className="text-sm font-bold">Status Expiry</h3>
-            </div>
-            {loading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map(i => <div key={i} className="h-8 bg-zen-ink/5 rounded-xl animate-pulse" />)}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {[
-                  { label: 'Sudah expired', value: expiredCount, color: 'text-red-600 bg-red-50' },
-                  { label: '≤ 30 hari lagi', value: expiringSoon, color: 'text-amber-600 bg-amber-50' },
-                  { label: 'Aman (> 30 hari)', value: activeCount - expiringSoon - expiredCount, color: 'text-green-600 bg-green-50' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className={`flex items-center justify-between px-3 py-2.5 rounded-2xl ${color}`}>
-                    <span className="text-xs font-bold">{label}</span>
-                    <span className="text-sm font-bold">{value}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Expiring soon list */}
-          {!loading && expiringSoon > 0 && (
-            <div className="bg-red-50 rounded-3xl p-5 border border-red-100">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-red-500/80 mb-3">Segera Expired</p>
-              <div className="space-y-3">
-                {licenses
-                  .filter(l => l.is_active && daysUntil(l.expires_at) <= 30 && daysUntil(l.expires_at) >= 0)
-                  .slice(0, 5)
-                  .map(l => (
-                    <div key={l.id} className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-bold truncate">{l.studio_name || l.owner_email}</p>
-                      <span className="text-xs font-bold text-red-600 shrink-0">{daysUntil(l.expires_at)}h</span>
-                    </div>
-                  ))
-                }
-              </div>
-            </div>
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zen-ink/30" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Cari studio, email, license key..."
+            className="w-full pl-10 pr-4 py-3 bg-white border border-zen-ink/8 rounded-2xl text-sm text-zen-ink placeholder:text-zen-ink/30 outline-none focus:ring-2 ring-zen-brand/20"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zen-ink/30 hover:text-zen-ink">
+              <X size={14} />
+            </button>
           )}
         </div>
       </div>
 
+      {/* ── Table / List ── */}
+      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+
+        {/* Table header — desktop only */}
+        <div className="hidden md:flex items-center gap-3 px-4 py-2.5 bg-zen-bg/60 border-b border-zen-ink/5 text-[9px] uppercase tracking-widest font-bold text-zen-ink/40">
+          <div className="w-8" />
+          <div className="flex-1">Studio / Owner</div>
+          <div className="hidden sm:block w-16">Plan</div>
+          <div className="hidden md:block w-28">Sesi</div>
+          <div className="hidden lg:block w-24 text-right">Expiry</div>
+          <div className="w-4" />
+        </div>
+
+        {/* Rows */}
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <Building2 size={28} className="text-zen-ink/20 mx-auto mb-3" />
+            <p className="text-sm text-zen-ink/40">
+              {search ? `Tidak ada hasil untuk "${search}"` : 'Tidak ada data'}
+            </p>
+          </div>
+        ) : (
+          filtered.map(row => (
+            <LicenseTableRow
+              key={row.id}
+              row={row}
+              onApprove={() => handleApprove(row)}
+              onReject={() => handleReject(row)}
+              onCopyKey={() => handleCopyKey(row)}
+              onShowSessions={() => setSessionDrawer(row)}
+              isProcessing={actionLoading === row.id}
+              copiedId={copiedId}
+            />
+          ))
+        )}
+
+        {/* Footer count */}
+        {!loading && filtered.length > 0 && (
+          <div className="px-4 py-3 text-center text-[10px] text-zen-ink/30 border-t border-zen-ink/5">
+            Menampilkan {filtered.length} dari {licenses.length} lisensi
+          </div>
+        )}
+      </div>
+
+      {/* ── Modals ── */}
       {confirm.open && (
         <ConfirmSheet
           title={confirm.title}
@@ -520,12 +639,18 @@ export default function LicensesPage() {
           onCancel={() => setConfirm(p => ({ ...p, open: false }))}
         />
       )}
-
       {approvedLicense && (
         <LicenseKeyModal
           licenseKey={approvedLicense.license_key}
           studioName={approvedLicense.studio_name}
           onClose={() => setApprovedLicense(null)}
+        />
+      )}
+      {sessionDrawer && (
+        <SessionDrawer
+          license={sessionDrawer}
+          sessions={sessions}
+          onClose={() => setSessionDrawer(null)}
         />
       )}
     </div>

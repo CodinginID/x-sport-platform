@@ -31,12 +31,14 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    // Search in license_users (no studioId needed — works from any browser)
-    const { data: lu } = await supabase.from('license_users')
+    // Fetch ALL matching rows — .maybeSingle() errors when email appears multiple times
+    const { data: luList } = await supabase.from('license_users')
       .select('full_name, email')
       .eq('email', email.trim())
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
+    const lu = luList?.[0];
     if (lu) { setLoading(false); setUserFound({ full_name: lu.full_name }); return; }
 
     // Try username prefix

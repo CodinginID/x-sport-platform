@@ -40,16 +40,18 @@ export default function ActivationPage() {
     (async () => {
       setFetching(true);
       setFetchError('');
-      const { data, error: sbError } = await supabase
+      // Use limit(1) + order — .maybeSingle() errors when owner has multiple licenses
+      const { data: rows, error: sbError } = await supabase
         .from('licenses')
         .select('license_key, is_active, studio_name, activated_at')
         .eq('owner_email', user.email)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (sbError) {
         setFetchError(sbError.message);
       }
-      setLicenseStatus(data ?? null);
+      setLicenseStatus(rows?.[0] ?? null);
       setFetching(false);
     })();
   }, [user?.email]);
