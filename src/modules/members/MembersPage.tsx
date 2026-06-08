@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '@/utils/zodResolver';
 import { useMembers, useMemberMutation } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirmStore } from '@/components/ConfirmDialog';

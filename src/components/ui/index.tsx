@@ -80,7 +80,8 @@ export function Modal({ open, onClose, title, children, size = 'md' }: {
 
   if (!open) return null;
 
-  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+  // max-width applies on desktop only; on mobile the sheet spans full width.
+  const sizes = { sm: 'md:max-w-sm', md: 'md:max-w-lg', lg: 'md:max-w-2xl', xl: 'md:max-w-4xl' };
 
   return createPortal(
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
@@ -90,43 +91,38 @@ export function Modal({ open, onClose, title, children, size = 'md' }: {
         onClick={onClose}
       />
 
-      {/* ── Mobile: bottom sheet ── */}
-      <div className="md:hidden absolute inset-x-0 bottom-0 bg-white rounded-t-[28px] max-h-[92vh] flex flex-col animate-slide-up shadow-2xl">
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-9 h-1 bg-zen-ink/10 rounded-full" />
-        </div>
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zen-ink/5 shrink-0">
-          <h2 className="text-base font-bold">{title}</h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-2xl bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors"
-          >
-            <X size={15} />
-          </button>
-        </div>
-        {/* Scrollable content */}
-        <div className="overflow-y-auto px-6 py-5 flex-1">{children}</div>
-        {/* Safe area spacer */}
-        <div className="shrink-0 h-safe-bottom pb-4" />
-      </div>
-
-      {/* ── Desktop: centered dialog ── */}
-      <div className="hidden md:flex absolute inset-0 items-center justify-center p-6">
-        <div className={cn('relative bg-white rounded-3xl w-full shadow-2xl shadow-zen-ink/10 max-h-[88vh] flex flex-col animate-scale-in', sizes[size])}>
-          {/* Sticky header */}
-          <div className="flex items-center justify-between px-7 py-5 border-b border-zen-ink/5 shrink-0 rounded-t-3xl bg-white">
-            <h2 className="text-lg font-bold">{title}</h2>
+      {/* Bottom sheet on mobile, centered dialog on desktop. A single container
+          morphs across breakpoints so `children` renders exactly ONCE.
+          Duplicating it (separate mobile + desktop copies) broke react-hook-form
+          registration and React's DOM reconciliation (removeChild / Maximum
+          update depth) for any form rendered inside a Modal. */}
+      <div className="absolute inset-0 flex items-end justify-center md:items-center md:p-6">
+        <div
+          className={cn(
+            'relative bg-white w-full flex flex-col shadow-2xl shadow-zen-ink/10',
+            'rounded-t-[28px] max-h-[92vh] animate-slide-up',
+            'md:rounded-3xl md:max-h-[88vh] md:animate-scale-in',
+            sizes[size],
+          )}
+        >
+          {/* Drag handle (mobile only) */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0 md:hidden">
+            <div className="w-9 h-1 bg-zen-ink/10 rounded-full" />
+          </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 md:px-7 md:py-5 border-b border-zen-ink/5 shrink-0">
+            <h2 className="text-base md:text-lg font-bold">{title}</h2>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-2xl bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors"
+              className="w-8 h-8 md:w-9 md:h-9 rounded-2xl bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors"
             >
               <X size={16} />
             </button>
           </div>
-          {/* Scrollable content */}
-          <div className="overflow-y-auto px-7 py-6 flex-1">{children}</div>
+          {/* Scrollable content — rendered once */}
+          <div className="overflow-y-auto px-6 py-5 md:px-7 md:py-6 flex-1">{children}</div>
+          {/* Safe-area spacer (mobile bottom sheet only) */}
+          <div className="shrink-0 pwa-bottom-safe md:hidden" />
         </div>
       </div>
     </div>,
