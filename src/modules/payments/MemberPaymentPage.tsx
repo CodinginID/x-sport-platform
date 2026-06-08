@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useMembers, usePackages, useMemberPayments, useMemberPaymentMutation } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
-import { generatePaymentReceipt, previewPdf } from "@/utils/pdf";
 import { Button, Modal, Input, Select } from "@/components/ui";
+import { usePrintReceipt } from "@/hooks/usePrintReceipt";
+import { usePrinterStore } from "@/stores/printer";
 import { PrintPreview } from "@/components/PrintPreview";
 import { Calendar, Plus, Printer, Receipt } from "lucide-react";
 
@@ -38,6 +39,7 @@ export default function MemberPaymentPage() {
   const { data: members = [] } = useMembers();
   const { data: packages = [] } = usePackages();
   const mutation = useMemberPaymentMutation();
+  const { printPayment } = usePrintReceipt();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ member_id: "", package_id: "", payment_method: "cash" as "cash" | "transfer" | "qris", notes: "" });
@@ -55,15 +57,41 @@ export default function MemberPaymentPage() {
     if (p !== 'custom') { const d = getPresetDates(p); setStartDate(d.start); setEndDate(d.end); }
   };
 
-  const handleSubmit = () => {
-    mutation.mutate({ payment_date: today, member_id: form.member_id, package_id: form.package_id, amount, payment_method: form.payment_method, notes: form.notes });
-    setModalOpen(false);
-    setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
+  const printReceipt = async (row: any) => {
+    const memberName = memberMap[row.member_id] || '-';
+    const packageName = packageMap[row.package_id] || '-';
+    const url = await printPayment({
+      paymentId: row.payment_id,
+      date: formatDate(row.payment_date),
+      memberName,
+      packageName,
+      method: row.payment_method,
+      amount: row.amount,
+      notes: row.notes,
+      raw: {
+        payment_id: row.payment_id,
+        payment_date: row.payment_date,
+        member_name: memberName,
+        package_name: packageName,
+        amount: row.amount,
+        payment_method: row.payment_method,
+        notes: row.notes,
+      },
+    });
+    if (url) setPdfUrl(url);
   };
 
-  const printReceipt = async (row: any) => {
-    const doc = await generatePaymentReceipt({ payment_id: row.payment_id, payment_date: row.payment_date, member_name: memberMap[row.member_id] || '-', package_name: packageMap[row.package_id] || '-', amount: row.amount, payment_method: row.payment_method, notes: row.notes });
-    setPdfUrl(previewPdf(doc));
+  const handleSubmit = () => {
+    mutation.mutate(
+      { payment_date: today, member_id: form.member_id, package_id: form.package_id, amount, payment_method: form.payment_method, notes: form.notes },
+      {
+        onSuccess: async (saved: any) => {
+          if (usePrinterStore.getState().autoPrint) await printReceipt(saved);
+        },
+      },
+    );
+    setModalOpen(false);
+    setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
   };
 
   return (

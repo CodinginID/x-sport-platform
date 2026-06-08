@@ -6,6 +6,7 @@ import { Globe, Info, User } from 'lucide-react';
 import { BackupSection } from './BackupSection';
 import { StudioSection } from './StudioSection';
 import { LicenseSection } from './LicenseSection';
+import { PrinterSection } from './PrinterSection';
 
 export default function SettingsPage() {
   const { lang, setLang } = useLanguageStore();
@@ -31,6 +32,9 @@ export default function SettingsPage() {
 
       {/* Studio */}
       <StudioSection />
+
+      {/* Printer */}
+      <PrinterSection />
 
       {/* Language */}
       <Card title={t('settings.language')}>

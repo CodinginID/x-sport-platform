@@ -1,3 +1,5 @@
+import { formatCurrency } from '@/utils';
+
 export type PaperSize = '58' | '80';
 
 /** Karakter per baris untuk font default ESC/POS. */
@@ -52,4 +54,73 @@ export class Escpos {
   }
 
   build(): Uint8Array { return new Uint8Array(this.bytes); }
+}
+
+export interface SaleReceiptData {
+  studioName: string;
+  studioAddress: string;
+  transactionId: string;
+  date: string; // sudah diformat oleh pemanggil
+  customerName: string;
+  items: { name: string; qty: number; unitPrice: number; subtotal: number }[];
+  total: number;
+}
+
+export interface PaymentReceiptData {
+  studioName: string;
+  studioAddress: string;
+  paymentId: string;
+  date: string;
+  memberName: string;
+  packageName: string;
+  method: string;
+  amount: number;
+  notes?: string;
+}
+
+function head(e: Escpos, paper: PaperSize, studioName: string, studioAddress: string, title: string): void {
+  e.init().align('center').bold(true).line(studioName)
+    .bold(false).line(studioAddress).divider(paper).bold(true).line(title).bold(false)
+    .align('left').divider(paper);
+}
+
+function foot(e: Escpos, paper: PaperSize): Uint8Array {
+  e.divider(paper).align('center').line('Terima kasih!').align('left').feed(3).cut();
+  return e.build();
+}
+
+export function buildSaleReceipt(d: SaleReceiptData, paper: PaperSize): Uint8Array {
+  const e = new Escpos();
+  head(e, paper, d.studioName, d.studioAddress, 'STRUK PENJUALAN');
+  e.line(`No  : ${d.transactionId.slice(0, 8).toUpperCase()}`);
+  e.line(`Tgl : ${d.date}`);
+  e.line(`Plg : ${d.customerName || '-'}`);
+  e.divider(paper);
+  for (const it of d.items) {
+    e.line(it.name);
+    e.row(`  ${it.qty} x ${formatCurrency(it.unitPrice)}`, formatCurrency(it.subtotal), paper);
+  }
+  e.divider(paper).bold(true).row('TOTAL', formatCurrency(d.total), paper).bold(false);
+  return foot(e, paper);
+}
+
+export function buildPaymentReceipt(d: PaymentReceiptData, paper: PaperSize): Uint8Array {
+  const e = new Escpos();
+  head(e, paper, d.studioName, d.studioAddress, 'STRUK PEMBAYARAN');
+  e.row('No', d.paymentId.slice(0, 8).toUpperCase(), paper);
+  e.row('Tanggal', d.date, paper);
+  e.row('Member', d.memberName, paper);
+  e.row('Paket', d.packageName, paper);
+  e.row('Metode', d.method.toUpperCase(), paper);
+  e.divider(paper).bold(true).row('TOTAL', formatCurrency(d.amount), paper).bold(false);
+  if (d.notes) e.line(`Catatan: ${d.notes}`);
+  return foot(e, paper);
+}
+
+export function buildTestReceipt(paper: PaperSize): Uint8Array {
+  const e = new Escpos();
+  head(e, paper, 'TEST PRINT', 'X-Sport Platform', 'TEST PRINTER');
+  e.line('Printer terhubung dengan baik.');
+  e.line(`Ukuran kertas: ${paper}mm (${COLUMNS[paper]} kolom)`);
+  return foot(e, paper);
 }
