@@ -5,7 +5,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { Button, Input } from '@/components/ui';
 import { Eye, EyeOff, ChevronLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getStoredLicense } from '@/services/license';
+import { getStoredLicense, storePendingLicense } from '@/services/license';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -64,6 +64,16 @@ export default function LoginPage() {
           const m = (allLu ?? []).find(u => u.email.split('@')[0] === email.trim());
           if (m) foundName = m.full_name;
         }
+      }
+    } else {
+      // No local license — find user by email across all license_users, then auto-load their license
+      const { data: lu } = await supabase.from('license_users')
+        .select('full_name, email, license_id')
+        .eq('email', email.trim())
+        .maybeSingle();
+      if (lu) {
+        const { data: lic } = await supabase.from('licenses').select('*').eq('id', lu.license_id).single();
+        if (lic) { storePendingLicense(lic as import('@/services/license').LicenseInfo); foundName = lu.full_name; }
       }
     }
 

@@ -141,14 +141,13 @@ export async function activateLicense(activation: ActivationData): Promise<Licen
 
   if (licenseUsers?.length) {
     const rows = (licenseUsers as LicenseUser[]).map(u => ({
-      user_id: crypto.randomUUID(),
+      id: crypto.randomUUID(),
       studio_id: license.id,
       email: u.email,
       password_hash: u.password_hash,
       full_name: u.full_name,
       role: u.role,
       created_at: activatedAt,
-      updated_at: activatedAt,
     }));
     // upsert: if user with same studio_id+email exists, update password/name
     await supabase.from('users').upsert(rows, { onConflict: 'studio_id,email' });

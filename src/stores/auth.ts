@@ -16,7 +16,7 @@ async function findUser(identifier: string, studioId: string) {
   // Exact email match
   const { data: exact } = await supabase
     .from('users')
-    .select('user_id, email, password_hash, full_name, role')
+    .select('id, email, password_hash, full_name, role')
     .eq('studio_id', studioId)
     .eq('email', identifier)
     .maybeSingle();
@@ -25,7 +25,7 @@ async function findUser(identifier: string, studioId: string) {
   // Username prefix match
   const { data: all } = await supabase
     .from('users')
-    .select('user_id, email, password_hash, full_name, role')
+    .select('id, email, password_hash, full_name, role')
     .eq('studio_id', studioId);
   return (all ?? []).find(u => u.email.split('@')[0] === identifier) ?? null;
 }
@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
         const user = await findUser(identifier, studioId);
         if (user && await verifyPassword(password, user.password_hash)) {
           set({
-            user: { id: user.user_id, email: user.email, full_name: user.full_name, role: user.role as 'owner' | 'staff' },
+            user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role as 'owner' | 'staff' },
             isAuthenticated: true,
             rememberMe,
           });
