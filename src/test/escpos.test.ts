@@ -41,3 +41,51 @@ describe('Escpos primitives', () => {
     expect(text).toBe(long + '\n' + 'B'.padStart(cols) + '\n');
   });
 });
+
+import { buildSaleReceipt, buildPaymentReceipt, buildTestReceipt } from '@/services/escpos';
+
+const SALE = {
+  studioName: 'X-Sport Studio',
+  studioAddress: 'Jl. Olahraga No. 1',
+  transactionId: 'abc123def456',
+  date: '08 Jun 2026',
+  customerName: 'Budi',
+  items: [{ name: 'Air Mineral', qty: 2, unitPrice: 5000, subtotal: 10000 }],
+  total: 10000,
+};
+
+describe('Escpos receipt builders', () => {
+  it('sale receipt opens with init and ends with cut', () => {
+    const bytes = Array.from(buildSaleReceipt(SALE, '58'));
+    expect(bytes.slice(0, 2)).toEqual([0x1b, 0x40]);           // init
+    expect(bytes.slice(-3)).toEqual([0x1d, 0x56, 0x01]);       // cut
+  });
+
+  it('sale receipt contains studio name, item and total text', () => {
+    const text = new TextDecoder().decode(buildSaleReceipt(SALE, '58'));
+    expect(text).toContain('X-Sport Studio');
+    expect(text).toContain('STRUK PENJUALAN');
+    expect(text).toContain('Air Mineral');
+    expect(text).toContain('ABC123DE'); // transaction id, 8 chars uppercased
+    expect(text).toContain('TOTAL');
+  });
+
+  it('payment receipt contains member and STRUK PEMBAYARAN', () => {
+    const text = new TextDecoder().decode(
+      buildPaymentReceipt(
+        { studioName: 'S', studioAddress: 'A', paymentId: 'p1234567', date: '08 Jun 2026',
+          memberName: 'Andi', packageName: 'Bulanan', method: 'cash', amount: 150000 },
+        '80',
+      ),
+    );
+    expect(text).toContain('STRUK PEMBAYARAN');
+    expect(text).toContain('Andi');
+    expect(text).toContain('Bulanan');
+  });
+
+  it('test receipt is non-empty and ends with cut', () => {
+    const bytes = Array.from(buildTestReceipt('58'));
+    expect(bytes.length).toBeGreaterThan(10);
+    expect(bytes.slice(-3)).toEqual([0x1d, 0x56, 0x01]);
+  });
+});
