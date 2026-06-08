@@ -1,13 +1,18 @@
 import { useCallback } from 'react';
 import { useStudioStore } from '@/stores/studio';
 import { usePrinterStore } from '@/stores/printer';
-import { useToastStore } from '@/stores/toast';
 import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/utils';
 import { buildSaleReceipt, buildPaymentReceipt, type SaleReceiptData, type PaymentReceiptData } from '@/services/escpos';
 import * as bt from '@/services/btPrinter';
 import { generateSaleReceipt, generatePaymentReceipt, previewPdf } from '@/utils/pdf';
 import type { ProductSale } from '@/types';
+
+/** Hasil cetak: `printed` = berhasil via printer Bluetooth; `fallbackUrl` = PDF preview bila tidak. */
+export interface PrintResult {
+  printed: boolean;
+  fallbackUrl: string;
+}
 
 /** Pastikan printer tersambung; coba reconnect bila ada device tersimpan. */
 async function ensureConnected(): Promise<boolean> {
@@ -21,32 +26,23 @@ async function ensureConnected(): Promise<boolean> {
 }
 
 export function usePrintReceipt() {
-  const addToast = useToastStore((s) => s.addToast);
-
+  // Tidak menampilkan toast sendiri — pemanggil yang memutuskan satu toast umum,
+  // agar aksi "simpan & cetak" tidak memunculkan banyak toast sekaligus.
   const printBytes = useCallback(async (bytes: Uint8Array): Promise<boolean> => {
-    if (!bt.isSupported()) {
-      addToast('Perangkat/browser ini tidak mendukung cetak Bluetooth — menampilkan PDF.', 'warning');
-      return false;
-    }
-    if (!(await ensureConnected())) {
-      addToast('Printer belum terhubung. Hubungkan dulu di Pengaturan → Printer.', 'error');
-      return false;
-    }
+    if (!bt.isSupported()) return false;
+    if (!(await ensureConnected())) return false;
     try {
       await bt.print(bytes);
       usePrinterStore.getState().setStatus('connected');
-      addToast('Struk tercetak', 'success');
       return true;
     } catch (e) {
       usePrinterStore.getState().setStatus('disconnected');
       console.error('[print] gagal mengirim ke printer:', e);
-      addToast(`Gagal mencetak: ${e instanceof Error ? e.message : 'kesalahan tak dikenal'}`, 'error');
       return false;
     }
-  }, [addToast]);
+  }, []);
 
-  /** Cetak struk penjualan. Mengembalikan PDF blob-url bila perlu fallback (atau ''). */
-  const printSale = useCallback(async (sale: ProductSale): Promise<string> => {
+  const printSale = useCallback(async (sale: ProductSale): Promise<PrintResult> => {
     const studio = useStudioStore.getState();
     const paperSize = usePrinterStore.getState().paperSize;
     const cashier = useAuthStore.getState().user?.full_name ?? '';
@@ -66,26 +62,37 @@ export function usePrintReceipt() {
       change: sale.change,
       notes: sale.notes,
     };
-    if (await printBytes(buildSaleReceipt(data, paperSize))) return '';
-    // Fallback: PDF preview (perilaku lama) — same details as the printed receipt.
-    const doc = await generateSaleReceipt({ ...sale, cashier });
-    return previewPdf(doc);
+    if (await printBytes(buildSaleReceipt(data, paperSize))) return { printed: true, fallbackUrl: '' };
+    // Fallback: PDF preview — same details as the printed receipt. Guarded so a failed
+    // dynamic import (offline → "Failed to fetch") doesn't crash the save flow.
+    try {
+      const doc = await generateSaleReceipt({ ...sale, cashier });
+      return { printed: false, fallbackUrl: previewPdf(doc) };
+    } catch (e) {
+      console.error('[print] gagal membuat PDF struk:', e);
+      return { printed: false, fallbackUrl: '' };
+    }
   }, [printBytes]);
 
   /**
    * Cetak struk pembayaran member. Nama/alamat studio diambil dari store di sini
    * (single source of truth) — pemanggil cukup memberi data pembayaran + `raw`
-   * (objek untuk generator PDF fallback). Mengembalikan PDF blob-url bila fallback (atau '').
+   * (objek untuk generator PDF fallback).
    */
   const printPayment = useCallback(async (
     p: Omit<PaymentReceiptData, 'studioName' | 'studioAddress'> & { raw: Parameters<typeof generatePaymentReceipt>[0] },
-  ): Promise<string> => {
+  ): Promise<PrintResult> => {
     const studio = useStudioStore.getState();
     const paperSize = usePrinterStore.getState().paperSize;
     const data: PaymentReceiptData = { ...p, studioName: studio.name, studioAddress: studio.address };
-    if (await printBytes(buildPaymentReceipt(data, paperSize))) return '';
-    const doc = await generatePaymentReceipt(p.raw);
-    return previewPdf(doc);
+    if (await printBytes(buildPaymentReceipt(data, paperSize))) return { printed: true, fallbackUrl: '' };
+    try {
+      const doc = await generatePaymentReceipt(p.raw);
+      return { printed: false, fallbackUrl: previewPdf(doc) };
+    } catch (e) {
+      console.error('[print] gagal membuat PDF struk:', e);
+      return { printed: false, fallbackUrl: '' };
+    }
   }, [printBytes]);
 
   return { printSale, printPayment };

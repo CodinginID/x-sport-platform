@@ -2,13 +2,14 @@ import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useProducts, useProductSales, useProductSaleMutation } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
-import { formatCurrency, formatDate } from "@/utils";
+import { formatCurrency } from "@/utils";
 import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
+import { useToastStore } from "@/stores/toast";
 import { Button, Input, NumericInput } from "@/components/ui";
 import { PrintPreview } from "@/components/PrintPreview";
 import { Plus, Minus, Trash2, ShoppingCart, Coins, X, Printer, ShoppingBag, Calendar } from "lucide-react";
-import type { Product, ProductSale, ProductSaleItem, PaymentMethod } from "@/types";
+import type { Product, ProductSaleItem, PaymentMethod } from "@/types";
 
 type Preset = '7d' | '30d' | 'month' | 'custom';
 function getPresetDates(p: Preset) {
@@ -39,6 +40,7 @@ export default function ProductSalesPage() {
   const { data: products = [] } = useProducts();
   const mutation = useProductSaleMutation();
   const { printSale } = usePrintReceipt();
+  const addToast = useToastStore(s => s.addToast);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -96,7 +98,7 @@ export default function ProductSalesPage() {
     setCart(prev => prev.filter(i => i.product_id !== productId));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const saleItems: ProductSaleItem[] = cart.map(item => ({
       product_id: item.product_id,
       product_name: item.product_name,
@@ -104,27 +106,35 @@ export default function ProductSalesPage() {
       unit_price: item.unit_price,
       subtotal: item.unit_price * item.quantity,
     }));
-    mutation.mutate({
-      transaction_date: today,
-      customer_name: customerName,
-      items: saleItems,
-      subtotal,
-      discount,
-      total,
-      payment_method: paymentMethod,
-      cash_received: paymentMethod === "cash" ? cashReceived : total,
-      change,
-      notes,
-    }, {
-      onSuccess: async (saved: ProductSale) => {
-        setModalOpen(false);
-        resetForm();
-        if (usePrinterStore.getState().autoPrint) {
-          const fallbackUrl = await printSale(saved);
-          if (fallbackUrl) setPdfUrl(fallbackUrl);
-        }
-      },
-    });
+    // One general toast for the whole "save & print" action — not one per step.
+    try {
+      const saved = await mutation.mutateAsync({
+        transaction_date: today,
+        customer_name: customerName,
+        items: saleItems,
+        subtotal,
+        discount,
+        total,
+        payment_method: paymentMethod,
+        cash_received: paymentMethod === "cash" ? cashReceived : total,
+        change,
+        notes,
+      });
+      setModalOpen(false);
+      resetForm();
+      let note = '';
+      if (usePrinterStore.getState().autoPrint) {
+        const { printed, fallbackUrl } = await printSale(saved);
+        if (fallbackUrl) setPdfUrl(fallbackUrl);
+        if (printed) note = ' & struk dicetak';
+      }
+      addToast(`Penjualan berhasil disimpan${note}`, 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      addToast(/fetch|network|koneksi/i.test(msg)
+        ? 'Gagal menyimpan: koneksi internet bermasalah. Coba lagi.'
+        : (msg || 'Gagal menyimpan penjualan.'), 'error');
+    }
   };
 
   const resetForm = () => {
@@ -212,7 +222,11 @@ export default function ProductSalesPage() {
                     <p className="text-sm font-bold">{formatCurrency(row.total)}</p>
                     {row.discount > 0 && <p className="text-[10px] text-red-400">-{formatCurrency(row.discount)}</p>}
                   </div>
-                  <button onClick={async () => { const url = await printSale(row); if (url) setPdfUrl(url); }}
+                  <button onClick={async () => {
+                      const { printed, fallbackUrl } = await printSale(row);
+                      if (fallbackUrl) setPdfUrl(fallbackUrl);
+                      else addToast(printed ? 'Struk dicetak' : 'Gagal mencetak struk. Periksa printer.', printed ? 'success' : 'error');
+                    }}
                     className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/30 hover:text-zen-brand transition-colors"
                     title="Cetak struk">
                     <Printer size={14} />

@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from "@/utils";
 import { Button, Modal, Input, Select } from "@/components/ui";
 import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
+import { useToastStore } from "@/stores/toast";
 import { PrintPreview } from "@/components/PrintPreview";
 import { Calendar, Plus, Printer, Receipt } from "lucide-react";
 
@@ -57,10 +58,13 @@ export default function MemberPaymentPage() {
     if (p !== 'custom') { const d = getPresetDates(p); setStartDate(d.start); setEndDate(d.end); }
   };
 
-  const printReceipt = async (row: any) => {
+  const addToast = useToastStore(s => s.addToast);
+
+  /** Cetak struk pembayaran. Mengembalikan `true` bila tercetak via printer. */
+  const printReceipt = async (row: any): Promise<boolean> => {
     const memberName = memberMap[row.member_id] || '-';
     const packageName = packageMap[row.package_id] || '-';
-    const url = await printPayment({
+    const { printed, fallbackUrl } = await printPayment({
       paymentId: row.payment_id,
       date: formatDate(row.payment_date),
       memberName,
@@ -78,20 +82,27 @@ export default function MemberPaymentPage() {
         notes: row.notes,
       },
     });
-    if (url) setPdfUrl(url);
+    if (fallbackUrl) setPdfUrl(fallbackUrl);
+    return printed;
   };
 
-  const handleSubmit = () => {
-    mutation.mutate(
-      { payment_date: today, member_id: form.member_id, package_id: form.package_id, amount, payment_method: form.payment_method, notes: form.notes },
-      {
-        onSuccess: async (saved: any) => {
-          if (usePrinterStore.getState().autoPrint) await printReceipt(saved);
-        },
-      },
-    );
-    setModalOpen(false);
-    setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
+  const handleSubmit = async () => {
+    // One general toast for the whole save & print action.
+    try {
+      const saved = await mutation.mutateAsync(
+        { payment_date: today, member_id: form.member_id, package_id: form.package_id, amount, payment_method: form.payment_method, notes: form.notes },
+      );
+      setModalOpen(false);
+      setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
+      let note = '';
+      if (usePrinterStore.getState().autoPrint && (await printReceipt(saved))) note = ' & struk dicetak';
+      addToast(`Pembayaran berhasil disimpan${note}`, 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      addToast(/fetch|network|koneksi/i.test(msg)
+        ? 'Gagal menyimpan: koneksi internet bermasalah. Coba lagi.'
+        : (msg || 'Gagal menyimpan pembayaran.'), 'error');
+    }
   };
 
   return (
@@ -162,7 +173,7 @@ export default function MemberPaymentPage() {
                   </span>
                   <p className="text-sm font-bold">{formatCurrency(p.amount)}</p>
                   <button
-                    onClick={() => printReceipt(p)}
+                    onClick={async () => { if (await printReceipt(p)) addToast('Struk dicetak', 'success'); }}
                     className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/30 hover:text-zen-brand transition-colors"
                     title="Cetak struk"
                   >

@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { getStudioId, requireStudioId } from '@/utils/studioContext';
 import type { MemberPackage, MemberPayment, ProductSale, ProductSaleItem, CoachCommission } from '@/types';
 import { addDays } from 'date-fns';
-import { useToastStore } from '@/stores/toast';
 import { productSaleSchema, memberPaymentSchema } from '@/utils/schemas';
 
 export function useMemberPackages(member_id?: string) {
@@ -86,13 +85,12 @@ export function useMemberPaymentMutation() {
       });
       if (error) throw new Error(error.message);
     },
+    // Toast is shown by the page (one general toast for the whole save & print action).
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['memberPayments'] });
       qc.invalidateQueries({ queryKey: ['memberPackages'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
-      useToastStore.getState().addToast('Pembayaran berhasil disimpan', 'success');
     },
-    onError: (e: Error) => { useToastStore.getState().addToast(e.message || 'Gagal menyimpan pembayaran', 'error'); },
   });
 }
 
@@ -167,13 +165,12 @@ export function useProductSaleMutation() {
 
       return sale;
     },
+    // Toast is shown by the page (one general toast for the whole save & print action).
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['productSales'] });
       qc.invalidateQueries({ queryKey: ['products'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
-      useToastStore.getState().addToast('Penjualan berhasil disimpan', 'success');
     },
-    onError: (e: Error) => { useToastStore.getState().addToast(e.message || 'Gagal menyimpan penjualan', 'error'); },
   });
 }
 

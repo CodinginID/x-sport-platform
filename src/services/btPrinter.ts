@@ -97,13 +97,24 @@ export function disconnect(): void {
 /** Kirim byte ESC/POS dengan chunking agar buffer printer tidak overflow. */
 export async function print(bytes: Uint8Array): Promise<void> {
   if (!characteristic) throw new Error('Printer belum terhubung');
+  const c = characteristic;
+  // Prefer ACKNOWLEDGED writes (with response): the promise resolves only after the
+  // printer confirms each chunk, giving flow control. Without that, the tail of a
+  // longer receipt (the Kembali/Catatan lines + cut) can be dropped before the buffer
+  // flushes. Only fall back to without-response when ack writes aren't supported.
+  const ack = c.properties.write;
+  const writeAck = (data: BufferSource) =>
+    typeof c.writeValueWithResponse === 'function' ? c.writeValueWithResponse(data) : c.writeValue(data);
+
   for (let i = 0; i < bytes.length; i += CHUNK) {
     const slice = bytes.slice(i, i + CHUNK);
-    if (characteristic.properties.writeWithoutResponse) {
-      await characteristic.writeValueWithoutResponse(slice);
+    if (ack) {
+      await writeAck(slice);                       // paced by the ack itself
     } else {
-      await characteristic.writeValue(slice);
+      await c.writeValueWithoutResponse(slice);
+      await new Promise((r) => setTimeout(r, 20));  // manual pacing, no flow control
     }
-    await new Promise((r) => setTimeout(r, 20)); // jeda antar-chunk
   }
+  // Let the printer finish flushing before the connection can go idle/disconnect.
+  await new Promise((r) => setTimeout(r, 150));
 }
