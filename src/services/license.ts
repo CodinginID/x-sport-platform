@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getDeviceFingerprint } from '@/utils/fingerprint';
+import { hashPassword } from '@/utils';
 import type { LicenseInfo } from '@/types';
 
 export type { LicenseInfo };
@@ -14,12 +15,41 @@ export interface ActivationData {
 
 export type LicenseResult<T = void> = { ok: true; data?: T } | { ok: false; error: string };
 
+export interface StaffCredentials {
+  email: string;
+  password: string;
+  full_name: string;
+}
+
+// Specific return type for activateLicense (extends with generated staff creds)
+export type ActivateLicenseResult =
+  | { ok: true; data?: LicenseInfo; generatedStaff?: StaffCredentials }
+  | { ok: false; error: string };
+
 interface LicenseUser {
   email: string;
   password_hash: string;
   full_name: string;
   role: string;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function generateStaffEmail(licenseKey: string): string {
+  // XSP-ABCDE-FGHIJ → staff.abcde@xsport.local
+  const parts = licenseKey.split('-');
+  const shortId = (parts[1] ?? 'studio').toLowerCase();
+  return `staff.${shortId}@xsport.local`;
+}
+
+function generateStaffPassword(): string {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const arr = new Uint8Array(8);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => chars[b % chars.length]).join('');
+}
+
+// ─── validateLicense ──────────────────────────────────────────────────────────
 
 export async function validateLicense(licenseKey: string): Promise<LicenseResult<LicenseInfo>> {
   const fingerprint = await getDeviceFingerprint();
@@ -43,7 +73,9 @@ export async function validateLicense(licenseKey: string): Promise<LicenseResult
   return { ok: true, data: data as LicenseInfo };
 }
 
-export async function activateLicense(activation: ActivationData): Promise<LicenseResult<LicenseInfo>> {
+// ─── activateLicense ──────────────────────────────────────────────────────────
+
+export async function activateLicense(activation: ActivationData): Promise<ActivateLicenseResult> {
   const fingerprint = await getDeviceFingerprint();
 
   const { data: license, error } = await supabase
@@ -73,7 +105,32 @@ export async function activateLicense(activation: ActivationData): Promise<Licen
 
   if (updateErr) return { ok: false, error: 'Gagal aktivasi: ' + updateErr.message };
 
-  // Provision all license_users into the studio's users table
+  // ── Auto-generate staff account if none exists in license_users ──────────────
+  let generatedStaff: StaffCredentials | undefined;
+
+  const { data: existingLicenseUsers } = await supabase
+    .from('license_users').select('role')
+    .eq('license_id', license.id);
+
+  const hasStaff = (existingLicenseUsers ?? []).some(u => u.role === 'staff');
+
+  if (!hasStaff) {
+    const staffEmail    = generateStaffEmail(license.license_key);
+    const staffPassword = generateStaffPassword();
+    const staffHash     = await hashPassword(staffPassword);
+
+    await supabase.from('license_users').insert({
+      license_id:    license.id,
+      email:         staffEmail,
+      password_hash: staffHash,
+      full_name:     'Staff',
+      role:          'staff',
+    });
+
+    generatedStaff = { email: staffEmail, password: staffPassword, full_name: 'Staff' };
+  }
+
+  // ── Provision all license_users → users table ─────────────────────────────
   const { data: licenseUsers } = await supabase
     .from('license_users').select('email, password_hash, full_name, role')
     .eq('license_id', license.id);
@@ -91,12 +148,12 @@ export async function activateLicense(activation: ActivationData): Promise<Licen
     await supabase.from('users').upsert(rows, { onConflict: 'studio_id,email' });
   }
 
-  // Return fresh license data
   const { data: fresh } = await supabase.from('licenses').select('*').eq('id', license.id).single();
-  return { ok: true, data: fresh as LicenseInfo };
+  return { ok: true, data: fresh as LicenseInfo, generatedStaff };
 }
 
-// Helpers used by LicenseGuard / LicenseSection via auth store
+// ─── Helpers used by LicenseGuard / LicenseSection ───────────────────────────
+
 export function isLicenseExpired(license: LicenseInfo | null): boolean {
   if (!license) return true;
   return new Date(license.expires_at).getTime() < Date.now();

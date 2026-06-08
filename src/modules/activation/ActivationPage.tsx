@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card } from '@/components/ui';
-import { activateLicense } from '@/services/license';
+import { activateLicense, type StaffCredentials } from '@/services/license';
 import { useStudioStore } from '@/stores/studio';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirmStore } from '@/components/ConfirmDialog';
@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import {
   CheckCircle2, ShieldCheck, Trash2, Users, Unlock,
   Loader2, Clock, KeyRound, Copy, Check, Smartphone, AlertTriangle, Search,
+  Eye, EyeOff, UserCircle,
 } from 'lucide-react';
 
 interface LicenseStatus {
@@ -26,6 +27,9 @@ export default function ActivationPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [generatedStaff, setGeneratedStaff] = useState<StaffCredentials | null>(null);
+  const [showStaffPw, setShowStaffPw] = useState(false);
+  const [copiedStaff, setCopiedStaff] = useState(false);
   const [manualKey, setManualKey] = useState('');
   const [manualSearching, setManualSearching] = useState(false);
   const navigate = useNavigate();
@@ -103,6 +107,9 @@ export default function ActivationPage() {
       if (result.data.studio_name) setStudioName(result.data.studio_name);
       if (result.data.studio_address) setStudioAddress(result.data.studio_address);
     }
+    if (result.generatedStaff) {
+      setGeneratedStaff(result.generatedStaff);
+    }
     setSuccess(true);
   };
 
@@ -122,15 +129,79 @@ export default function ActivationPage() {
 
   // ── Success ──
   if (success) {
+    const copyStaffCreds = () => {
+      if (!generatedStaff) return;
+      navigator.clipboard.writeText(`Email: ${generatedStaff.email}\nPassword: ${generatedStaff.password}`);
+      setCopiedStaff(true);
+      setTimeout(() => setCopiedStaff(false), 2000);
+    };
+
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Aktivasi Lisensi</h1>
-        <div className="max-w-md mx-auto text-center py-8">
-          <div className="w-20 h-20 bg-green-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="text-green-500" size={40} />
+        <div className="max-w-md mx-auto space-y-5 py-4">
+          {/* Success icon */}
+          <div className="text-center">
+            <div className="w-20 h-20 bg-green-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="text-green-500" size={40} />
+            </div>
+            <h2 className="text-xl font-bold mb-1">Aktivasi Berhasil!</h2>
+            <p className="text-zen-ink/50 text-sm">Aplikasi sudah aktif dan siap digunakan sepenuhnya.</p>
           </div>
-          <h2 className="text-xl font-bold mb-2">Aktivasi Berhasil!</h2>
-          <p className="text-zen-ink/50 text-sm mb-8">Aplikasi sudah aktif dan siap digunakan sepenuhnya.</p>
+
+          {/* Generated staff credentials */}
+          {generatedStaff && (
+            <div className="bg-white rounded-3xl border border-zen-ink/8 overflow-hidden">
+              <div className="px-5 py-4 border-b border-zen-ink/5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+                  <UserCircle size={18} className="text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Akun Staff Dibuat Otomatis</p>
+                  <p className="text-[11px] text-zen-ink/40">Simpan kredensial ini untuk diberikan ke staff</p>
+                </div>
+              </div>
+
+              <div className="px-5 py-4 space-y-3">
+                {/* Email */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mb-1">Email Login</p>
+                  <p className="text-sm font-mono font-bold text-zen-ink">{generatedStaff.email}</p>
+                </div>
+                {/* Password */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mb-1">Password</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-mono font-bold text-zen-ink tracking-widest">
+                      {showStaffPw ? generatedStaff.password : '••••••••'}
+                    </p>
+                    <button
+                      onClick={() => setShowStaffPw(v => !v)}
+                      className="text-zen-ink/30 hover:text-zen-ink transition-colors"
+                    >
+                      {showStaffPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+                {/* Copy button */}
+                <button
+                  onClick={copyStaffCreds}
+                  className="w-full flex items-center justify-center gap-2 py-3 border border-zen-ink/10 rounded-2xl text-sm font-bold text-zen-ink/60 hover:bg-zen-bg transition-colors"
+                >
+                  {copiedStaff ? <><Check size={14} className="text-green-500" /> Tersalin!</> : <><Copy size={14} /> Salin Kredensial</>}
+                </button>
+              </div>
+
+              {/* Warning */}
+              <div className="px-5 py-3 bg-amber-50 border-t border-amber-100 flex items-start gap-2">
+                <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  Password hanya ditampilkan sekali. Nama dan password staff bisa diubah kapan saja di Settings → Manajemen Staff.
+                </p>
+              </div>
+            </div>
+          )}
+
           <Button variant="primary" size="lg" className="w-full" onClick={() => navigate('/dashboard')}>
             Ke Dashboard
           </Button>

@@ -76,7 +76,7 @@ export default function RegisterPage() {
             <div className="bg-amber-50/80 rounded-2xl p-5 mb-8 text-left border border-amber-100">
               <p className="text-xs text-amber-900 leading-relaxed">
                 <strong className="block mb-1">⏳ Menunggu Persetujuan Admin</strong>
-                Lisensi Anda akan diaktifkan dalam 1x24 jam. Kami akan menghubungi via <strong>{form.ownerEmail}</strong>
+                Lisensi Anda akan diaktifkan dalam 1×24 jam. Kami akan menghubungi via <strong>{form.ownerEmail}</strong>
               </p>
             </div>
 

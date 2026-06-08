@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
+import { hashPassword } from '@/utils';
 import {
   RefreshCw, Check, Copy, X, Loader2, CheckCircle2, XCircle,
   Clock, AlertTriangle, Mail, Phone, KeyRound, Building2,
   Search, Wifi, WifiOff, Calendar, ChevronDown, ChevronUp,
-  CircleDot, HardDrive, Package, ShieldOff, ShieldCheck, LogOut,
+  CircleDot, HardDrive, Package, ShieldOff, ShieldCheck, LogOut, RotateCcw,
+  Users, Eye, EyeOff, Info,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -217,13 +219,14 @@ function SessionDrawer({ license, sessions, onClose }: {
 
 // ─── License Row (table row) ──────────────────────────────────────────────────
 
-function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onCopyKey, onShowSessions, isProcessing, copiedId }: {
+function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onResetActivation, onCopyKey, onShowSessions, isProcessing, copiedId }: {
   row: LicenseRow;
   onApprove: () => void;
   onReject: () => void;
   onDisable: () => void;
   onEnable: () => void;
   onForceLogout: () => void;
+  onResetActivation: () => void;
   onCopyKey: () => void;
   onShowSessions: () => void;
   isProcessing: boolean;
@@ -396,6 +399,13 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForc
             {state === 'active' && row.sessionCount > 0 && (
               <button onClick={e => { e.stopPropagation(); onForceLogout(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-amber-200 text-amber-600 bg-amber-50 text-[11px] font-bold rounded-2xl hover:bg-amber-100 transition-colors min-h-[40px] disabled:opacity-40">
                 {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <LogOut size={12} />} Paksa Logout
+              </button>
+            )}
+
+            {/* Reset Aktivasi — active only, only when device is bound */}
+            {state === 'active' && row.activated_at && (
+              <button onClick={e => { e.stopPropagation(); onResetActivation(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-blue-200 text-blue-600 bg-blue-50 text-[11px] font-bold rounded-2xl hover:bg-blue-100 transition-colors min-h-[40px] disabled:opacity-40">
+                {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} Reset Aktivasi
               </button>
             )}
 
@@ -622,6 +632,29 @@ export default function LicensesPage() {
     });
   };
 
+  const handleResetActivation = (lic: LicenseRow) => {
+    setConfirm({
+      open: true,
+      title: 'Reset Aktivasi Perangkat?',
+      message: `Reset binding perangkat untuk "${lic.studio_name || lic.owner_email}".\n\nIni akan:\n• Hapus sesi aktif (otomatis logout)\n• Hapus akun staff yang ter-provision di users\n• Lepas ikatan device fingerprint\n\nOwner harus aktivasi ulang dari halaman Lisensi. Lisensi tetap aktif dan approved.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        setActionLoading(lic.id);
+        // 1. Hapus semua sesi
+        await supabase.from('sessions').delete().eq('studio_id', lic.id);
+        // 2. Hapus akun yang sudah di-provision ke users
+        await supabase.from('users').delete().eq('studio_id', lic.id);
+        // 3. Reset device binding di licenses (activated_at & device_fingerprint)
+        const { error: updErr } = await supabase.from('licenses')
+          .update({ activated_at: null, device_fingerprint: null, last_validated_at: null })
+          .eq('id', lic.id);
+        if (updErr) { setError('Gagal reset: ' + updErr.message); setActionLoading(null); return; }
+        await fetchAll();
+        setActionLoading(null);
+      },
+    });
+  };
+
   const handleCopyKey = (row: LicenseRow) => {
     navigator.clipboard.writeText(row.license_key);
     setCopiedId(row.id);
@@ -744,6 +777,7 @@ export default function LicensesPage() {
               onDisable={() => handleDisable(row)}
               onEnable={() => handleEnable(row)}
               onForceLogout={() => handleForceLogout(row)}
+              onResetActivation={() => handleResetActivation(row)}
               onCopyKey={() => handleCopyKey(row)}
               onShowSessions={() => setSessionDrawer(row)}
               isProcessing={actionLoading === row.id}

@@ -11,42 +11,56 @@ import { LicenseSection } from './LicenseSection';
 import { PrinterSection } from './PrinterSection';
 import { StaffSection } from './StaffSection';
 import {
-  ChevronRight, ChevronLeft, User, Building2, Printer, Globe,
+  ChevronRight, ChevronLeft, Building2, Printer, Globe,
   Users, ShieldCheck, HardDrive, Info, Eye, EyeOff, Loader2, Check,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 type SectionKey = 'account' | 'studio' | 'printer' | 'language' | 'staff' | 'license' | 'backup' | 'about';
 
+const SECTION_TITLES: Record<SectionKey, string> = {
+  account:  'Akun',
+  studio:   'Studio',
+  printer:  'Printer Struk',
+  language: 'Bahasa',
+  staff:    'Manajemen Staff',
+  license:  'Lisensi',
+  backup:   'Backup & Restore',
+  about:    'Tentang Aplikasi',
+};
+
 // ─── Menu Item ────────────────────────────────────────────────────────────────
 
 function MenuItem({
-  icon: Icon, iconBg, label, subtitle, onClick, last = false,
+  icon: Icon, iconBg, label, subtitle, onClick, last = false, isActive = false,
 }: {
   icon: React.ElementType; iconBg: string; label: string;
-  subtitle?: string; onClick: () => void; last?: boolean;
+  subtitle?: string; onClick: () => void; last?: boolean; isActive?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-4 px-5 py-4 hover:bg-zen-bg/60 active:bg-zen-bg transition-colors text-left ${!last ? 'border-b border-zen-ink/5' : ''}`}
+      className={`w-full flex items-center gap-4 px-5 py-4 transition-colors text-left
+        ${isActive ? 'bg-zen-brand/5' : 'hover:bg-zen-bg/60 active:bg-zen-bg'}
+        ${!last ? 'border-b border-zen-ink/5' : ''}`}
     >
       <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${iconBg}`}>
         <Icon size={17} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold">{label}</p>
+        <p className={`text-sm font-bold ${isActive ? 'text-zen-brand' : ''}`}>{label}</p>
         {subtitle && <p className="text-[11px] text-zen-ink/40 truncate mt-0.5">{subtitle}</p>}
       </div>
-      <ChevronRight size={16} className="text-zen-ink/25 shrink-0" />
+      <ChevronRight size={16} className={`shrink-0 md:hidden ${isActive ? 'text-zen-brand/40' : 'text-zen-ink/25'}`} />
     </button>
   );
 }
 
-// ─── Section Header ───────────────────────────────────────────────────────────
+// ─── Section Header (mobile only — desktop shows title inline) ────────────────
 
 function SectionHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-3 mb-5">
+    <div className="flex items-center gap-3 mb-5 md:hidden">
       <button
         onClick={onBack}
         className="w-9 h-9 rounded-2xl border border-zen-ink/10 flex items-center justify-center text-zen-ink/50 hover:bg-zen-bg transition-colors shrink-0"
@@ -65,9 +79,7 @@ function AccountSection() {
   const [editName, setEditName] = useState(false);
   const [editPw, setEditPw] = useState(false);
   const [name, setName] = useState(user?.full_name ?? '');
-  const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
-  const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -76,12 +88,10 @@ function AccountSection() {
   const saveName = async () => {
     if (!name.trim() || !user) return;
     setSaving(true); setError('');
-    // Update in users table (staff/owner after activation)
     if (studioId) {
       await supabase.from('users').update({ full_name: name.trim() })
         .eq('studio_id', studioId).eq('email', user.email);
     }
-    // Update in license_users table (owner before activation)
     await supabase.from('license_users').update({ full_name: name.trim() }).eq('email', user.email);
     setSaving(false); setEditName(false);
     setMsg('Nama berhasil diubah');
@@ -98,7 +108,7 @@ function AccountSection() {
         .eq('studio_id', studioId).eq('email', user.email);
     }
     await supabase.from('license_users').update({ password_hash: hash }).eq('email', user.email);
-    setSaving(false); setEditPw(false); setOldPw(''); setNewPw('');
+    setSaving(false); setEditPw(false); setNewPw('');
     setMsg('Password berhasil diubah');
     setTimeout(() => setMsg(''), 3000);
   };
@@ -255,17 +265,6 @@ function AboutSection() {
 
 // ─── Section renderer ─────────────────────────────────────────────────────────
 
-const SECTION_TITLES: Record<SectionKey, string> = {
-  account:  'Akun',
-  studio:   'Studio',
-  printer:  'Printer Struk',
-  language: 'Bahasa',
-  staff:    'Manajemen Staff',
-  license:  'Lisensi',
-  backup:   'Backup & Restore',
-  about:    'Tentang Aplikasi',
-};
-
 function SectionContent({ section }: { section: SectionKey }) {
   switch (section) {
     case 'account':  return <AccountSection />;
@@ -283,64 +282,99 @@ function SectionContent({ section }: { section: SectionKey }) {
 
 export default function SettingsPage() {
   const [active, setActive] = useState<SectionKey | null>(null);
+  const [dir, setDir] = useState<'fwd' | 'bwd'>('fwd');
+  const [menuKey, setMenuKey] = useState(0);
+
   const { user, licenseInfo } = useAuthStore();
   const { lang } = useLanguageStore();
   const { t } = useTranslation();
   const { data: staffList } = useStaff();
 
-  // ── Section view ──
-  if (active) {
-    return (
-      <div className="max-w-lg mx-auto animate-page-in">
-        <SectionHeader title={SECTION_TITLES[active]} onBack={() => setActive(null)} />
-        <SectionContent section={active} />
-      </div>
-    );
-  }
+  const goTo = (k: SectionKey) => { setDir('fwd'); setActive(k); };
+  const goBack = () => { setDir('bwd'); setMenuKey(n => n + 1); setActive(null); };
 
-  // ── Main menu ──
   const licenseStatus = !licenseInfo?.activated_at ? 'Demo'
     : new Date(licenseInfo.expires_at) < new Date() ? 'Expired'
     : 'Aktif';
 
-  return (
-    <div className="max-w-lg mx-auto space-y-4 animate-page-in">
-      <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+  // Menu animation: page-in on initial load, slide-in-left when returning from section
+  const menuAnim = dir === 'bwd' ? 'animate-slide-in-left' : 'animate-page-in';
 
-      {/* Profile preview */}
+  // ── Sidebar / menu content (shared between mobile menu + desktop sidebar) ──
+  const sidebarContent = (
+    <div key={menuKey} className={`space-y-3 ${menuAnim}`}>
+      {/* Profile card */}
       <div
-        onClick={() => setActive('account')}
-        className="bg-white rounded-3xl px-5 py-4 flex items-center gap-4 border border-zen-ink/5 cursor-pointer hover:bg-zen-bg/40 active:bg-zen-bg transition-colors"
+        onClick={() => goTo('account')}
+        className={`rounded-3xl px-5 py-4 flex items-center gap-4 border cursor-pointer transition-colors
+          ${active === 'account'
+            ? 'bg-zen-brand/5 border-zen-brand/15'
+            : 'bg-white border-zen-ink/5 hover:bg-zen-bg/40 active:bg-zen-bg'
+          }`}
       >
         <div className="w-12 h-12 rounded-2xl bg-zen-brand/10 flex items-center justify-center text-zen-brand font-bold text-lg shrink-0">
           {(user?.full_name ?? 'U')[0].toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold truncate">{user?.full_name}</p>
+          <p className={`font-bold truncate ${active === 'account' ? 'text-zen-brand' : ''}`}>{user?.full_name}</p>
           <p className="text-[11px] text-zen-ink/40 truncate">{user?.email}</p>
         </div>
-        <ChevronRight size={16} className="text-zen-ink/25 shrink-0" />
+        <ChevronRight size={16} className={`shrink-0 md:hidden ${active === 'account' ? 'text-zen-brand/40' : 'text-zen-ink/25'}`} />
       </div>
 
       {/* Group 1: Umum */}
       <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-        <MenuItem icon={Building2} iconBg="bg-blue-100 text-blue-600"  label="Studio"       subtitle={licenseInfo?.studio_name ?? '—'} onClick={() => setActive('studio')}   />
-        <MenuItem icon={Printer}   iconBg="bg-purple-100 text-purple-600" label="Printer Struk"  onClick={() => setActive('printer')}  />
-        <MenuItem icon={Globe}     iconBg="bg-green-100 text-green-600"  label="Bahasa"       subtitle={lang === 'id' ? 'Indonesia' : 'English'} onClick={() => setActive('language')} last />
+        <MenuItem icon={Building2} iconBg="bg-blue-100 text-blue-600"     label="Studio"       subtitle={licenseInfo?.studio_name ?? '—'} isActive={active === 'studio'}   onClick={() => goTo('studio')}   />
+        <MenuItem icon={Printer}   iconBg="bg-purple-100 text-purple-600" label="Printer Struk"                                            isActive={active === 'printer'}  onClick={() => goTo('printer')}  />
+        <MenuItem icon={Globe}     iconBg="bg-green-100 text-green-600"   label="Bahasa"       subtitle={lang === 'id' ? 'Indonesia' : 'English'} isActive={active === 'language'} onClick={() => goTo('language')} last />
       </div>
 
       {/* Group 2: Owner only */}
       {user?.role === 'owner' && (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          <MenuItem icon={Users}      iconBg="bg-amber-100 text-amber-600"  label="Manajemen Staff" subtitle={`${staffList?.length ?? 0} akun`}    onClick={() => setActive('staff')}   />
-          <MenuItem icon={ShieldCheck} iconBg="bg-zen-brand/10 text-zen-brand" label="Lisensi"      subtitle={licenseStatus}                        onClick={() => setActive('license')} last />
+          <MenuItem icon={Users}       iconBg="bg-amber-100 text-amber-600"     label="Manajemen Staff" subtitle={`${staffList?.length ?? 0} akun`} isActive={active === 'staff'}   onClick={() => goTo('staff')}   />
+          <MenuItem icon={ShieldCheck} iconBg="bg-zen-brand/10 text-zen-brand"  label="Lisensi"         subtitle={licenseStatus}                   isActive={active === 'license'} onClick={() => goTo('license')} last />
         </div>
       )}
 
       {/* Group 3: Data */}
       <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-        <MenuItem icon={HardDrive} iconBg="bg-orange-100 text-orange-500" label="Backup & Restore" onClick={() => setActive('backup')} />
-        <MenuItem icon={Info}      iconBg="bg-zen-ink/8 text-zen-ink/50"  label="Tentang Aplikasi" onClick={() => setActive('about')}  last />
+        <MenuItem icon={HardDrive} iconBg="bg-orange-100 text-orange-500" label="Backup & Restore" isActive={active === 'backup'} onClick={() => goTo('backup')} />
+        <MenuItem icon={Info}      iconBg="bg-zen-ink/8 text-zen-ink/50"  label="Tentang Aplikasi" isActive={active === 'about'}  onClick={() => goTo('about')}  last />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+
+      <div className="md:grid md:grid-cols-[272px_1fr] md:gap-6 md:items-start">
+
+        {/* ── Sidebar: always visible on desktop, hidden on mobile when section is active ── */}
+        <aside className={active ? 'hidden md:block' : 'block'}>
+          {sidebarContent}
+        </aside>
+
+        {/* ── Content panel: hidden on desktop when no section, hidden on mobile when no active ── */}
+        <div className={active ? 'block' : 'hidden md:block'}>
+          {active ? (
+            <div key={active} className={dir === 'fwd' ? 'animate-slide-in-right' : 'animate-page-in'}>
+              {/* Back button — mobile only */}
+              <SectionHeader title={SECTION_TITLES[active]} onBack={goBack} />
+              {/* Section title — desktop only */}
+              <h2 className="hidden md:block text-xl font-bold mb-5">{SECTION_TITLES[active]}</h2>
+              <SectionContent section={active} />
+            </div>
+          ) : (
+            /* Empty state shown on desktop when no section selected */
+            <div className="hidden md:flex flex-col items-center justify-center min-h-[340px] rounded-3xl border border-dashed border-zen-ink/10 bg-white/50 text-zen-ink/25 select-none">
+              <SlidersHorizontal size={36} strokeWidth={1.5} className="mb-3" />
+              <p className="text-sm font-medium">Pilih pengaturan di sebelah kiri</p>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
