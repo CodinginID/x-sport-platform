@@ -5,7 +5,7 @@ import {
   RefreshCw, Check, Copy, X, Loader2, CheckCircle2, XCircle,
   Clock, AlertTriangle, Mail, Phone, KeyRound, Building2,
   Search, Wifi, WifiOff, Calendar, ChevronDown, ChevronUp,
-  CircleDot, HardDrive, Package,
+  CircleDot, HardDrive, Package, ShieldOff, ShieldCheck,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -21,8 +21,21 @@ interface License {
   expires_at: string;
   activated_at: string | null;
   is_active: boolean;
+  disabled_at: string | null;
   storage_quota_mb: number;
   storage_used_mb: number;
+}
+
+// 3 distinct states for a license:
+// 'pending'  — is_active=false, disabled_at=null  → waiting for admin approval
+// 'active'   — is_active=true                     → approved and in use
+// 'disabled' — is_active=false, disabled_at!=null → manually disabled by superadmin
+type LicenseState = 'pending' | 'active' | 'disabled';
+
+function getLicenseState(lic: License): LicenseState {
+  if (lic.is_active) return 'active';
+  if (lic.disabled_at) return 'disabled';
+  return 'pending';
 }
 
 interface SessionRow {
@@ -40,6 +53,7 @@ interface LicenseRow extends License {
   sessionLastUsed: string | null;
   sessionUser: string | null;
   sessionCount: number;
+  state: LicenseState;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -203,56 +217,69 @@ function SessionDrawer({ license, sessions, onClose }: {
 
 // ─── License Row (table row) ──────────────────────────────────────────────────
 
-function LicenseTableRow({ row, onApprove, onReject, onCopyKey, onShowSessions, isProcessing, copiedId }: {
+function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onCopyKey, onShowSessions, isProcessing, copiedId }: {
   row: LicenseRow;
   onApprove: () => void;
   onReject: () => void;
+  onDisable: () => void;
+  onEnable: () => void;
   onCopyKey: () => void;
   onShowSessions: () => void;
   isProcessing: boolean;
   copiedId: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isPending = !row.is_active;
+  const state = getLicenseState(row);
   const days = daysUntil(row.expires_at);
   const cfg = SESSION_CONFIG[row.sessionStatus];
   const isCopied = copiedId === row.id;
   const pct = row.storage_quota_mb ? Math.min(100, Math.round((row.storage_used_mb / row.storage_quota_mb) * 100)) : 0;
 
+  const rowBg =
+    state === 'pending'  ? 'bg-amber-50/60' :
+    state === 'disabled' ? 'bg-red-50/40'   : '';
+
   return (
     <>
       {/* ─ Main row ─ */}
       <div
-        className={`flex items-center gap-3 px-4 py-3.5 border-b border-zen-ink/5 transition-colors cursor-pointer hover:bg-zen-bg/60 ${isPending ? 'bg-amber-50/60' : ''}`}
+        className={`flex items-center gap-3 px-4 py-3.5 border-b border-zen-ink/5 transition-colors cursor-pointer hover:bg-zen-bg/60 ${rowBg}`}
         onClick={() => setExpanded(e => !e)}
       >
-        {/* Status dot */}
+        {/* Status icon */}
         <div className="shrink-0 w-8 flex justify-center">
-          {isPending ? (
-            <Clock size={15} className="text-amber-500" />
-          ) : (
-            <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-          )}
+          {state === 'pending'  && <Clock    size={15} className="text-amber-500" />}
+          {state === 'disabled' && <ShieldOff size={15} className="text-red-400" />}
+          {state === 'active'   && <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />}
         </div>
 
         {/* Studio */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold truncate">{row.studio_name || <span className="text-zen-ink/30 italic">Tanpa nama</span>}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className={`text-sm font-bold truncate ${state === 'disabled' ? 'text-zen-ink/40 line-through' : ''}`}>
+              {row.studio_name || <span className="italic font-normal text-zen-ink/30">Tanpa nama</span>}
+            </p>
+            {state === 'disabled' && (
+              <span className="shrink-0 text-[9px] uppercase tracking-widest font-bold text-red-400 bg-red-100 px-1.5 py-0.5 rounded-full">
+                Dinonaktifkan
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-zen-ink/40 truncate">{row.owner_email}</p>
         </div>
 
-        {/* Plan badge — hidden on small */}
+        {/* Plan badge */}
         <div className="hidden sm:block shrink-0">
-          <span className="text-[10px] uppercase tracking-widest font-bold text-zen-brand bg-zen-brand/10 px-2 py-1 rounded-full">
+          <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded-full ${state === 'disabled' ? 'text-zen-ink/30 bg-zen-ink/5' : 'text-zen-brand bg-zen-brand/10'}`}>
             {row.plan || 'basic'}
           </span>
         </div>
 
-        {/* Session status — hidden on small */}
+        {/* Session status */}
         <div className="hidden md:flex items-center gap-1.5 shrink-0 w-28">
-          {isPending ? (
-            <span className="text-[11px] text-zen-ink/30">—</span>
-          ) : (
+          {state === 'pending' && <span className="text-[11px] text-amber-500 font-bold">Menunggu</span>}
+          {state === 'disabled' && <span className="text-[11px] text-red-400 font-bold">Nonaktif</span>}
+          {state === 'active' && (
             <>
               <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
               <span className={`text-[11px] font-bold ${cfg.text}`}>{cfg.label}</span>
@@ -262,8 +289,8 @@ function LicenseTableRow({ row, onApprove, onReject, onCopyKey, onShowSessions, 
 
         {/* Expiry */}
         <div className="hidden lg:block shrink-0 w-24 text-right">
-          {isPending ? (
-            <span className="text-[11px] text-amber-500 font-bold">Menunggu</span>
+          {state === 'pending' ? (
+            <span className="text-[11px] text-amber-500 font-bold">—</span>
           ) : (
             <span className={`text-[11px] font-bold ${days < 0 ? 'text-red-500' : days <= 30 ? 'text-amber-500' : 'text-zen-ink/40'}`}>
               {days < 0 ? 'Expired' : `${days}h lagi`}
@@ -279,7 +306,22 @@ function LicenseTableRow({ row, onApprove, onReject, onCopyKey, onShowSessions, 
 
       {/* ─ Expanded detail ─ */}
       {expanded && (
-        <div className={`px-4 pb-4 pt-2 border-b border-zen-ink/5 space-y-4 ${isPending ? 'bg-amber-50/30' : 'bg-zen-bg/40'}`}>
+        <div className={`px-4 pb-4 pt-2 border-b border-zen-ink/5 space-y-4 ${
+          state === 'pending'  ? 'bg-amber-50/30' :
+          state === 'disabled' ? 'bg-red-50/20'   : 'bg-zen-bg/40'
+        }`}>
+
+          {/* Disabled banner */}
+          {state === 'disabled' && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-2xl px-3 py-2.5">
+              <ShieldOff size={13} className="text-red-500 shrink-0" />
+              <div className="flex-1">
+                <p className="text-[11px] font-bold text-red-700">Lisensi dinonaktifkan oleh admin</p>
+                <p className="text-[10px] text-red-500 mt-0.5">Dinonaktifkan: {formatDate(row.disabled_at!)}</p>
+              </div>
+            </div>
+          )}
+
           {/* Info grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {row.owner_phone && (
@@ -295,10 +337,10 @@ function LicenseTableRow({ row, onApprove, onReject, onCopyKey, onShowSessions, 
             <div className="flex items-center gap-2 sm:col-span-1 col-span-2">
               <Package size={12} className="text-zen-ink/30 shrink-0" />
               <span className="text-[11px] text-zen-ink/50">
-                {row.is_active && row.activated_at ? `Aktif sejak ${formatDate(row.activated_at)}` : 'Belum aktivasi perangkat'}
+                {row.activated_at ? `Aktivasi: ${formatDate(row.activated_at)}` : 'Belum aktivasi perangkat'}
               </span>
             </div>
-            {!isPending && row.storage_quota_mb > 0 && (
+            {state === 'active' && row.storage_quota_mb > 0 && (
               <div className="col-span-2 flex items-center gap-2">
                 <HardDrive size={12} className="text-zen-ink/30 shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -314,42 +356,62 @@ function LicenseTableRow({ row, onApprove, onReject, onCopyKey, onShowSessions, 
             )}
           </div>
 
-          {/* Session last used */}
-          {!isPending && row.sessionStatus !== 'none' && (
+          {/* Session info */}
+          {state === 'active' && row.sessionStatus !== 'none' && (
             <button
               onClick={e => { e.stopPropagation(); onShowSessions(); }}
               className="flex items-center gap-2 text-[11px] text-zen-ink/50 hover:text-zen-brand transition-colors"
             >
               <Wifi size={12} />
-              Terakhir diakses oleh <strong>{row.sessionUser}</strong> · {row.sessionLastUsed ? timeAgo(row.sessionLastUsed) : '—'}
-              <span className="text-zen-brand underline">({row.sessionCount} sesi)</span>
+              Terakhir: <strong>{row.sessionUser}</strong> · {row.sessionLastUsed ? timeAgo(row.sessionLastUsed) : '—'}
+              <span className="text-zen-brand underline ml-0.5">({row.sessionCount} sesi)</span>
             </button>
           )}
-          {!isPending && row.sessionStatus === 'none' && (
+          {state === 'active' && row.sessionStatus === 'none' && (
             <div className="flex items-center gap-2 text-[11px] text-zen-ink/30">
-              <WifiOff size={12} />
-              Belum pernah login
+              <WifiOff size={12} /> Belum pernah login
             </div>
           )}
 
-          {/* Actions */}
+          {/* ── Actions ── */}
           <div className="flex items-center gap-2 flex-wrap">
-            {!isPending && (
+
+            {/* Copy key — active & disabled */}
+            {state !== 'pending' && (
               <button onClick={e => { e.stopPropagation(); onCopyKey(); }} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zen-ink/10 rounded-2xl text-[11px] font-bold text-zen-ink/60 hover:border-zen-brand/30 hover:text-zen-brand transition-colors min-h-[40px]">
                 <KeyRound size={12} />
-                {isCopied ? (
-                  <><Check size={12} className="text-green-500" /> Disalin!</>
-                ) : (
-                  <><Copy size={12} /> Salin License Key</>
-                )}
+                {isCopied ? <><Check size={12} className="text-green-500" /> Disalin!</> : <><Copy size={12} /> Salin Key</>}
               </button>
             )}
-            {!isPending && row.sessionCount > 0 && (
+
+            {/* Lihat sesi — active only */}
+            {state === 'active' && row.sessionCount > 0 && (
               <button onClick={e => { e.stopPropagation(); onShowSessions(); }} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zen-ink/10 rounded-2xl text-[11px] font-bold text-zen-ink/60 hover:border-zen-brand/30 hover:text-zen-brand transition-colors min-h-[40px]">
                 <CircleDot size={12} /> Lihat Sesi
               </button>
             )}
-            {isPending && (
+
+            {/* Nonaktifkan — active only */}
+            {state === 'active' && (
+              <button onClick={e => { e.stopPropagation(); onDisable(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-500 bg-red-50 text-[11px] font-bold rounded-2xl hover:bg-red-100 transition-colors min-h-[40px] disabled:opacity-40">
+                {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <ShieldOff size={12} />} Nonaktifkan
+              </button>
+            )}
+
+            {/* Aktifkan Kembali — disabled only */}
+            {state === 'disabled' && (
+              <>
+                <button onClick={e => { e.stopPropagation(); onEnable(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white text-[11px] font-bold rounded-2xl hover:bg-green-600 transition-colors min-h-[40px] disabled:opacity-40">
+                  {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />} Aktifkan Kembali
+                </button>
+                <button onClick={e => { e.stopPropagation(); onReject(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-500 text-[11px] font-bold rounded-2xl hover:bg-red-50 transition-colors min-h-[40px] disabled:opacity-40">
+                  {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />} Hapus
+                </button>
+              </>
+            )}
+
+            {/* Approve / Tolak — pending only */}
+            {state === 'pending' && (
               <>
                 <button onClick={e => { e.stopPropagation(); onReject(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-500 text-[11px] font-bold rounded-2xl hover:bg-red-50 transition-colors min-h-[40px] disabled:opacity-40">
                   {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />} Tolak
@@ -406,7 +468,7 @@ export default function LicensesPage() {
     const [licRes, sessRes] = await Promise.all([
       supabase
         .from('licenses')
-        .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, storage_quota_mb, storage_used_mb')
+        .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, disabled_at, storage_quota_mb, storage_used_mb')
         .order('is_active', { ascending: true })
         .order('created_at', { ascending: false }),
       supabase
@@ -434,21 +496,23 @@ export default function LicensesPage() {
       sessionLastUsed: latest?.last_used_at ?? null,
       sessionUser: latest?.user_full_name ?? latest?.user_email ?? null,
       sessionCount: mySessions.length,
+      state: getLicenseState(lic),
     };
   });
 
   // Stats
-  const pendingCount  = rows.filter(r => !r.is_active).length;
-  const activeCount   = rows.filter(r => r.is_active).length;
+  const pendingCount  = rows.filter(r => r.state === 'pending').length;
+  const activeCount   = rows.filter(r => r.state === 'active').length;
+  const disabledCount = rows.filter(r => r.state === 'disabled').length;
   const onlineCount   = rows.filter(r => r.sessionStatus === 'online').length;
   const todayCount    = rows.filter(r => r.sessionStatus === 'today').length;
-  const expiringSoon  = rows.filter(r => r.is_active && daysUntil(r.expires_at) <= 30 && daysUntil(r.expires_at) >= 0).length;
-  const expiredCount  = rows.filter(r => r.is_active && daysUntil(r.expires_at) < 0).length;
+  const expiringSoon  = rows.filter(r => r.state === 'active' && daysUntil(r.expires_at) <= 30 && daysUntil(r.expires_at) >= 0).length;
+  const expiredCount  = rows.filter(r => r.state === 'active' && daysUntil(r.expires_at) < 0).length;
 
   // Filter + search
   const filtered = rows.filter(r => {
-    if (filter === 'pending') { if (r.is_active) return false; }
-    else if (filter === 'active') { if (!r.is_active) return false; }
+    if (filter === 'pending') { if (r.state !== 'pending') return false; }
+    else if (filter === 'active') { if (r.state !== 'active') return false; }
     else if (filter === 'online') { if (r.sessionStatus !== 'online' && r.sessionStatus !== 'today') return false; }
     if (search) {
       const q = search.toLowerCase();
@@ -494,6 +558,46 @@ export default function LicensesPage() {
     });
   };
 
+  const handleDisable = (lic: LicenseRow) => {
+    const hasSession = lic.sessionCount > 0;
+    setConfirm({
+      open: true,
+      title: 'Nonaktifkan Lisensi?',
+      message: `Lisensi "${lic.studio_name || lic.owner_email}" akan dinonaktifkan.${hasSession ? ' Studio yang sedang login akan otomatis logout.' : ''} Owner tidak bisa login sampai diaktifkan kembali.`,
+      variant: 'danger',
+      onConfirm: async () => {
+        setActionLoading(lic.id);
+        // Hapus semua sesi aktif untuk studio ini
+        await supabase.from('sessions').delete().eq('studio_id', lic.id);
+        // Set is_active=false dan catat disabled_at
+        const { error: updErr } = await supabase.from('licenses')
+          .update({ is_active: false, disabled_at: new Date().toISOString() })
+          .eq('id', lic.id);
+        if (updErr) { setError('Gagal nonaktifkan: ' + updErr.message); setActionLoading(null); return; }
+        await fetchAll();
+        setActionLoading(null);
+      },
+    });
+  };
+
+  const handleEnable = (lic: LicenseRow) => {
+    setConfirm({
+      open: true,
+      title: 'Aktifkan Kembali?',
+      message: `Aktifkan lisensi "${lic.studio_name || lic.owner_email}"? Owner akan bisa login kembali.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        setActionLoading(lic.id);
+        const { error: updErr } = await supabase.from('licenses')
+          .update({ is_active: true, disabled_at: null })
+          .eq('id', lic.id);
+        if (updErr) { setError('Gagal aktifkan: ' + updErr.message); setActionLoading(null); return; }
+        await fetchAll();
+        setActionLoading(null);
+      },
+    });
+  };
+
   const handleCopyKey = (row: LicenseRow) => {
     navigator.clipboard.writeText(row.license_key);
     setCopiedId(row.id);
@@ -526,12 +630,12 @@ export default function LicensesPage() {
       {/* ── Stats strip ── */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {[
-          { label: 'Total',      val: licenses.length,  color: 'bg-white border-zen-ink/5',           text: 'text-zen-ink'   },
-          { label: 'Menunggu',   val: pendingCount,      color: 'bg-amber-50 border-amber-100',        text: 'text-amber-500' },
-          { label: 'Aktif',      val: activeCount,       color: 'bg-green-50 border-green-100',        text: 'text-green-500' },
-          { label: '● Online',   val: onlineCount,       color: 'bg-emerald-50 border-emerald-100',    text: 'text-emerald-600' },
-          { label: 'Mau Exp',    val: expiringSoon,      color: expiringSoon > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5', text: expiringSoon > 0 ? 'text-red-500' : 'text-zen-ink' },
-          { label: 'Expired',    val: expiredCount,      color: expiredCount > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5', text: expiredCount > 0 ? 'text-red-600' : 'text-zen-ink' },
+          { label: 'Total',         val: licenses.length,  color: 'bg-white border-zen-ink/5',           text: 'text-zen-ink'     },
+          { label: 'Menunggu',      val: pendingCount,      color: 'bg-amber-50 border-amber-100',        text: 'text-amber-500'   },
+          { label: 'Aktif',         val: activeCount,       color: 'bg-green-50 border-green-100',        text: 'text-green-500'   },
+          { label: '● Online',      val: onlineCount,       color: 'bg-emerald-50 border-emerald-100',    text: 'text-emerald-600' },
+          { label: 'Dinonaktifkan', val: disabledCount,     color: disabledCount > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-zen-ink/5', text: disabledCount > 0 ? 'text-red-500' : 'text-zen-ink' },
+          { label: 'Mau Expired',   val: expiringSoon,      color: expiringSoon > 0 ? 'bg-orange-50 border-orange-100' : 'bg-white border-zen-ink/5', text: expiringSoon > 0 ? 'text-orange-500' : 'text-zen-ink' },
         ].map(({ label, val, color, text }) => (
           <div key={label} className={`rounded-2xl p-3 border ${color} text-center`}>
             <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1">{label}</p>
@@ -613,6 +717,8 @@ export default function LicensesPage() {
               row={row}
               onApprove={() => handleApprove(row)}
               onReject={() => handleReject(row)}
+              onDisable={() => handleDisable(row)}
+              onEnable={() => handleEnable(row)}
               onCopyKey={() => handleCopyKey(row)}
               onShowSessions={() => setSessionDrawer(row)}
               isProcessing={actionLoading === row.id}

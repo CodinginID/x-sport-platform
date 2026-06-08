@@ -82,7 +82,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     // Fetch license
     const { data: license } = await supabase.from('licenses')
       .select('*').eq('id', found.studioId).single();
-    if (!license) return false;
+    if (!license || !license.is_active) return false;
 
     // Create session in Supabase
     const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 86_400_000).toISOString();
