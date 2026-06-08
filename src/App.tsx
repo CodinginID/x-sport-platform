@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+import { lazyWithReload } from '@/utils/lazyWithReload';
 import { useAuthStore } from '@/stores/auth';
 import { ToastContainer } from '@/components/Toast';
 import { ConfirmDialogProvider } from '@/components/ConfirmDialog';
@@ -9,24 +10,24 @@ import { LicenseGuard } from '@/components/LicenseGuard';
 import AppLayout from '@/layouts/AppLayout';
 
 // ── Lazy pages ──────────────────────────────────────────────────────────────
-const LandingPage     = lazy(() => import('@/modules/landing/LandingPage'));
-const LoginPage       = lazy(() => import('@/modules/auth/LoginPage'));
-const RegisterPage    = lazy(() => import('@/modules/auth/RegisterPage'));
-const ActivationPage  = lazy(() => import('@/modules/activation/ActivationPage'));
-const DashboardPage   = lazy(() => import('@/modules/dashboard/DashboardPage'));
-const MembersPage     = lazy(() => import('@/modules/members/MembersPage'));
-const MemberDetailPage= lazy(() => import('@/modules/members/MemberDetailPage'));
-const CoachesPage     = lazy(() => import('@/modules/coaches/CoachesPage'));
-const ProductsPage    = lazy(() => import('@/modules/products/ProductsPage'));
-const PackagesPage    = lazy(() => import('@/modules/packages/PackagesPage'));
-const BookingsPage    = lazy(() => import('@/modules/bookings/BookingsPage'));
-const ProductSalesPage= lazy(() => import('@/modules/payments/ProductSalesPage'));
-const MemberPaymentPage=lazy(() => import('@/modules/payments/MemberPaymentPage'));
-const CommissionsPage = lazy(() => import('@/modules/commissions/CommissionsPage'));
-const ReportsPage     = lazy(() => import('@/modules/reports/ReportsPage'));
-const SettingsPage    = lazy(() => import('@/modules/settings/SettingsPage'));
-const SuperAdminPage  = lazy(() => import('@/modules/superadmin/SuperAdminPage'));
-const LicensesPage    = lazy(() => import('@/modules/superadmin/LicensesPage'));
+const LandingPage     = lazyWithReload(() => import('@/modules/landing/LandingPage'));
+const LoginPage       = lazyWithReload(() => import('@/modules/auth/LoginPage'));
+const RegisterPage    = lazyWithReload(() => import('@/modules/auth/RegisterPage'));
+const ActivationPage  = lazyWithReload(() => import('@/modules/activation/ActivationPage'));
+const DashboardPage   = lazyWithReload(() => import('@/modules/dashboard/DashboardPage'));
+const MembersPage     = lazyWithReload(() => import('@/modules/members/MembersPage'));
+const MemberDetailPage= lazyWithReload(() => import('@/modules/members/MemberDetailPage'));
+const CoachesPage     = lazyWithReload(() => import('@/modules/coaches/CoachesPage'));
+const ProductsPage    = lazyWithReload(() => import('@/modules/products/ProductsPage'));
+const PackagesPage    = lazyWithReload(() => import('@/modules/packages/PackagesPage'));
+const BookingsPage    = lazyWithReload(() => import('@/modules/bookings/BookingsPage'));
+const ProductSalesPage= lazyWithReload(() => import('@/modules/payments/ProductSalesPage'));
+const MemberPaymentPage=lazyWithReload(() => import('@/modules/payments/MemberPaymentPage'));
+const CommissionsPage = lazyWithReload(() => import('@/modules/commissions/CommissionsPage'));
+const ReportsPage     = lazyWithReload(() => import('@/modules/reports/ReportsPage'));
+const SettingsPage    = lazyWithReload(() => import('@/modules/settings/SettingsPage'));
+const SuperAdminPage  = lazyWithReload(() => import('@/modules/superadmin/SuperAdminPage'));
+const LicensesPage    = lazyWithReload(() => import('@/modules/superadmin/LicensesPage'));
 
 // ── Suspense spinner ─────────────────────────────────────────────────────────
 function PageSpinner() {
