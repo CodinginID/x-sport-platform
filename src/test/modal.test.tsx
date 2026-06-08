@@ -4,9 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/utils/zodResolver';
 import { Modal } from '@/components/ui';
+import { ConfirmDialogProvider, useConfirmStore } from '@/components/ConfirmDialog';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useConfirmStore.getState().hide();
+});
 
 describe('Modal', () => {
   it('renders children exactly once (no mobile/desktop duplication)', () => {
@@ -58,5 +62,15 @@ describe('Modal', () => {
       expect(alerts).toHaveLength(1);
       expect(alerts[0]).toHaveTextContent('Nama wajib diisi');
     });
+  });
+});
+
+describe('ConfirmDialogProvider', () => {
+  it('renders its actions exactly once (no mobile/desktop duplication)', () => {
+    useConfirmStore.getState().show({ title: 'Hapus?', message: 'Yakin?', onConfirm: () => {} });
+    render(<ConfirmDialogProvider />);
+    // Duplicated mobile + desktop copies would render two of each action.
+    expect(screen.getAllByRole('button', { name: 'Konfirmasi' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Batal' })).toHaveLength(1);
   });
 });
