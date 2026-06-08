@@ -7,6 +7,7 @@ import { BackupSection } from './BackupSection';
 import { StudioSection } from './StudioSection';
 import { LicenseSection } from './LicenseSection';
 import { PrinterSection } from './PrinterSection';
+import { StaffSection } from './StaffSection';
 
 export default function SettingsPage() {
   const { lang, setLang } = useLanguageStore();
@@ -54,6 +55,9 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* Staff management — owner only */}
+      {user?.role === 'owner' && <StaffSection />}
+
       {/* License — owner only */}
       {user?.role === 'owner' && <LicenseSection />}
 
@@ -77,7 +81,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex justify-between py-2 border-b border-zen-brand/5">
             <span className="text-zen-ink/40">{t('settings.database')}</span>
-            <span className="font-bold">IndexedDB (Dexie.js)</span>
+            <span className="font-bold">Supabase (PostgreSQL)</span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-zen-ink/40">{t('settings.build')}</span>
