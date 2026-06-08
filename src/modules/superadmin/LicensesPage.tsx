@@ -402,7 +402,7 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForc
               </button>
             )}
 
-            {/* Reset Aktivasi — active only, only when device is bound */}
+            {/* Reset Aktivasi — active only, only when already activated */}
             {state === 'active' && row.activated_at && (
               <button onClick={e => { e.stopPropagation(); onResetActivation(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-blue-200 text-blue-600 bg-blue-50 text-[11px] font-bold rounded-2xl hover:bg-blue-100 transition-colors min-h-[40px] disabled:opacity-40">
                 {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} Reset Aktivasi
@@ -635,8 +635,8 @@ export default function LicensesPage() {
   const handleResetActivation = (lic: LicenseRow) => {
     setConfirm({
       open: true,
-      title: 'Reset Aktivasi Perangkat?',
-      message: `Reset binding perangkat untuk "${lic.studio_name || lic.owner_email}".\n\nIni akan:\n• Hapus sesi aktif (otomatis logout)\n• Hapus akun staff yang ter-provision di users\n• Lepas ikatan device fingerprint\n\nOwner harus aktivasi ulang dari halaman Lisensi. Lisensi tetap aktif dan approved.`,
+      title: 'Reset Aktivasi?',
+      message: `Reset aktivasi untuk "${lic.studio_name || lic.owner_email}".\n\nIni akan:\n• Hapus sesi aktif (otomatis logout)\n• Hapus akun staff yang ter-provision di users\n• Kembalikan lisensi ke status belum diaktivasi\n\nOwner harus aktivasi ulang dari halaman Lisensi. Lisensi tetap aktif dan approved.`,
       variant: 'warning',
       onConfirm: async () => {
         setActionLoading(lic.id);

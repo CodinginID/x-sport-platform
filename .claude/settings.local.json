@@ -18,7 +18,32 @@
       "Bash(git checkout *)",
       "Bash(git stash *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(cp /tmp/repro.mjs ./repro.mjs)",
+      "Bash(node ./repro.mjs)",
+      "Bash(rm -f ./repro.mjs)",
+      "Bash(grep -rnE \"w-\\\\[[0-9]{3,}px\\\\]|min-w-\\\\[[0-9]{3,}px\\\\]|overflow-x|<table|whitespace-nowrap|min-w-max\" src/modules src/components --include=\"*.tsx\")",
+      "Skill(gstack)",
+      "Bash(git -c color.ui=never diff -- src/services/license.ts src/components/LicenseGuard.tsx src/modules/superadmin/LicensesPage.tsx)",
+      "Bash(node -e \"const p=require\\('./node_modules/@hookform/resolvers/package.json'\\); console.log\\('@hookform/resolvers', p.version\\)\")",
+      "Bash(node -e \"const z=require\\('./node_modules/zod/package.json'\\); console.log\\('zod', z.version\\)\")",
+      "Bash(node -e \"const r=require\\('./node_modules/react-hook-form/package.json'\\); console.log\\('react-hook-form', r.version\\)\")",
+      "Bash(sed -n \"/export const memberSchema/,/}\\);/p\" src/utils/schemas.ts)",
+      "Bash(sed -n '71,135p' src/components/ui/index.tsx)",
+      "Bash(sed -n \"/export function Input/,/^}/p\" src/components/ui/index.tsx)",
+      "Bash(npx vitest *)",
+      "Bash(npx eslint *)",
+      "Bash(read f *)",
+      "Bash(node -e 'console.log\\(require\\('\\\\''./__TRACKED_VAR__'\\\\''\\).version\\)')",
+      "Bash(node -e \"const p=require\\('./node_modules/@hookform/resolvers/package.json'\\); console.log\\('peerDeps zod:', \\(p.peerDependencies||{}\\).zod\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@hookform/resolvers/package.json'\\).version\\)\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git commit -q -m 'fix: tambah member crash — Modal duplicated children + Zod 4 resolver *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(git commit -q -m 'fix: ConfirmDialog duplicated children \\(same removeChild bug class as Modal\\) *)"
     ]
   }
 }

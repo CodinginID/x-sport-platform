@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { getDeviceFingerprint } from '@/utils/fingerprint';
 import { hashPassword } from '@/utils';
 import type { LicenseInfo } from '@/types';
 
@@ -52,8 +51,8 @@ function generateStaffPassword(): string {
 // ─── validateLicense ──────────────────────────────────────────────────────────
 
 export async function validateLicense(licenseKey: string): Promise<LicenseResult<LicenseInfo>> {
-  const fingerprint = await getDeviceFingerprint();
-
+  // Device switching is allowed: enforcement is per-session (1 active login per user),
+  // not per-device. We only validate that the license is active & not expired.
   const { data, error } = await supabase
     .from('licenses').select('*')
     .eq('license_key', licenseKey)
@@ -61,9 +60,6 @@ export async function validateLicense(licenseKey: string): Promise<LicenseResult
     .single();
 
   if (error || !data) return { ok: false, error: 'Lisensi tidak valid atau sudah dinonaktifkan' };
-  if (data.device_fingerprint && data.device_fingerprint !== fingerprint) {
-    return { ok: false, error: 'Lisensi sudah digunakan di perangkat lain' };
-  }
   if (new Date(data.expires_at).getTime() < Date.now()) {
     return { ok: false, error: 'Lisensi sudah expired' };
   }
@@ -76,8 +72,6 @@ export async function validateLicense(licenseKey: string): Promise<LicenseResult
 // ─── activateLicense ──────────────────────────────────────────────────────────
 
 export async function activateLicense(activation: ActivationData): Promise<ActivateLicenseResult> {
-  const fingerprint = await getDeviceFingerprint();
-
   const { data: license, error } = await supabase
     .from('licenses').select('*')
     .eq('license_key', activation.licenseKey)
@@ -85,9 +79,8 @@ export async function activateLicense(activation: ActivationData): Promise<Activ
 
   if (error || !license) return { ok: false, error: 'License key tidak ditemukan' };
   if (!license.is_active) return { ok: false, error: 'License key belum disetujui admin. Hubungi developer.' };
-  if (license.activated_at && license.device_fingerprint !== fingerprint) {
-    return { ok: false, error: 'License key sudah diaktivasi di perangkat lain' };
-  }
+  // No device binding: a license can be (re)activated from any device. Concurrent use is
+  // prevented by the per-user session limit (login revokes the user's other sessions).
   if (new Date(license.expires_at).getTime() < Date.now()) {
     return { ok: false, error: 'License key sudah expired' };
   }
@@ -98,7 +91,6 @@ export async function activateLicense(activation: ActivationData): Promise<Activ
     studio_address: activation.studioAddress || license.studio_address,
     owner_email: activation.ownerEmail || license.owner_email,
     owner_phone: activation.ownerPhone || license.owner_phone || null,
-    device_fingerprint: fingerprint,
     activated_at: activatedAt,
     last_validated_at: activatedAt,
   }).eq('id', license.id);

@@ -78,7 +78,7 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
       </p>
       {status === 'locked' && !isOfflineLock && (
         <p className="text-zen-ink/40 text-xs max-w-sm mb-6">
-          Jika ini bukan perangkat Anda, hubungi developer untuk reset lisensi.
+          Lisensi dinonaktifkan atau tidak ditemukan. Hubungi developer.
         </p>
       )}
       {status !== 'locked' || isOfflineLock ? <div className="mb-6" /> : null}
