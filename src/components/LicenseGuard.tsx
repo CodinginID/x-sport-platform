@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isActivated, isWithinGracePeriod, isLicenseExpired, validateLicense } from '@/services/license';
-import { ShieldAlert, KeyRound, WifiOff } from 'lucide-react';
+import { isActivated, isWithinGracePeriod, isLicenseExpired, validateLicense, clearStoredLicense } from '@/services/license';
+import { ShieldAlert, KeyRound, WifiOff, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui';
 
 export function LicenseGuard({ children }: { children: ReactNode }) {
@@ -90,6 +90,13 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
         <Button variant="secondary" onClick={() => navigate('/settings')}>
           Lihat Status Lisensi
         </Button>
+        <button
+          onClick={() => { clearStoredLicense(); window.location.reload(); }}
+          className="flex items-center justify-center gap-1.5 text-xs text-zen-ink/30 hover:text-zen-ink/60 transition-colors py-2"
+        >
+          <RotateCcw size={11} />
+          Reset ke mode demo
+        </button>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getStoredLicense, isActivated, isLicenseExpired, validateLicense } from '@/services/license';
+import { getStoredLicense, isLicenseExpired, validateLicense, clearStoredLicense } from '@/services/license';
 import type { LicenseInfo } from '@/services/license';
-import { KeyRound, CheckCircle2, AlertTriangle, Clock, Copy, Check, RefreshCw, ExternalLink, ShieldCheck } from 'lucide-react';
+import { KeyRound, CheckCircle2, AlertTriangle, Clock, Copy, Check, RefreshCw, ExternalLink, ShieldCheck, RotateCcw } from 'lucide-react';
+import { useConfirmStore } from '@/components/ConfirmDialog';
 
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -52,6 +53,7 @@ const STATUS_CONFIG: Record<LicenseStatus, { label: string; badge: string; icon:
 
 export function LicenseSection() {
   const navigate = useNavigate();
+  const confirm = useConfirmStore(s => s.show);
   const [license, setLicense] = useState<(LicenseInfo & { validatedAt: string }) | null>(null);
   const [status, setStatus] = useState<LicenseStatus>('demo');
   const [copied, setCopied] = useState(false);
@@ -63,6 +65,15 @@ export function LicenseSection() {
     setLicense(stored);
     setStatus(getStatus(stored));
   }, []);
+
+  const handleReset = () => {
+    confirm({
+      title: 'Reset ke Mode Demo?',
+      message: 'Data lisensi lokal akan dihapus dan aplikasi kembali ke mode demo. Anda perlu aktivasi ulang untuk menggunakan fitur penuh.',
+      variant: 'warning',
+      onConfirm: () => { clearStoredLicense(); window.location.reload(); },
+    });
+  };
 
   const copyKey = () => {
     if (!license?.license_key) return;
@@ -191,6 +202,17 @@ export function LicenseSection() {
             <KeyRound size={13} />
             {status === 'demo' ? 'Aktivasi Lisensi' : 'Aktivasi Ulang'}
             <ExternalLink size={11} className="opacity-60" />
+          </button>
+        )}
+
+        {/* Reset to demo — only if there's stored license data */}
+        {license && (
+          <button
+            onClick={handleReset}
+            className="w-full flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-widest font-bold text-zen-ink/25 hover:text-red-400 transition-colors py-1"
+          >
+            <RotateCcw size={10} />
+            Reset ke mode demo
           </button>
         )}
       </div>
