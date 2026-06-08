@@ -1,7 +1,5 @@
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/utils';
-import { storePendingLicense } from '@/services/license';
-import type { LicenseInfo } from '@/services/license';
 
 export interface RegisterData {
   studioName: string;
@@ -39,7 +37,7 @@ export async function registerStudio(data: RegisterData): Promise<RegisterResult
     storage_quota_mb: 50,
     expires_at: expiresAt.toISOString(),
     is_active: false,
-  }).select('*').single();
+  }).select('id').single();
 
   if (licErr || !license) return { ok: false, error: 'Gagal registrasi: ' + (licErr?.message ?? 'unknown') };
 
@@ -52,9 +50,6 @@ export async function registerStudio(data: RegisterData): Promise<RegisterResult
   });
 
   if (userErr) return { ok: false, error: 'Gagal simpan user: ' + userErr.message };
-
-  // Store pending license so getStudioId() works for login before activation
-  storePendingLicense(license as LicenseInfo);
 
   return { ok: true, licenseKey };
 }

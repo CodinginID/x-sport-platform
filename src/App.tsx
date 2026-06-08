@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { ToastContainer } from '@/components/Toast';
 import { ConfirmDialogProvider } from '@/components/ConfirmDialog';
@@ -54,7 +54,8 @@ function AnimatedContent() {
 
 // All authenticated users — AppLayout mounts ONCE for all child routes
 function ProtectedLayout() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  if (isLoading) return <PageSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === 'superadmin') {
     return <AppLayout><AnimatedContent /></AppLayout>;
@@ -78,7 +79,8 @@ function SuperadminGuard() {
 
 // Activation skips LicenseGuard — separate layout so owner can reach it even unlicensed
 function ActivationLayout() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  if (isLoading) return <PageSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role !== 'owner') return <Navigate to="/dashboard" replace />;
   return (
@@ -101,6 +103,9 @@ function PublicPage({ element }: { element: React.ReactNode }) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
+  const validateSession = useAuthStore(s => s.validateSession);
+  useEffect(() => { validateSession(); }, []);
+
   return (
     <BrowserRouter>
       <Routes>

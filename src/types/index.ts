@@ -1,3 +1,21 @@
+export interface LicenseInfo {
+  id: string;
+  license_key: string;
+  studio_name: string | null;
+  studio_address: string | null;
+  owner_email: string | null;
+  owner_phone: string | null;
+  plan: string;
+  storage_quota_mb: number;
+  storage_used_mb: number;
+  expires_at: string;
+  grace_period_days: number;
+  activated_at: string | null;
+  device_fingerprint: string | null;
+  last_validated_at: string | null;
+  is_active: boolean;
+}
+
 export interface User {
   id: string;
   email: string;

@@ -5,7 +5,6 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { Button, Input } from '@/components/ui';
 import { Eye, EyeOff, ChevronLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getStoredLicense, storePendingLicense } from '@/services/license';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -32,54 +31,23 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const studioId = getStoredLicense()?.id;
-    let foundName: string | null = null;
+    // Search in license_users (no studioId needed — works from any browser)
+    const { data: lu } = await supabase.from('license_users')
+      .select('full_name, email')
+      .eq('email', email.trim())
+      .maybeSingle();
 
-    if (studioId) {
-      // Check activated users table
-      const { data: exact } = await supabase.from('users')
-        .select('full_name, email')
-        .eq('studio_id', studioId)
-        .eq('email', email.trim())
-        .maybeSingle();
-      if (exact) {
-        foundName = exact.full_name;
-      } else {
-        const { data: all } = await supabase.from('users').select('full_name, email').eq('studio_id', studioId);
-        const match = (all ?? []).find(u => u.email.split('@')[0] === email.trim());
-        if (match) foundName = match.full_name;
-      }
+    if (lu) { setLoading(false); setUserFound({ full_name: lu.full_name }); return; }
 
-      // Fallback: check license_users (pending/pre-activation)
-      if (!foundName) {
-        const { data: lu } = await supabase.from('license_users')
-          .select('full_name, email')
-          .eq('license_id', studioId)
-          .eq('email', email.trim())
-          .maybeSingle();
-        if (lu) {
-          foundName = lu.full_name;
-        } else {
-          const { data: allLu } = await supabase.from('license_users').select('full_name, email').eq('license_id', studioId);
-          const m = (allLu ?? []).find(u => u.email.split('@')[0] === email.trim());
-          if (m) foundName = m.full_name;
-        }
-      }
-    } else {
-      // No local license — find user by email across all license_users, then auto-load their license
-      const { data: lu } = await supabase.from('license_users')
-        .select('full_name, email, license_id')
-        .eq('email', email.trim())
-        .maybeSingle();
-      if (lu) {
-        const { data: lic } = await supabase.from('licenses').select('*').eq('id', lu.license_id).single();
-        if (lic) { storePendingLicense(lic as import('@/services/license').LicenseInfo); foundName = lu.full_name; }
-      }
-    }
+    // Try username prefix
+    const { data: allLu } = await supabase.from('license_users')
+      .select('full_name, email')
+      .ilike('email', `${email.trim()}@%`);
+    const match = (allLu ?? []).find(u => u.email.split('@')[0] === email.trim());
+    if (match) { setLoading(false); setUserFound({ full_name: match.full_name }); return; }
 
     setLoading(false);
-    if (!foundName) { setError('Akun tidak ditemukan'); return; }
-    setUserFound({ full_name: foundName });
+    setError('Akun tidak ditemukan');
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -109,7 +77,6 @@ export default function LoginPage() {
           {error && <div className="bg-red-50 text-red-600 text-xs font-bold uppercase tracking-widest p-4 rounded-2xl mb-6">{error}</div>}
 
           {!userFound ? (
-            /* Step 1: Email/username */
             <form onSubmit={handleCheckEmail} className="space-y-6 animate-page-in">
               <Input label={t('login.email')} type="text" placeholder="Email atau username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus required />
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
@@ -117,7 +84,6 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-            /* Step 2: Password */
             <form onSubmit={handleLogin} className="space-y-6 animate-page-in">
               <div className="flex items-center gap-3 p-4 bg-zen-bg rounded-2xl">
                 <button type="button" onClick={resetToEmail} className="text-zen-ink/40 hover:text-zen-ink transition-colors">

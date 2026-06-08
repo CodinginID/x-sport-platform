@@ -1,6 +1,6 @@
 import { useBackupStore } from '@/stores/backup';
 import { supabase, BACKUP_BUCKET } from '@/lib/supabase';
-import { getStoredLicense } from '@/services/license';
+import { useAuthStore } from '@/stores/auth';
 
 export type BackupResult = { ok: true } | { ok: false; error: string };
 
@@ -12,7 +12,7 @@ function describeError(e: unknown): string {
 
 // Data is stored in Supabase — export a lightweight metadata snapshot for record-keeping
 async function buildSnapshot(): Promise<string> {
-  const license = getStoredLicense();
+  const license = useAuthStore.getState().licenseInfo;
   return JSON.stringify({
     license_key: license?.license_key ?? null,
     studio_name: license?.studio_name ?? null,
@@ -50,7 +50,7 @@ export async function performBackup(): Promise<BackupResult> {
   if (!studioId || !pin) return { ok: false, error: 'Studio ID atau PIN belum ada' };
   if (!navigator.onLine) return { ok: false, error: 'Offline — backup akan otomatis jalan saat online' };
 
-  const license = getStoredLicense();
+  const license = useAuthStore.getState().licenseInfo;
   if (license && license.storage_used_mb >= license.storage_quota_mb) {
     return { ok: false, error: `Storage penuh (${license.storage_used_mb}/${license.storage_quota_mb} MB).` };
   }

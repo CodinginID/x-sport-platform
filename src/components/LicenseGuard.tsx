@@ -1,33 +1,45 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isActivated, isWithinGracePeriod, isLicenseExpired, validateLicense, clearStoredLicense } from '@/services/license';
+import { useAuthStore } from '@/stores/auth';
+import { validateLicense, isLicenseExpired, isWithinGracePeriod } from '@/services/license';
 import { ShieldAlert, KeyRound, WifiOff, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui';
+import { getSessionCookie } from '@/utils/cookie';
+import { supabase } from '@/lib/supabase';
 
 export function LicenseGuard({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'loading' | 'active' | 'demo' | 'expired' | 'locked'>('loading');
   const [lockReason, setLockReason] = useState('');
   const navigate = useNavigate();
+  const { licenseInfo, updateLicenseInfo, logout } = useAuthStore();
 
-  useEffect(() => {
-    checkLicense();
-  }, []);
+  useEffect(() => { checkLicense(); }, [licenseInfo]);
 
   async function checkLicense() {
-    if (!isActivated()) { setStatus('demo'); return; }
-    if (isLicenseExpired()) { setStatus('expired'); return; }
+    if (!licenseInfo || !licenseInfo.activated_at) { setStatus('demo'); return; }
+    if (isLicenseExpired(licenseInfo)) { setStatus('expired'); return; }
 
     if (navigator.onLine) {
-      const result = await validateLicense();
+      const result = await validateLicense(licenseInfo.license_key);
       if (!result.ok) {
         setLockReason(result.error);
         setStatus('locked');
         return;
       }
-    } else if (!isWithinGracePeriod()) {
-      setLockReason('Perangkat offline dan melewati batas toleransi. Sambungkan ke internet untuk validasi ulang.');
-      setStatus('locked');
-      return;
+      if (result.data) await updateLicenseInfo(result.data);
+    } else {
+      // Check grace period using session's last_used_at
+      const sessionId = getSessionCookie();
+      let lastUsed: string | null = null;
+      if (sessionId) {
+        const { data } = await supabase.from('sessions').select('last_used_at').eq('id', sessionId).single();
+        lastUsed = data?.last_used_at ?? null;
+      }
+      if (!isWithinGracePeriod(licenseInfo, lastUsed)) {
+        setLockReason('Perangkat offline dan melewati batas toleransi. Sambungkan ke internet untuk validasi ulang.');
+        setStatus('locked');
+        return;
+      }
     }
 
     setStatus('active');
@@ -51,35 +63,25 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // Expired or locked
-  const isLocked = status === 'locked';
-  const isOfflineLock = isLocked && lockReason.includes('offline');
+  const isOfflineLock = lockReason.includes('offline');
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
       <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mb-6">
-        {status === 'expired'
-          ? <ShieldAlert size={36} className="text-red-500" />
-          : isOfflineLock
-            ? <WifiOff size={36} className="text-red-500" />
-            : <ShieldAlert size={36} className="text-red-500" />
-        }
+        {isOfflineLock ? <WifiOff size={36} className="text-red-500" /> : <ShieldAlert size={36} className="text-red-500" />}
       </div>
       <h2 className="text-xl font-bold mb-2">
         {status === 'expired' ? 'Lisensi Expired' : 'Lisensi Tidak Valid'}
       </h2>
       <p className="text-zen-ink/60 text-sm max-w-md mb-2">
-        {status === 'expired'
-          ? 'Masa berlaku lisensi sudah habis.'
-          : lockReason}
+        {status === 'expired' ? 'Masa berlaku lisensi sudah habis.' : lockReason}
       </p>
-      {isLocked && !isOfflineLock && (
+      {status === 'locked' && !isOfflineLock && (
         <p className="text-zen-ink/40 text-xs max-w-sm mb-6">
           Jika ini bukan perangkat Anda, hubungi developer untuk reset lisensi.
-          Atau cek status lisensi di menu <strong>Pengaturan → Status Lisensi</strong>.
         </p>
       )}
-      {!isLocked && <div className="mb-6" />}
+      {status !== 'locked' || isOfflineLock ? <div className="mb-6" /> : null}
       <div className="flex flex-col gap-3 w-full max-w-xs">
         {isOfflineLock && (
           <Button variant="primary" onClick={() => window.location.reload()}>Refresh Halaman</Button>
@@ -91,11 +93,11 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
           Lihat Status Lisensi
         </Button>
         <button
-          onClick={() => { clearStoredLicense(); window.location.reload(); }}
+          onClick={async () => { await logout(); window.location.href = '/login'; }}
           className="flex items-center justify-center gap-1.5 text-xs text-zen-ink/30 hover:text-zen-ink/60 transition-colors py-2"
         >
           <RotateCcw size={11} />
-          Reset ke mode demo
+          Logout / Mode Demo
         </button>
       </div>
     </div>

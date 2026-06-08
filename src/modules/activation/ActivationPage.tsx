@@ -96,11 +96,10 @@ export default function ActivationPage() {
     });
     setLoading(false);
     if (!result.ok) { setError(result.error); return; }
-    const stored = localStorage.getItem('xsport-license');
-    if (stored) {
-      const lic = JSON.parse(stored);
-      if (lic.studio_name) setStudioName(lic.studio_name);
-      if (lic.studio_address) setStudioAddress(lic.studio_address);
+    if (result.data) {
+      await useAuthStore.getState().updateLicenseInfo(result.data);
+      if (result.data.studio_name) setStudioName(result.data.studio_name);
+      if (result.data.studio_address) setStudioAddress(result.data.studio_address);
     }
     setSuccess(true);
   };
