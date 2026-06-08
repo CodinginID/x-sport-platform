@@ -45,12 +45,12 @@ export default function BookingsPage() {
 
   const handlePackageChange = (package_id: string) => {
     const pkg = packages.find(p => p.package_id === package_id);
-    setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0, coach_id: "" });
+    // Coach is derived from the package's linked coach (first one if several) — the
+    // coach field is not chosen manually. If the package has no linked coach, coach_id
+    // stays empty and the form blocks submit (see the warning below).
+    const linked = allPackageCoaches.find(pc => pc.package_id === package_id);
+    setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0, coach_id: linked?.coach_id ?? '' });
   };
-
-  const filteredCoaches = form.package_id
-    ? coaches.filter(c => allPackageCoaches.some(pc => pc.package_id === form.package_id && pc.coach_id === c.coach_id))
-    : coaches.filter(c => c.active_status);
 
   const handleSubmit = () => {
     bookingMutation.mutate({ action: 'create', booking: { ...form } });
@@ -156,8 +156,13 @@ export default function BookingsPage() {
             options={[{ value: "", label: t('bookings.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]} />
           <Select label={t('bookings.package')} value={form.package_id} onChange={e => handlePackageChange(e.target.value)}
             options={[{ value: "", label: t('bookings.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]} />
-          <Select label={t('bookings.coach')} value={form.coach_id} onChange={e => setForm({ ...form, coach_id: e.target.value })}
-            options={[{ value: "", label: t('bookings.select_coach') }, ...filteredCoaches.map(c => ({ value: c.coach_id, label: c.full_name }))]} />
+          {form.package_id && (
+            form.coach_id
+              ? <Input label={t('bookings.coach')} value={coachMap[form.coach_id] ?? '—'} readOnly />
+              : <p className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5">
+                  Paket ini belum punya coach. Tambahkan coach ke paket dulu di menu Paket.
+                </p>
+          )}
           <Input label={t('bookings.price')} value={form.package_price ? formatCurrency(form.package_price) : ''} readOnly />
           <Input label={t('bookings.date')} type="date" value={form.booking_date} onChange={e => setForm({ ...form, booking_date: e.target.value })} />
           <Input label={t('bookings.time')} type="time" value={form.booking_time} onChange={e => setForm({ ...form, booking_time: e.target.value })} />

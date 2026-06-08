@@ -6,6 +6,7 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatCurrency, formatDate } from '@/utils';
 import { generateReport, previewPdf } from '@/utils/pdf';
+import { BarChartH, TrendBars } from '@/components/ui';
 import { PrintPreview } from '@/components/PrintPreview';
 import {
   ShoppingBag, CreditCard, User, Users, Award,
@@ -34,8 +35,10 @@ function getPresetDates(preset: Preset): { start: string; end: string } {
     const s = new Date(now); s.setDate(s.getDate() - 29);
     return { start: s.toISOString().split('T')[0], end };
   }
-  // month
-  return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0], end };
+  // month — full calendar month (1st → last day), so entries dated later this month
+  // (e.g. a commission from a booking dated later today/this month) are included.
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { start: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), end: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -345,6 +348,12 @@ function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedC
   const coachTotals = (commissions as any[]).reduce<Record<string, number>>((acc: Record<string, number>, c: any) => {
     acc[c.coach_id] = (acc[c.coach_id] || 0) + c.commission_amount; return acc;
   }, {});
+  const coachChartData = Object.entries(coachTotals).map(([cid, amt]) => ({ label: coachMap[cid] || '—', value: amt as number }));
+  const trendData = (() => {
+    const byDate: Record<string, number> = {};
+    for (const c of commissions as any[]) byDate[c.date] = (byDate[c.date] || 0) + c.commission_amount;
+    return Object.keys(byDate).sort().map(d => ({ label: `${d.slice(8, 10)}/${d.slice(5, 7)}`, value: byDate[d] }));
+  })();
 
   return (
     <div className="space-y-4">
@@ -373,6 +382,20 @@ function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedC
           )}
         </div>
       </div>
+
+      {coachChartData.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Komisi per Pelatih</p>
+          <BarChartH data={coachChartData} formatValue={formatCurrency} />
+        </div>
+      )}
+
+      {trendData.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Tren Komisi Harian</p>
+          <TrendBars data={trendData} formatValue={formatCurrency} />
+        </div>
+      )}
 
       <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
         <SectionHeader title="Rincian Komisi" onExport={onExport} />

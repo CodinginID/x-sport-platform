@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { getStudioId, requireStudioId } from '@/utils/studioContext';
 import type { PackageCoach } from '@/types';
 import { generateId } from '@/utils';
+import { useToastStore } from '@/stores/toast';
 
 export function usePackageCoaches(package_id?: string) {
   return useQuery({
@@ -65,6 +66,9 @@ export function usePackageCoachMutation() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['packageCoaches'] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().addToast(e.message || 'Gagal menyimpan coach paket', 'error');
     },
   });
 }

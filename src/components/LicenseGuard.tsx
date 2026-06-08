@@ -13,7 +13,13 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { licenseInfo, updateLicenseInfo, logout } = useAuthStore();
 
-  useEffect(() => { checkLicense(); }, [licenseInfo]);
+  // Depend on the license's meaningful gate-fields, NOT the whole licenseInfo object.
+  // checkLicense() calls updateLicenseInfo() which replaces licenseInfo with a fresh
+  // object on every run (its last_validated_at keeps advancing), so depending on
+  // [licenseInfo] re-triggers validation in an infinite loop. These fields stay stable
+  // across a re-validation but still change on real transitions (login, activation, expiry).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { checkLicense(); }, [licenseInfo?.license_key, licenseInfo?.activated_at, licenseInfo?.is_active, licenseInfo?.expires_at]);
 
   async function checkLicense() {
     if (!licenseInfo || !licenseInfo.activated_at) { setStatus('demo'); return; }

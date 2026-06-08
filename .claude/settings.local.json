@@ -43,7 +43,11 @@
       "Bash(echo \"exit: $?\")",
       "Bash(git commit -q -m 'fix: tambah member crash — Modal duplicated children + Zod 4 resolver *)",
       "Bash(echo \"exit=$?\")",
-      "Bash(git commit -q -m 'fix: ConfirmDialog duplicated children \\(same removeChild bug class as Modal\\) *)"
+      "Bash(git commit -q -m 'fix: ConfirmDialog duplicated children \\(same removeChild bug class as Modal\\) *)",
+      "Bash(cd *)",
+      "Bash(git -c color.ui=never diff -- src/modules/bookings/BookingsPage.tsx)",
+      "Bash(node ./pcstate.mjs)",
+      "Bash(node ./repcheck.mjs)"
     ]
   }
 }

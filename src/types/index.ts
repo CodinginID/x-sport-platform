@@ -104,7 +104,7 @@ export interface Booking {
   member_id: string;
   coach_id: string;
   package_id: string;
-  member_package_id: string;
+  member_package_id: string | null;
   package_price: number;
   booking_status: 'booked' | 'attended' | 'cancelled' | 'completed';
   created_at: string;

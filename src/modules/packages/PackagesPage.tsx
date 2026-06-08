@@ -37,29 +37,38 @@ export default function PackagesPage() {
   };
 
   const handleSubmit = async () => {
-    if (editing) {
-      mutation.mutate({ action: "update", pkg: { package_id: editing.package_id, ...form } });
-      const existing = allPackageCoaches.filter(pc => pc.package_id === editing.package_id);
-      for (const pc of existing) {
-        if (!assignedList.some(a => a.coach_id === pc.coach_id)) {
-          coachMutation.mutate({ action: 'remove', package_id: editing.package_id, coach_id: pc.coach_id });
-        }
-      }
-      for (const a of assignedList) {
-        coachMutation.mutate({ action: 'add', package_id: editing.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage });
-      }
-    } else {
-      mutation.mutate({ action: "add", pkg: { ...form, active_status: true } }, {
-        onSuccess: (newPkg: any) => {
-          if (newPkg?.package_id) {
-            for (const a of assignedList) {
-              coachMutation.mutate({ action: 'add', package_id: newPkg.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage });
-            }
+    // Fold in a coach that's selected in the dropdown but not yet committed via "+",
+    // so the assignment saves whether or not the user clicked the "+" button.
+    const finalAssigned = addCoachId && !assignedList.some(a => a.coach_id === addCoachId)
+      ? [...assignedList, { coach_id: addCoachId, commission_percentage: addCommission }]
+      : assignedList;
+
+    // Await every write so coach links are actually persisted before closing the modal,
+    // and so a failed link surfaces its error toast instead of failing silently.
+    try {
+      if (editing) {
+        await mutation.mutateAsync({ action: "update", pkg: { package_id: editing.package_id, ...form } });
+        const existing = allPackageCoaches.filter(pc => pc.package_id === editing.package_id);
+        for (const pc of existing) {
+          if (!finalAssigned.some(a => a.coach_id === pc.coach_id)) {
+            await coachMutation.mutateAsync({ action: 'remove', package_id: editing.package_id, coach_id: pc.coach_id });
           }
         }
-      });
+        for (const a of finalAssigned) {
+          await coachMutation.mutateAsync({ action: 'add', package_id: editing.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage });
+        }
+      } else {
+        const newPkg = await mutation.mutateAsync({ action: "add", pkg: { ...form, active_status: true } });
+        if (newPkg?.package_id) {
+          for (const a of finalAssigned) {
+            await coachMutation.mutateAsync({ action: 'add', package_id: newPkg.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage });
+          }
+        }
+      }
+      setModal(false);
+    } catch {
+      // Error toast already shown by the mutation's onError; keep the modal open to retry.
     }
-    setModal(false);
   };
 
   const toggleActive = (pkg: Package) => {

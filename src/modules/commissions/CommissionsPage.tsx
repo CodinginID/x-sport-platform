@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useCoachCommissions, useCoaches, useMembers } from '@/hooks';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuthStore } from '@/stores/auth';
-import { Select } from '@/components/ui';
+import { Select, BarChartH, TrendBars } from '@/components/ui';
 import { formatCurrency, formatDate } from '@/utils';
-import { Calendar, Award, ChevronRight } from 'lucide-react';
+import { Calendar, Award } from 'lucide-react';
 
 type Preset = '7d' | '30d' | 'month' | 'custom';
 
@@ -13,7 +13,9 @@ function getPresetDates(preset: Preset) {
   const end = now.toISOString().split('T')[0];
   if (preset === '7d') { const s = new Date(now); s.setDate(s.getDate() - 6); return { start: s.toISOString().split('T')[0], end }; }
   if (preset === '30d') { const s = new Date(now); s.setDate(s.getDate() - 29); return { start: s.toISOString().split('T')[0], end }; }
-  return { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0], end };
+  // month — full calendar month, so entries dated later this month are included.
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { start: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), end: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
 }
 
 function initials(name: string) {
@@ -28,7 +30,7 @@ export default function CommissionsPage() {
   const [coachFilter, setCoachFilter] = useState('');
   const [preset, setPreset] = useState<Preset>('month');
   const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => getPresetDates('month').end);
 
   const filterCoachId = isAdmin ? coachFilter || undefined : user?.id;
   const { data: commissions = [] } = useCoachCommissions({ coach_id: filterCoachId, startDate, endDate });
@@ -42,6 +44,13 @@ export default function CommissionsPage() {
   const coachTotals = (commissions as any[]).reduce<Record<string, number>>((acc: Record<string, number>, c: any) => {
     acc[c.coach_id] = (acc[c.coach_id] || 0) + c.commission_amount; return acc;
   }, {});
+
+  const coachChartData = Object.entries(coachTotals).map(([cid, amt]) => ({ label: coachMap[cid] || '—', value: amt as number }));
+  const trendData = (() => {
+    const byDate: Record<string, number> = {};
+    for (const c of commissions) byDate[c.date] = (byDate[c.date] || 0) + c.commission_amount;
+    return Object.keys(byDate).sort().map(d => ({ label: `${d.slice(8, 10)}/${d.slice(5, 7)}`, value: byDate[d] }));
+  })();
 
   const handlePreset = (p: Preset) => {
     setPreset(p);
@@ -91,21 +100,19 @@ export default function CommissionsPage() {
         )}
       </div>
 
-      {/* Per-coach summary */}
-      {isAdmin && Object.keys(coachTotals).length > 0 && (
+      {/* Komisi per pelatih — bar chart */}
+      {isAdmin && coachChartData.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Per Pelatih</p>
-          <div className="divide-y divide-zen-ink/5">
-            {Object.entries(coachTotals).map(([cid, amt]) => (
-              <div key={cid} className="flex items-center gap-3 py-3">
-                <div className="w-8 h-8 rounded-xl bg-zen-brand/10 text-zen-brand font-bold text-[10px] flex items-center justify-center shrink-0">
-                  {initials(coachMap[cid] || '?')}
-                </div>
-                <p className="flex-1 text-sm font-bold">{coachMap[cid] || '—'}</p>
-                <p className="text-sm font-bold text-zen-brand">{formatCurrency(amt as number)}</p>
-              </div>
-            ))}
-          </div>
+          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Komisi per Pelatih</p>
+          <BarChartH data={coachChartData} formatValue={formatCurrency} />
+        </div>
+      )}
+
+      {/* Tren komisi harian */}
+      {trendData.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Tren Komisi Harian</p>
+          <TrendBars data={trendData} formatValue={formatCurrency} />
         </div>
       )}
 

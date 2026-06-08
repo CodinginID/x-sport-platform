@@ -251,6 +251,62 @@ export function StatCard({ title, value, icon, trend }: { title: string; value: 
   );
 }
 
+// BarChartH — horizontal bars for ranked totals (e.g. commission per coach).
+// Dependency-free: pure CSS bars. Pass pre-aggregated { label, value } rows.
+export function BarChartH({ data, formatValue, emptyLabel = 'Belum ada data' }: {
+  data: { label: string; value: number }[];
+  formatValue?: (v: number) => string;
+  emptyLabel?: string;
+}) {
+  const rows = [...data].sort((a, b) => b.value - a.value);
+  const max = Math.max(1, ...rows.map(d => d.value));
+  if (rows.length === 0) return <p className="text-xs text-zen-ink/30 py-4 text-center">{emptyLabel}</p>;
+  return (
+    <div className="space-y-3">
+      {rows.map((d, i) => (
+        <div key={i} className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-zen-ink/70 truncate">{d.label}</span>
+            <span className="text-xs font-bold text-zen-brand shrink-0">{formatValue ? formatValue(d.value) : d.value}</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-zen-bg overflow-hidden">
+            <div className="h-full rounded-full bg-zen-brand transition-all duration-500" style={{ width: `${(d.value / max) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// TrendBars — vertical bars for a time trend (e.g. daily commission).
+// Pass pre-aggregated { label, value } rows in chronological order.
+export function TrendBars({ data, formatValue, emptyLabel = 'Belum ada data' }: {
+  data: { label: string; value: number }[];
+  formatValue?: (v: number) => string;
+  emptyLabel?: string;
+}) {
+  const max = Math.max(1, ...data.map(d => d.value));
+  if (data.length === 0) return <p className="text-xs text-zen-ink/30 py-4 text-center">{emptyLabel}</p>;
+  // With many bars, only label every Nth tick to avoid crowding.
+  const step = data.length > 12 ? Math.ceil(data.length / 8) : 1;
+  return (
+    <div className="flex items-end gap-1 h-40">
+      {data.map((d, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+          <div className="w-full flex items-end justify-center flex-1">
+            <div className="w-full max-w-[26px] rounded-t-md bg-zen-brand/80 hover:bg-zen-brand transition-all duration-500"
+              style={{ height: `${Math.max(d.value > 0 ? 4 : 0, (d.value / max) * 100)}%` }}
+              title={`${d.label}: ${formatValue ? formatValue(d.value) : d.value}`} />
+          </div>
+          <span className="text-[9px] text-zen-ink/40 truncate w-full text-center h-3">
+            {i % step === 0 ? d.label : ''}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // QueryError
 export function QueryError({ message, onRetry }: { message?: string; onRetry?: () => void }) {
   return (
