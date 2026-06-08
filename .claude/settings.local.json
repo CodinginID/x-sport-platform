@@ -11,7 +11,9 @@
       "Bash(supabase init *)",
       "Bash(supabase link *)",
       "Bash(supabase db *)",
-      "Bash(supabase migration *)"
+      "Bash(supabase migration *)",
+      "Bash(xargs cat)",
+      "Bash(xargs ls -la)"
     ]
   }
 }

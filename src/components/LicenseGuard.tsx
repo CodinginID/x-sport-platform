@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 
 export function LicenseGuard({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'loading' | 'active' | 'demo' | 'expired' | 'locked'>('loading');
+  const [lockReason, setLockReason] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,12 +17,17 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
     if (!isActivated()) { setStatus('demo'); return; }
     if (isLicenseExpired()) { setStatus('expired'); return; }
 
-    // If online, re-validate
     if (navigator.onLine) {
       const result = await validateLicense();
-      if (!result.ok) { setStatus('locked'); return; }
+      if (!result.ok) {
+        setLockReason(result.error);
+        setStatus('locked');
+        return;
+      }
     } else if (!isWithinGracePeriod()) {
-      setStatus('locked'); return;
+      setLockReason('Perangkat offline dan melewati batas toleransi. Sambungkan ke internet untuk validasi ulang.');
+      setStatus('locked');
+      return;
     }
 
     setStatus('active');
@@ -33,7 +39,6 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
   if (status === 'demo') {
     return (
       <div className="relative">
-        {/* Demo banner */}
         <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <KeyRound size={16} className="text-amber-600" />
@@ -47,22 +52,45 @@ export function LicenseGuard({ children }: { children: ReactNode }) {
   }
 
   // Expired or locked
+  const isLocked = status === 'locked';
+  const isOfflineLock = isLocked && lockReason.includes('offline');
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
       <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mb-6">
-        {status === 'expired' ? <ShieldAlert size={36} className="text-red-500" /> : <WifiOff size={36} className="text-red-500" />}
+        {status === 'expired'
+          ? <ShieldAlert size={36} className="text-red-500" />
+          : isOfflineLock
+            ? <WifiOff size={36} className="text-red-500" />
+            : <ShieldAlert size={36} className="text-red-500" />
+        }
       </div>
       <h2 className="text-xl font-bold mb-2">
-        {status === 'expired' ? 'Lisensi Expired' : 'Validasi Diperlukan'}
+        {status === 'expired' ? 'Lisensi Expired' : 'Lisensi Tidak Valid'}
       </h2>
-      <p className="text-zen-ink/60 text-sm max-w-md mb-6">
+      <p className="text-zen-ink/60 text-sm max-w-md mb-2">
         {status === 'expired'
-          ? 'Lisensi Anda sudah habis masa berlakunya. Hubungi developer untuk perpanjang.'
-          : 'Aplikasi perlu koneksi internet untuk validasi ulang lisensi. Sambungkan ke internet dan refresh halaman.'}
+          ? 'Masa berlaku lisensi sudah habis.'
+          : lockReason}
       </p>
-      {status === 'expired' && (
-        <Button variant="primary" onClick={() => navigate('/activation')}>Aktivasi Ulang</Button>
+      {isLocked && !isOfflineLock && (
+        <p className="text-zen-ink/40 text-xs max-w-sm mb-6">
+          Jika ini bukan perangkat Anda, hubungi developer untuk reset lisensi.
+          Atau cek status lisensi di menu <strong>Pengaturan → Status Lisensi</strong>.
+        </p>
       )}
+      {!isLocked && <div className="mb-6" />}
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        {isOfflineLock && (
+          <Button variant="primary" onClick={() => window.location.reload()}>Refresh Halaman</Button>
+        )}
+        <Button variant={isOfflineLock ? 'secondary' : 'primary'} onClick={() => navigate('/activation')}>
+          Aktivasi Ulang
+        </Button>
+        <Button variant="secondary" onClick={() => navigate('/settings')}>
+          Lihat Status Lisensi
+        </Button>
+      </div>
     </div>
   );
 }

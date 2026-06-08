@@ -5,6 +5,7 @@ import { Card } from '@/components/ui';
 import { Globe, Info, User } from 'lucide-react';
 import { BackupSection } from './BackupSection';
 import { StudioSection } from './StudioSection';
+import { LicenseSection } from './LicenseSection';
 
 export default function SettingsPage() {
   const { lang, setLang } = useLanguageStore();
@@ -48,6 +49,9 @@ export default function SettingsPage() {
           </button>
         </div>
       </Card>
+
+      {/* License — owner only */}
+      {user?.role === 'owner' && <LicenseSection />}
 
       {/* Backup */}
       <BackupSection />
