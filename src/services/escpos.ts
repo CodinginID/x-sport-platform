@@ -5,6 +5,29 @@ export type PaperSize = '58' | '80';
 /** Karakter per baris untuk font default ESC/POS. */
 export const COLUMNS: Record<PaperSize, number> = { '58': 32, '80': 48 };
 
+/**
+ * Bungkus teks ke lebar kolom secara word-aware agar nama produk panjang tidak
+ * dibungkus sembarangan oleh printer (menggeser layout). Kata yang lebih panjang
+ * dari lebar dipotong keras. Selalu mengembalikan minimal satu baris.
+ */
+export function wrapText(s: string, width: number): string[] {
+  const lines: string[] = [];
+  let cur = '';
+  for (const word of s.split(/\s+/).filter(Boolean)) {
+    let w = word;
+    while (w.length > width) {            // hard-break kata yang sangat panjang
+      if (cur) { lines.push(cur); cur = ''; }
+      lines.push(w.slice(0, width));
+      w = w.slice(width);
+    }
+    if (!cur) cur = w;
+    else if ((cur + ' ' + w).length <= width) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+
 const ESC = 0x1b;
 const GS = 0x1d;
 const LF = 0x0a;
@@ -60,10 +83,17 @@ export interface SaleReceiptData {
   studioName: string;
   studioAddress: string;
   transactionId: string;
-  date: string; // sudah diformat oleh pemanggil
+  date: string; // tanggal + jam, sudah diformat oleh pemanggil
+  cashier: string;
   customerName: string;
   items: { name: string; qty: number; unitPrice: number; subtotal: number }[];
+  subtotal: number;
+  discount: number;
   total: number;
+  paymentMethod: string;
+  cashReceived: number;
+  change: number;
+  notes?: string;
 }
 
 export interface PaymentReceiptData {
@@ -92,15 +122,26 @@ function foot(e: Escpos, paper: PaperSize): Uint8Array {
 export function buildSaleReceipt(d: SaleReceiptData, paper: PaperSize): Uint8Array {
   const e = new Escpos();
   head(e, paper, d.studioName, d.studioAddress, 'STRUK PENJUALAN');
-  e.line(`No  : ${d.transactionId.slice(0, 8).toUpperCase()}`);
-  e.line(`Tgl : ${d.date}`);
-  e.line(`Plg : ${d.customerName || '-'}`);
+  e.line(`No    : ${d.transactionId.slice(0, 8).toUpperCase()}`);
+  e.line(`Waktu : ${d.date}`);
+  e.line(`Kasir : ${d.cashier || '-'}`);
+  e.line(`Plg   : ${d.customerName || '-'}`);
   e.divider(paper);
   for (const it of d.items) {
-    e.line(it.name);
+    for (const ln of wrapText(it.name, COLUMNS[paper])) e.line(ln);
     e.row(`  ${it.qty} x ${formatCurrency(it.unitPrice)}`, formatCurrency(it.subtotal), paper);
   }
-  e.divider(paper).bold(true).row('TOTAL', formatCurrency(d.total), paper).bold(false);
+  e.divider(paper);
+  e.row('Subtotal', formatCurrency(d.subtotal), paper);
+  if (d.discount > 0) e.row('Diskon', `-${formatCurrency(d.discount)}`, paper);
+  e.bold(true).row('TOTAL', formatCurrency(d.total), paper).bold(false);
+  e.divider(paper);
+  e.row('Metode', d.paymentMethod.toUpperCase(), paper);
+  if (d.paymentMethod === 'cash') {
+    e.row('Tunai', formatCurrency(d.cashReceived), paper);
+    e.row('Kembali', formatCurrency(d.change), paper);
+  }
+  if (d.notes) e.line(`Catatan: ${d.notes}`);
   return foot(e, paper);
 }
 

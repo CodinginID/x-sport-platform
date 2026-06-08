@@ -47,7 +47,10 @@
       "Bash(cd *)",
       "Bash(git -c color.ui=never diff -- src/modules/bookings/BookingsPage.tsx)",
       "Bash(node ./pcstate.mjs)",
-      "Bash(node ./repcheck.mjs)"
+      "Bash(node ./repcheck.mjs)",
+      "Bash(sed -n '8,30p' src/utils/index.ts)",
+      "Bash(sed -n '71,140p' src/utils/pdf.ts)",
+      "Bash(git commit -q -m 'fix: auto-recover from stale code-split chunks after deploy *)"
     ]
   }
 }

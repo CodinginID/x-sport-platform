@@ -42,16 +42,23 @@ describe('Escpos primitives', () => {
   });
 });
 
-import { buildSaleReceipt, buildPaymentReceipt, buildTestReceipt } from '@/services/escpos';
+import { buildSaleReceipt, buildPaymentReceipt, buildTestReceipt, wrapText } from '@/services/escpos';
 
 const SALE = {
   studioName: 'X-Sport Studio',
   studioAddress: 'Jl. Olahraga No. 1',
   transactionId: 'abc123def456',
-  date: '08 Jun 2026',
+  date: '08 Jun 2026 14:30',
+  cashier: 'Andi',
   customerName: 'Budi',
   items: [{ name: 'Air Mineral', qty: 2, unitPrice: 5000, subtotal: 10000 }],
+  subtotal: 10000,
+  discount: 0,
   total: 10000,
+  paymentMethod: 'cash',
+  cashReceived: 20000,
+  change: 10000,
+  notes: '',
 };
 
 describe('Escpos receipt builders', () => {
@@ -68,6 +75,9 @@ describe('Escpos receipt builders', () => {
     expect(text).toContain('Air Mineral');
     expect(text).toContain('ABC123DE'); // transaction id, 8 chars uppercased
     expect(text).toContain('TOTAL');
+    expect(text).toContain('Andi');     // cashier
+    expect(text).toContain('Tunai');    // cash received
+    expect(text).toContain('Kembali');  // change
   });
 
   it('payment receipt contains member and STRUK PEMBAYARAN', () => {
@@ -87,5 +97,32 @@ describe('Escpos receipt builders', () => {
     const bytes = Array.from(buildTestReceipt('58'));
     expect(bytes.length).toBeGreaterThan(10);
     expect(bytes.slice(-3)).toEqual([0x1d, 0x56, 0x01]);
+  });
+
+  it('wraps long item names across lines instead of one overflowing line', () => {
+    const name = 'Minuman Isotonik Botol Besar Rasa Jeruk Segar'; // 45 chars > 32 cols (58mm)
+    const longSale = { ...SALE, items: [{ name, qty: 1, unitPrice: 12000, subtotal: 12000 }] };
+    const text = new TextDecoder().decode(buildSaleReceipt(longSale, '58'));
+    expect(text).not.toContain(name);                       // not printed as one long run
+    expect(text).toContain('Minuman Isotonik Botol Besar'); // wrapped chunk 1
+    expect(text).toContain('Rasa Jeruk Segar');             // wrapped chunk 2
+  });
+});
+
+describe('wrapText', () => {
+  it('keeps lines within width and preserves all words', () => {
+    const lines = wrapText('Air Mineral Botol Sedang 600ml', 16);
+    expect(lines.every(l => l.length <= 16)).toBe(true);
+    expect(lines.join(' ')).toBe('Air Mineral Botol Sedang 600ml');
+  });
+
+  it('hard-breaks a word longer than the width', () => {
+    const lines = wrapText('SUPERCALIFRAGILISTIC', 8);
+    expect(lines.every(l => l.length <= 8)).toBe(true);
+    expect(lines.join('')).toBe('SUPERCALIFRAGILISTIC');
+  });
+
+  it('returns a single empty line for empty input', () => {
+    expect(wrapText('', 32)).toEqual(['']);
   });
 });

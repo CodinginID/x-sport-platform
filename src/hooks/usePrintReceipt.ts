@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import { useStudioStore } from '@/stores/studio';
 import { usePrinterStore } from '@/stores/printer';
 import { useToastStore } from '@/stores/toast';
-import { formatDate } from '@/utils';
+import { useAuthStore } from '@/stores/auth';
+import { formatDateTime } from '@/utils';
 import { buildSaleReceipt, buildPaymentReceipt, type SaleReceiptData, type PaymentReceiptData } from '@/services/escpos';
 import * as bt from '@/services/btPrinter';
 import { generateSaleReceipt, generatePaymentReceipt, previewPdf } from '@/utils/pdf';
@@ -48,24 +49,26 @@ export function usePrintReceipt() {
   const printSale = useCallback(async (sale: ProductSale): Promise<string> => {
     const studio = useStudioStore.getState();
     const paperSize = usePrinterStore.getState().paperSize;
+    const cashier = useAuthStore.getState().user?.full_name ?? '';
     const data: SaleReceiptData = {
       studioName: studio.name,
       studioAddress: studio.address,
       transactionId: sale.transaction_id,
-      date: formatDate(sale.transaction_date),
+      date: formatDateTime(sale.created_at || sale.transaction_date),
+      cashier,
       customerName: sale.customer_name ?? '',
       items: sale.items.map((i) => ({ name: i.product_name, qty: i.quantity, unitPrice: i.unit_price, subtotal: i.subtotal })),
+      subtotal: sale.subtotal,
+      discount: sale.discount,
       total: sale.total,
+      paymentMethod: sale.payment_method,
+      cashReceived: sale.cash_received,
+      change: sale.change,
+      notes: sale.notes,
     };
     if (await printBytes(buildSaleReceipt(data, paperSize))) return '';
-    // Fallback: PDF preview (perilaku lama)
-    const doc = await generateSaleReceipt({
-      transaction_id: sale.transaction_id,
-      transaction_date: sale.transaction_date,
-      customer_name: sale.customer_name ?? '',
-      items: sale.items,
-      total: sale.total,
-    });
+    // Fallback: PDF preview (perilaku lama) — same details as the printed receipt.
+    const doc = await generateSaleReceipt({ ...sale, cashier });
     return previewPdf(doc);
   }, [printBytes]);
 

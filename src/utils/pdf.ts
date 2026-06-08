@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from '@/utils';
+import { formatCurrency, formatDate, formatDateTime } from '@/utils';
 import { useStudioStore } from '@/stores/studio';
 
 function studio() {
@@ -69,40 +69,56 @@ export async function generatePaymentReceipt(payment: {
 }
 
 export async function generateSaleReceipt(sale: {
-  transaction_id: string; transaction_date: string; customer_name: string;
+  transaction_id: string; transaction_date: string; created_at?: string; customer_name: string;
+  cashier?: string;
   items: { product_name: string; quantity: number; unit_price: number; subtotal: number }[];
-  total: number;
+  subtotal?: number; discount?: number; total: number;
+  payment_method?: string; cash_received?: number; change?: number; notes?: string;
 }) {
   const { jsPDF } = await getJsPDF();
   const s = studio();
-  const doc = new jsPDF({ format: [80, 150], unit: 'mm' });
+  const doc = new jsPDF({ format: [80, 200], unit: 'mm' });
+  const DIV = '--------------------------------';
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text(s.name, 40, 8, { align: 'center' });
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.text(s.address, 40, 12, { align: 'center' });
-  doc.text('--------------------------------', 40, 16, { align: 'center' });
+  doc.text(DIV, 40, 16, { align: 'center' });
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.text('STRUK PENJUALAN', 40, 21, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   let y = 27;
-  doc.text(`No: ${sale.transaction_id.slice(0, 8).toUpperCase()}`, 5, y); y += 4;
-  doc.text(`Tgl: ${formatDate(sale.transaction_date)}`, 5, y); y += 4;
-  doc.text(`Pelanggan: ${sale.customer_name}`, 5, y); y += 5;
-  doc.text('--------------------------------', 40, y, { align: 'center' }); y += 4;
+  doc.text(`No    : ${sale.transaction_id.slice(0, 8).toUpperCase()}`, 5, y); y += 4;
+  doc.text(`Waktu : ${formatDateTime(sale.created_at || sale.transaction_date)}`, 5, y); y += 4;
+  doc.text(`Kasir : ${sale.cashier || '-'}`, 5, y); y += 4;
+  doc.text(`Plg   : ${sale.customer_name || '-'}`, 5, y); y += 5;
+  doc.text(DIV, 40, y, { align: 'center' }); y += 4;
   sale.items.forEach(item => {
-    doc.text(item.product_name, 5, y); y += 4;
+    // Wrap long names so they don't overflow the 80mm page edge.
+    for (const ln of doc.splitTextToSize(item.product_name, 70) as string[]) { doc.text(ln, 5, y); y += 4; }
     doc.text(`  ${item.quantity} x ${formatCurrency(item.unit_price)}`, 5, y);
     doc.text(formatCurrency(item.subtotal), 75, y, { align: 'right' }); y += 5;
   });
-  doc.text('--------------------------------', 40, y, { align: 'center' }); y += 5;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL', 5, y);
-  doc.text(formatCurrency(sale.total), 75, y, { align: 'right' }); y += 7;
+  doc.text(DIV, 40, y, { align: 'center' }); y += 5;
+  const line = (label: string, value: string, bold = false) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.text(label, 5, y); doc.text(value, 75, y, { align: 'right' }); y += bold ? 5 : 4;
+  };
+  if (sale.subtotal !== undefined) line('Subtotal', formatCurrency(sale.subtotal));
+  if (sale.discount) line('Diskon', `-${formatCurrency(sale.discount)}`);
+  doc.setFontSize(9); line('TOTAL', formatCurrency(sale.total), true); doc.setFontSize(7);
+  doc.text(DIV, 40, y, { align: 'center' }); y += 4;
+  if (sale.payment_method) line('Metode', sale.payment_method.toUpperCase());
+  if (sale.payment_method === 'cash') {
+    line('Tunai', formatCurrency(sale.cash_received ?? 0));
+    line('Kembali', formatCurrency(sale.change ?? 0));
+  }
+  if (sale.notes) { doc.text(`Catatan: ${sale.notes}`, 5, y); y += 5; }
+  y += 2;
   doc.setFontSize(6);
   doc.text('Terima kasih!', 40, y, { align: 'center' });
   return doc;
