@@ -2,6 +2,7 @@
 // Transport ESC/POS via Web Bluetooth. Banyak printer thermal mengekspos
 // service serial dengan UUID di bawah; kita daftarkan sebagai optionalServices
 // dan biarkan user memilih perangkat (acceptAllDevices) agar kompatibel luas.
+import { usePrinterStore } from '@/stores/printer';
 
 const PRINTER_SERVICES = [
   0x18f0,                                   // umum (banyak printer 58/80mm)
@@ -28,11 +29,20 @@ async function findWritableCharacteristic(server: BluetoothRemoteGATTServer): Pr
   throw new Error('Printer tidak memiliki karakteristik yang bisa ditulis');
 }
 
+// Named handler so repeated reconnects don't stack duplicate listeners, and so a
+// passive drop (printer powered off while idle) immediately reflects in the UI.
+function handleDisconnected(): void {
+  characteristic = null;
+  device = null;
+  usePrinterStore.getState().setStatus('disconnected');
+}
+
 async function attach(dev: BluetoothDevice): Promise<void> {
   const server = await dev.gatt!.connect();
   characteristic = await findWritableCharacteristic(server);
   device = dev;
-  dev.addEventListener('gattserverdisconnected', () => { characteristic = null; });
+  dev.removeEventListener('gattserverdisconnected', handleDisconnected);
+  dev.addEventListener('gattserverdisconnected', handleDisconnected);
 }
 
 /** Tampilkan device chooser (butuh user gesture). Mengembalikan perangkat terpilih. */

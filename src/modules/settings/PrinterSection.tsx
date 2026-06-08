@@ -43,7 +43,10 @@ export function PrinterSection() {
   const handleTest = async () => {
     setBusy(true);
     try {
-      if (!bt.isConnected()) await bt.connect();
+      if (!bt.isConnected()) {
+        const dev = await bt.connect();
+        setDevice(dev.id, dev.name ?? 'Printer');
+      }
       await bt.print(buildTestReceipt(paperSize));
       setStatus('connected');
       addToast('Test print terkirim', 'success');
