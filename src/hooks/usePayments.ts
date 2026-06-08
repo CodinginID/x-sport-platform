@@ -129,7 +129,7 @@ function mergeSaleItems(items: ProductSaleItem[]): ProductSaleItem[] {
 export function useProductSaleMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: Omit<ProductSale, 'transaction_id' | 'created_at'>) => {
+    mutationFn: async (input: Omit<ProductSale, 'transaction_id' | 'created_at'>): Promise<ProductSale> => {
       const studioId = requireStudioId();
 
       const mergedItems = mergeSaleItems(input.items);
@@ -138,8 +138,19 @@ export function useProductSaleMutation() {
       const total = Math.max(0, subtotal - discount);
       const cashReceived = input.payment_method === 'cash' ? (input.cash_received ?? 0) : total;
       const change = input.payment_method === 'cash' ? Math.max(0, cashReceived - total) : 0;
+      const now = new Date().toISOString();
 
-      const sale = { ...input, items: mergedItems, subtotal, discount, total, cash_received: cashReceived, change };
+      const sale: ProductSale = {
+        ...input,
+        transaction_id: crypto.randomUUID(),
+        items: mergedItems,
+        subtotal,
+        discount,
+        total,
+        cash_received: cashReceived,
+        change,
+        created_at: now,
+      };
 
       const parsed = productSaleSchema.safeParse(sale);
       if (!parsed.success) {
@@ -153,6 +164,8 @@ export function useProductSaleMutation() {
         p_sale: sale,
       });
       if (error) throw new Error(error.message);
+
+      return sale;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['productSales'] });
