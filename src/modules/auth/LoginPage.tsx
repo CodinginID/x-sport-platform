@@ -96,6 +96,9 @@ export default function LoginPage() {
                   <p className="text-xs text-zen-ink/50">{email}</p>
                 </div>
               </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-xs text-amber-700 leading-relaxed">
+                Login di perangkat ini akan <strong>otomatis logout</strong> perangkat lain yang sedang aktif.
+              </div>
               <div className="relative">
                 <Input label={t('login.password')} type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoFocus required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-8 text-zen-ink/40 hover:text-zen-ink transition-colors">

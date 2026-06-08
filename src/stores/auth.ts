@@ -84,6 +84,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       .select('*').eq('id', found.studioId).single();
     if (!license || !license.is_active) return false;
 
+    // Enforce 1-device-per-license: revoke all existing sessions before creating new one.
+    // The other device will be logged out on its next page load (validateSession finds nothing).
+    await supabase.from('sessions').delete().eq('studio_id', found.studioId);
+
     // Create session in Supabase
     const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 86_400_000).toISOString();
     const { data: session, error: sessErr } = await supabase.from('sessions').insert({

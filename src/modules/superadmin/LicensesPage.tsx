@@ -5,7 +5,7 @@ import {
   RefreshCw, Check, Copy, X, Loader2, CheckCircle2, XCircle,
   Clock, AlertTriangle, Mail, Phone, KeyRound, Building2,
   Search, Wifi, WifiOff, Calendar, ChevronDown, ChevronUp,
-  CircleDot, HardDrive, Package, ShieldOff, ShieldCheck,
+  CircleDot, HardDrive, Package, ShieldOff, ShieldCheck, LogOut,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -217,12 +217,13 @@ function SessionDrawer({ license, sessions, onClose }: {
 
 // ─── License Row (table row) ──────────────────────────────────────────────────
 
-function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onCopyKey, onShowSessions, isProcessing, copiedId }: {
+function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onCopyKey, onShowSessions, isProcessing, copiedId }: {
   row: LicenseRow;
   onApprove: () => void;
   onReject: () => void;
   onDisable: () => void;
   onEnable: () => void;
+  onForceLogout: () => void;
   onCopyKey: () => void;
   onShowSessions: () => void;
   isProcessing: boolean;
@@ -388,6 +389,13 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onCopy
             {state === 'active' && row.sessionCount > 0 && (
               <button onClick={e => { e.stopPropagation(); onShowSessions(); }} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zen-ink/10 rounded-2xl text-[11px] font-bold text-zen-ink/60 hover:border-zen-brand/30 hover:text-zen-brand transition-colors min-h-[40px]">
                 <CircleDot size={12} /> Lihat Sesi
+              </button>
+            )}
+
+            {/* Paksa Logout — active only, only when session exists */}
+            {state === 'active' && row.sessionCount > 0 && (
+              <button onClick={e => { e.stopPropagation(); onForceLogout(); }} disabled={isProcessing} className="flex items-center gap-2 px-4 py-2.5 border border-amber-200 text-amber-600 bg-amber-50 text-[11px] font-bold rounded-2xl hover:bg-amber-100 transition-colors min-h-[40px] disabled:opacity-40">
+                {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <LogOut size={12} />} Paksa Logout
               </button>
             )}
 
@@ -598,6 +606,22 @@ export default function LicensesPage() {
     });
   };
 
+  const handleForceLogout = (lic: LicenseRow) => {
+    setConfirm({
+      open: true,
+      title: 'Paksa Logout Semua Perangkat?',
+      message: `Semua sesi aktif "${lic.studio_name || lic.owner_email}" akan dihapus. Perangkat yang sedang dipakai akan otomatis logout. Lisensi tetap aktif — owner bisa login kembali kapan saja.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        setActionLoading(lic.id);
+        const { error: delErr } = await supabase.from('sessions').delete().eq('studio_id', lic.id);
+        if (delErr) { setError('Gagal logout: ' + delErr.message); setActionLoading(null); return; }
+        await fetchAll();
+        setActionLoading(null);
+      },
+    });
+  };
+
   const handleCopyKey = (row: LicenseRow) => {
     navigator.clipboard.writeText(row.license_key);
     setCopiedId(row.id);
@@ -719,6 +743,7 @@ export default function LicensesPage() {
               onReject={() => handleReject(row)}
               onDisable={() => handleDisable(row)}
               onEnable={() => handleEnable(row)}
+              onForceLogout={() => handleForceLogout(row)}
               onCopyKey={() => handleCopyKey(row)}
               onShowSessions={() => setSessionDrawer(row)}
               isProcessing={actionLoading === row.id}
