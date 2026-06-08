@@ -50,8 +50,9 @@ export function PrinterSection() {
       await bt.print(buildTestReceipt(paperSize));
       setStatus('connected');
       addToast('Test print terkirim', 'success');
-    } catch {
-      addToast('Gagal test print', 'error');
+    } catch (e) {
+      console.error('[print] test print gagal:', e);
+      addToast(`Gagal test print: ${e instanceof Error ? e.message : 'kesalahan tak dikenal'}`, 'error');
     } finally {
       setBusy(false);
     }

@@ -19,9 +19,23 @@ export function isSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
 }
 
+// UUIDs of the known thermal-printer services, normalised to full 128-bit lowercase form.
+const PREFERRED_SERVICE_UUIDS = new Set(
+  PRINTER_SERVICES.map((s) =>
+    (typeof s === 'number' ? `0000${s.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb` : s).toLowerCase(),
+  ),
+);
+
 async function findWritableCharacteristic(server: BluetoothRemoteGATTServer): Promise<BluetoothRemoteGATTCharacteristic> {
   const services = await server.getPrimaryServices();
-  for (const svc of services) {
+  // Try the known printer services FIRST: a generic service may also expose a writable
+  // characteristic, and writing the receipt there "succeeds" silently but prints nothing.
+  const ordered = [...services].sort((a, b) => {
+    const pa = PREFERRED_SERVICE_UUIDS.has(a.uuid.toLowerCase()) ? 0 : 1;
+    const pb = PREFERRED_SERVICE_UUIDS.has(b.uuid.toLowerCase()) ? 0 : 1;
+    return pa - pb;
+  });
+  for (const svc of ordered) {
     const chars = await svc.getCharacteristics();
     const writable = chars.find((c) => c.properties.write || c.properties.writeWithoutResponse);
     if (writable) return writable;

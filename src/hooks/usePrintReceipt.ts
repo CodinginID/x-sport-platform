@@ -23,15 +23,23 @@ export function usePrintReceipt() {
   const addToast = useToastStore((s) => s.addToast);
 
   const printBytes = useCallback(async (bytes: Uint8Array): Promise<boolean> => {
-    if (!bt.isSupported()) return false;
+    if (!bt.isSupported()) {
+      addToast('Perangkat/browser ini tidak mendukung cetak Bluetooth — menampilkan PDF.', 'warning');
+      return false;
+    }
+    if (!(await ensureConnected())) {
+      addToast('Printer belum terhubung. Hubungkan dulu di Pengaturan → Printer.', 'error');
+      return false;
+    }
     try {
-      if (!(await ensureConnected())) return false;
       await bt.print(bytes);
       usePrinterStore.getState().setStatus('connected');
       addToast('Struk tercetak', 'success');
       return true;
-    } catch {
+    } catch (e) {
       usePrinterStore.getState().setStatus('disconnected');
+      console.error('[print] gagal mengirim ke printer:', e);
+      addToast(`Gagal mencetak: ${e instanceof Error ? e.message : 'kesalahan tak dikenal'}`, 'error');
       return false;
     }
   }, [addToast]);
