@@ -35,7 +35,16 @@
       "Bash(npm ls *)",
       "Bash(npx eslint *)",
       "Bash(GIT_EDITOR=true git merge --continue)",
-      "Bash(supabase projects *)"
+      "Bash(supabase projects *)",
+      "Bash(curl -s 'https://cjiopascmwicdibaqeve.supabase.co/rest/v1/license_users?email=eq.muhalibakhtiar%40gmail.com&select=email,full_name,role,license_id,created_at,password_hash' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"...\")",
+      "Bash(curl -s 'https://cjiopascmwicdibaqeve.supabase.co/rest/v1/licenses?id=eq.e03f1e0d-6cf2-466e-abc8-35ffe9303f61&select=id,license_key,is_active,studio_name,owner_email,expires_at' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8')",
+      "Bash(node *)",
+      "Bash(curl -s https://cjiopascmwicdibaqeve.supabase.co/rest/v1/sessions?limit=1 -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8')",
+      "Bash(curl -s -X POST https://cjiopascmwicdibaqeve.supabase.co/rest/v1/sessions -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8' -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d '{ *)",
+      "Bash(supabase status *)",
+      "Bash(curl -s -X DELETE https://cjiopascmwicdibaqeve.supabase.co/rest/v1/sessions?id=eq.1bc38b19-01e2-417c-a7e0-dde996b7ccf0 -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaW9wYXNjbXdpY2RpYmFxZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3Mzk5OTYsImV4cCI6MjA5NDMxNTk5Nn0.1znD-fuILxrkFMGkDGaO6vGvujFlt6h84rKcFsLKcg8')"
     ]
   }
 }
