@@ -1,36 +1,53 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { db } from '@/database/db'
-import type { Member } from '@/types'
-import { generateId } from '@/utils'
-import { scheduleBackup } from '@/utils/backup'
-import { useToastStore } from '@/stores/toast'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { getStudioId, requireStudioId } from '@/utils/studioContext';
+import type { Member } from '@/types';
+import { generateId } from '@/utils';
+import { useToastStore } from '@/stores/toast';
 
 export function useMembers(includeInactive = false) {
   return useQuery({
     queryKey: ['members', { includeInactive }],
     queryFn: async () => {
-      const all = await db.members.toArray()
-      return includeInactive ? all : all.filter(m => m.status_active)
+      const studioId = getStudioId();
+      if (!studioId) return [];
+      let q = supabase.from('members').select('*').eq('studio_id', studioId).order('created_at', { ascending: false });
+      if (!includeInactive) q = q.eq('status_active', true);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return (data ?? []) as Member[];
     },
-  })
+  });
 }
 
 export function useMember(id: string) {
   return useQuery({
     queryKey: ['members', id],
-    queryFn: () => db.members.get(id),
+    queryFn: async () => {
+      const studioId = getStudioId();
+      if (!studioId || !id) return null;
+      const { data, error } = await supabase
+        .from('members').select('*')
+        .eq('member_id', id).eq('studio_id', studioId)
+        .single();
+      if (error) throw new Error(error.message);
+      return data as Member;
+    },
     enabled: !!id,
-  })
+  });
 }
 
 export function useMemberMutation() {
-  const qc = useQueryClient()
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { action: 'add' | 'update' | 'archive'; member: Partial<Member> }) => {
-      const now = new Date().toISOString()
+      const studioId = requireStudioId();
+      const now = new Date().toISOString();
+
       if (data.action === 'add') {
-        const member: Member = {
+        const member: Member & { studio_id: string } = {
           member_id: generateId(),
+          studio_id: studioId,
           full_name: data.member.full_name || '',
           phone_number: data.member.phone_number || '',
           email: data.member.email || '',
@@ -42,23 +59,33 @@ export function useMemberMutation() {
           notes: data.member.notes || '',
           created_at: now,
           updated_at: now,
-        }
-        await db.members.add(member)
-        return member
+        };
+        const { error } = await supabase.from('members').insert(member);
+        if (error) throw new Error(error.message);
+        return member;
       }
+
       if (data.action === 'archive') {
-        await db.members.update(data.member.member_id!, { status_active: false, updated_at: now })
-      } else {
-        await db.members.update(data.member.member_id!, { ...data.member, updated_at: now })
+        const { error } = await supabase.from('members')
+          .update({ status_active: false, updated_at: now })
+          .eq('member_id', data.member.member_id!)
+          .eq('studio_id', studioId);
+        if (error) throw new Error(error.message);
+        return;
       }
+
+      const { error } = await supabase.from('members')
+        .update({ ...data.member, updated_at: now })
+        .eq('member_id', data.member.member_id!)
+        .eq('studio_id', studioId);
+      if (error) throw new Error(error.message);
     },
     onSuccess: (_, vars) => {
-      scheduleBackup()
-      qc.invalidateQueries({ queryKey: ['members'] })
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      const msg = vars.action === 'add' ? 'Member berhasil ditambahkan' : vars.action === 'archive' ? 'Member berhasil diarsipkan' : 'Member berhasil diperbarui'
-      useToastStore.getState().addToast(msg, 'success')
+      qc.invalidateQueries({ queryKey: ['members'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      const msg = vars.action === 'add' ? 'Member berhasil ditambahkan' : vars.action === 'archive' ? 'Member berhasil diarsipkan' : 'Member berhasil diperbarui';
+      useToastStore.getState().addToast(msg, 'success');
     },
-    onError: () => { useToastStore.getState().addToast('Gagal menyimpan member', 'error') },
-  })
+    onError: (e: Error) => { useToastStore.getState().addToast(e.message || 'Gagal menyimpan member', 'error'); },
+  });
 }

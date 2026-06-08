@@ -4,7 +4,8 @@ import { useAuthStore } from '@/stores/auth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Button, Input } from '@/components/ui';
 import { Eye, EyeOff, ChevronLeft } from 'lucide-react';
-import { db } from '@/database/db';
+import { supabase } from '@/lib/supabase';
+import { getStoredLicense } from '@/services/license';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -31,15 +32,44 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    let user = await db.users.where('email').equals(email.trim()).first();
-    if (!user) {
-      const allUsers = await db.users.toArray();
-      user = allUsers.find(u => u.email.split('@')[0] === email.trim());
-    }
-    setLoading(false);
+    const studioId = getStoredLicense()?.id;
+    let foundName: string | null = null;
 
-    if (!user) { setError('Akun tidak ditemukan'); return; }
-    setUserFound({ full_name: user.full_name });
+    if (studioId) {
+      // Check activated users table
+      const { data: exact } = await supabase.from('users')
+        .select('full_name, email')
+        .eq('studio_id', studioId)
+        .eq('email', email.trim())
+        .maybeSingle();
+      if (exact) {
+        foundName = exact.full_name;
+      } else {
+        const { data: all } = await supabase.from('users').select('full_name, email').eq('studio_id', studioId);
+        const match = (all ?? []).find(u => u.email.split('@')[0] === email.trim());
+        if (match) foundName = match.full_name;
+      }
+
+      // Fallback: check license_users (pending/pre-activation)
+      if (!foundName) {
+        const { data: lu } = await supabase.from('license_users')
+          .select('full_name, email')
+          .eq('license_id', studioId)
+          .eq('email', email.trim())
+          .maybeSingle();
+        if (lu) {
+          foundName = lu.full_name;
+        } else {
+          const { data: allLu } = await supabase.from('license_users').select('full_name, email').eq('license_id', studioId);
+          const m = (allLu ?? []).find(u => u.email.split('@')[0] === email.trim());
+          if (m) foundName = m.full_name;
+        }
+      }
+    }
+
+    setLoading(false);
+    if (!foundName) { setError('Akun tidak ditemukan'); return; }
+    setUserFound({ full_name: foundName });
   };
 
   const handleLogin = async (e: React.FormEvent) => {

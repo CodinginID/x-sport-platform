@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/utils';
-import { db } from '@/database/db';
+import { storePendingLicense } from '@/services/license';
+import type { LicenseInfo } from '@/services/license';
 
 export interface RegisterData {
   studioName: string;
@@ -25,7 +26,6 @@ export async function registerStudio(data: RegisterData): Promise<RegisterResult
   const licenseKey = generateKey();
   const passwordHash = await hashPassword(data.password);
 
-  // Insert license with status pending (is_active = false)
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
@@ -38,12 +38,11 @@ export async function registerStudio(data: RegisterData): Promise<RegisterResult
     plan: 'basic',
     storage_quota_mb: 50,
     expires_at: expiresAt.toISOString(),
-    is_active: false, // pending approval
-  }).select('id').single();
+    is_active: false,
+  }).select('*').single();
 
-  if (licErr) return { ok: false, error: 'Gagal registrasi: ' + licErr.message };
+  if (licErr || !license) return { ok: false, error: 'Gagal registrasi: ' + (licErr?.message ?? 'unknown') };
 
-  // Insert owner user to Supabase license_users
   const { error: userErr } = await supabase.from('license_users').insert({
     license_id: license.id,
     email: data.ownerEmail,
@@ -54,18 +53,8 @@ export async function registerStudio(data: RegisterData): Promise<RegisterResult
 
   if (userErr) return { ok: false, error: 'Gagal simpan user: ' + userErr.message };
 
-  // Also provision owner to local IndexedDB so they can login immediately
-  const existingOwner = await db.users.where('email').equals(data.ownerEmail).first();
-  if (!existingOwner) {
-    await db.users.add({
-      id: crypto.randomUUID(),
-      email: data.ownerEmail,
-      password_hash: passwordHash,
-      full_name: data.ownerName,
-      role: 'owner',
-      created_at: new Date().toISOString(),
-    });
-  }
+  // Store pending license so getStudioId() works for login before activation
+  storePendingLicense(license as LicenseInfo);
 
   return { ok: true, licenseKey };
 }
