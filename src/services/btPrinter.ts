@@ -94,6 +94,31 @@ export function disconnect(): void {
   device = null;
 }
 
+/**
+ * Mulai watchAdvertisements untuk deviceId tersimpan.
+ * Ketika printer menyala / masuk jangkauan, koneksi otomatis dipulihkan
+ * tanpa perlu user gesture — termasuk setelah app update.
+ * onConnected dipanggil setiap kali berhasil reconnect.
+ */
+export async function watchForDevice(deviceId: string, onConnected: () => void): Promise<void> {
+  if (!isSupported() || !navigator.bluetooth.getDevices) return;
+  try {
+    const known = await navigator.bluetooth.getDevices();
+    const dev = known.find((d) => d.id === deviceId);
+    if (!dev || !('watchAdvertisements' in dev)) return;
+    // Hindari double-listen jika dipanggil ulang
+    dev.removeEventListener('advertisementreceived', dev._xsportAdHandler as EventListener);
+    const handler = async () => {
+      if (!isConnected()) {
+        try { await attach(dev); onConnected(); } catch { /* printer in range tapi GATT gagal */ }
+      }
+    };
+    (dev as BluetoothDevice & { _xsportAdHandler?: unknown })._xsportAdHandler = handler;
+    dev.addEventListener('advertisementreceived', handler as EventListener);
+    await (dev as BluetoothDevice & { watchAdvertisements: () => Promise<void> }).watchAdvertisements();
+  } catch { /* watchAdvertisements tidak tersedia di browser ini */ }
+}
+
 /** Kirim byte ESC/POS dengan chunking agar buffer printer tidak overflow. */
 export async function print(bytes: Uint8Array): Promise<void> {
   if (!characteristic) throw new Error('Printer belum terhubung');
