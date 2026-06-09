@@ -74,22 +74,28 @@ export async function connect(): Promise<BluetoothDevice> {
 }
 
 /**
- * Coba sambung ulang ke deviceId tersimpan — tanpa user gesture.
- * Bekerja karena izin Bluetooth persisten di browser (bertahan setelah refresh/update app).
- * Return true jika berhasil.
+ * Hasil reconnect — membedakan dua kondisi gagal yang butuh penanganan berbeda.
+ * 'connected'       → berhasil
+ * 'out_of_range'    → device dikenal browser, tapi GATT gagal (printer mati/jauh) → retry
+ * 'permission_lost' → browser tidak kenal device ini sama sekali → perlu pair ulang
  */
-export async function reconnect(deviceId?: string): Promise<boolean> {
-  if (!isSupported() || !deviceId || !navigator.bluetooth.getDevices) return false;
+export type ReconnectResult = 'connected' | 'out_of_range' | 'permission_lost';
+
+export async function reconnect(deviceId?: string): Promise<ReconnectResult> {
+  if (!isSupported() || !deviceId) return 'permission_lost';
+  // getDevices() tidak ada di semua browser → anggap permission_lost
+  if (!navigator.bluetooth.getDevices) return 'permission_lost';
   let known: BluetoothDevice[];
-  try { known = await navigator.bluetooth.getDevices(); } catch { return false; }
+  try { known = await navigator.bluetooth.getDevices(); } catch { return 'permission_lost'; }
   const dev = known.find((d) => d.id === deviceId);
-  if (!dev) return false; // izin hilang — perlu pair ulang sekali
-  // Coba 2x: langsung, lalu setelah 800ms (BT stack printer kadang butuh jeda)
+  // Device tidak ada di daftar izin browser → perlu pair ulang (beda dari "printer mati")
+  if (!dev) return 'permission_lost';
+  // Device dikenal, coba GATT connect 2x (BT stack printer kadang butuh jeda saat baru nyala)
   for (let i = 0; i < 2; i++) {
     if (i > 0) await new Promise((r) => setTimeout(r, 800));
-    try { await attach(dev); return true; } catch { /* lanjut */ }
+    try { await attach(dev); return 'connected'; } catch { /* lanjut */ }
   }
-  return false;
+  return 'out_of_range';
 }
 
 export function isConnected(): boolean {
@@ -112,21 +118,25 @@ export function disconnect(): void {
  */
 const BG_INTERVAL_MS = 3000; // 4s timeout + 3s gap = max ~7s per siklus
 
-export function startBackgroundReconnect(deviceId: string, onConnected: () => void): () => void {
+export function startBackgroundReconnect(
+  deviceId: string,
+  onConnected: () => void,
+  onPermissionLost: () => void,
+): () => void {
   stopBackgroundReconnect();
 
-  let attempt = 0;
   bgTimer = setInterval(async () => {
     if (isConnected()) { stopBackgroundReconnect(); return; }
-    attempt++;
-    const ok = await reconnect(deviceId);
-    if (ok) {
+    const result = await reconnect(deviceId);
+    if (result === 'connected') {
       onConnected();
       stopBackgroundReconnect();
+    } else if (result === 'permission_lost') {
+      // Browser tidak kenal device ini — retry tidak akan membantu, hentikan loop
+      stopBackgroundReconnect();
+      onPermissionLost();
     }
-    // Setelah 10 menit tanpa berhasil (≈85 percobaan), kurangi frekuensi
-    // dengan membiarkan interval tetap jalan tapi skip selang-seling
-    if (attempt > 85 && attempt % 2 !== 0) return;
+    // 'out_of_range' → lanjut retry di interval berikutnya
   }, BG_INTERVAL_MS);
 
   return stopBackgroundReconnect;

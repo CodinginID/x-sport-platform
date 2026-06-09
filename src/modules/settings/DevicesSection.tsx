@@ -75,39 +75,40 @@ function PrinterCard() {
   } = usePrinterStore();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
-  // true = background retry sedang berjalan (printer tersimpan tapi belum konek)
   const [searching, setSearching] = useState(false);
+  // true = getDevices() kosong → browser lupa izin, perlu pair ulang
+  const [permissionLost, setPermissionLost] = useState(false);
   const supported = bt.isSupported();
 
-  // Setelah pernah pair: coba reconnect langsung, pasang watcher iklan,
-  // dan mulai background retry loop agar printer auto-connect saat menyala
   useEffect(() => {
     if (!supported || !deviceId) return;
+    setPermissionLost(false);
 
-    const onConnected = () => { setStatus('connected'); setSearching(false); };
+    const onConnected = () => { setStatus('connected'); setSearching(false); setPermissionLost(false); };
+    const onPermissionLost = () => { setSearching(false); setPermissionLost(true); };
 
-    // 1. Coba reconnect sekarang (tanpa gesture)
+    // 1. Coba reconnect langsung
     setSearching(true);
-    bt.reconnect(deviceId).then((ok) => {
-      if (ok) { onConnected(); return; }
-      // Gagal — background loop akan terus mencoba
+    bt.reconnect(deviceId).then((result) => {
+      if (result === 'connected') { onConnected(); return; }
+      if (result === 'permission_lost') { onPermissionLost(); return; }
+      // 'out_of_range' → background loop akan terus mencoba
     });
 
-    // 2. watchAdvertisements: kalau printer nyala & masuk range, langsung connect
+    // 2. watchAdvertisements: printer masuk jangkauan → langsung connect
     bt.watchForDevice(deviceId, onConnected);
 
-    // 3. Background retry setiap 7 detik — inilah "kunci pairing"
-    const stop = bt.startBackgroundReconnect(deviceId, onConnected);
+    // 3. Background retry — berhenti sendiri jika permission_lost
+    const stop = bt.startBackgroundReconnect(deviceId, onConnected, onPermissionLost);
 
     return () => { stop(); setSearching(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  // Sync searching state dengan status store (kalau connect dari tempat lain)
   useEffect(() => {
-    if (status === 'connected') setSearching(false);
-    if (status === 'disconnected' && !!deviceId) setSearching(true);
-  }, [status, deviceId]);
+    if (status === 'connected') { setSearching(false); setPermissionLost(false); }
+    if (status === 'disconnected' && !!deviceId && !permissionLost) setSearching(true);
+  }, [status, deviceId, permissionLost]);
 
   const handlePairNew = async () => {
     setBusy(true);
@@ -180,6 +181,8 @@ function PrinterCard() {
     ? 'Terhubung'
     : isConnecting
     ? 'Menghubungkan...'
+    : permissionLost
+    ? 'Perlu pair ulang'
     : searching
     ? 'Mencari printer...'
     : hasSaved
@@ -187,12 +190,22 @@ function PrinterCard() {
     : 'Belum dipasang';
   const statusColor = isConnected
     ? 'text-green-500'
+    : permissionLost
+    ? 'text-red-400'
     : isConnecting || searching
     ? 'text-zen-brand'
     : hasSaved
     ? 'text-amber-500'
     : 'text-zen-ink/30';
-  const iconBg = isConnected ? 'bg-green-50 text-green-600' : (searching || isConnecting) ? 'bg-zen-brand/10 text-zen-brand' : hasSaved ? 'bg-amber-50 text-amber-500' : 'bg-zen-bg text-zen-ink/40';
+  const iconBg = isConnected
+    ? 'bg-green-50 text-green-600'
+    : permissionLost
+    ? 'bg-red-50 text-red-400'
+    : (searching || isConnecting)
+    ? 'bg-zen-brand/10 text-zen-brand'
+    : hasSaved
+    ? 'bg-amber-50 text-amber-500'
+    : 'bg-zen-bg text-zen-ink/40';
 
   if (!supported) {
     return (
@@ -221,8 +234,30 @@ function PrinterCard() {
       deviceName={deviceName}
       defaultOpen={!isConnected} // expand otomatis kalau belum/terputus
     >
+      {/* Permission lost — browser lupa izin, harus pair ulang sekali */}
+      {permissionLost && (
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3.5">
+            <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-red-600">Browser lupa izin printer</p>
+              <p className="text-xs text-red-400 mt-0.5 leading-relaxed">
+                Izin Bluetooth di browser hilang (mungkin karena hapus data browser atau reinstall). Pair sekali lagi — setelah itu akan terkunci seperti sebelumnya.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handlePairNew}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 transition-colors disabled:opacity-60"
+          >
+            <Bluetooth size={15} /> Pair Ulang ke {deviceName}
+          </button>
+        </div>
+      )}
+
       {/* Action buttons */}
-      {isConnected ? (
+      {!permissionLost && isConnected ? (
         <div className="grid grid-cols-2 gap-2">
           <button onClick={handleTest} disabled={busy} className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold transition-colors disabled:opacity-50">
             <Zap size={13} /> Test Print
@@ -234,11 +269,13 @@ function PrinterCard() {
             <Trash2 size={13} /> Lupakan Printer
           </button>
         </div>
-      ) : hasSaved ? (
+      ) : hasSaved && !permissionLost ? (
         <div className="grid grid-cols-2 gap-2">
           <button onClick={handleReconnect} disabled={busy || isConnecting} className="col-span-2 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
             {isConnecting
               ? <><RefreshCw size={14} className="animate-spin" /> Menghubungkan...</>
+              : searching
+              ? <><RefreshCw size={14} className="animate-spin" /> Mencari otomatis...</>
               : <><BluetoothConnected size={14} /> Reconnect ke {deviceName}</>}
           </button>
           <button onClick={handlePairNew} disabled={busy || isConnecting} className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-zen-bg hover:bg-zen-brand/10 text-zen-ink/60 hover:text-zen-brand text-xs font-bold transition-colors disabled:opacity-50">
@@ -248,13 +285,13 @@ function PrinterCard() {
             <Trash2 size={13} /> Lupakan
           </button>
         </div>
-      ) : (
+      ) : !permissionLost ? (
         <button onClick={handlePairNew} disabled={busy || isConnecting} className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 transition-colors disabled:opacity-60">
           {isConnecting
             ? <><RefreshCw size={15} className="animate-spin" /> Mencari printer...</>
             : <><Printer size={15} /> Scan &amp; Hubungkan Printer</>}
         </button>
-      )}
+      ) : null}
 
       {/* Settings */}
       <div className="space-y-3.5 pt-1 border-t border-zen-ink/5">
