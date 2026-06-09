@@ -31,6 +31,20 @@ export function useBookingMutation() {
       const now = new Date().toISOString();
 
       if (data.action === 'create') {
+        // Cek apakah member sudah punya paket aktif untuk package ini
+        // Kalau ada, langsung link agar tidak perlu bayar lagi (FIFO — pakai yang paling lama)
+        const { data: activePkg } = await supabase
+          .from('member_packages')
+          .select('member_package_id')
+          .eq('studio_id', studioId)
+          .eq('member_id', data.booking.member_id!)
+          .eq('package_id', data.booking.package_id!)
+          .eq('status', 'active')
+          .gt('remaining_sessions', 0)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
         const booking: Booking & { studio_id: string } = {
           booking_id: generateId(),
           studio_id: studioId,
@@ -39,7 +53,7 @@ export function useBookingMutation() {
           member_id: data.booking.member_id || '',
           coach_id: data.booking.coach_id || '',
           package_id: data.booking.package_id || '',
-          member_package_id: data.booking.member_package_id || null,
+          member_package_id: activePkg?.member_package_id ?? null,
           package_price: data.booking.package_price ?? 0,
           booking_status: 'booked',
           created_at: now,
@@ -69,6 +83,7 @@ export function useBookingMutation() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['bookings'] });
       qc.invalidateQueries({ queryKey: ['memberPackages'] });
+      qc.invalidateQueries({ queryKey: ['unpaidBookings'] });
       qc.invalidateQueries({ queryKey: ['coachCommissions'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       const msg = vars.action === 'create' ? 'Booking berhasil dibuat' : vars.action === 'attend' ? 'Check-in berhasil' : 'Booking dibatalkan';
