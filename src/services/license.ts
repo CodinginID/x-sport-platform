@@ -34,11 +34,9 @@ interface LicenseUser {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateStaffEmail(licenseKey: string): string {
-  // XSP-ABCDE-FGHIJ → staff.abcde@xsport.local
-  const parts = licenseKey.split('-');
-  const shortId = (parts[1] ?? 'studio').toLowerCase();
-  return `staff.${shortId}@xsport.local`;
+function generateStaffEmail(studioName: string): string {
+  const slug = studioName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'studio';
+  return `staff.${slug}@xsport.flowbiz.id`;
 }
 
 function generateStaffPassword(): string {
@@ -107,7 +105,7 @@ export async function activateLicense(activation: ActivationData): Promise<Activ
   const hasStaff = (existingLicenseUsers ?? []).some(u => u.role === 'staff');
 
   if (!hasStaff) {
-    const staffEmail    = generateStaffEmail(license.license_key);
+    const staffEmail    = generateStaffEmail(activation.studioName || license.studio_name || license.license_key.split('-')[1]);
     const staffPassword = generateStaffPassword();
     const staffHash     = await hashPassword(staffPassword);
 

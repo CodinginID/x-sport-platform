@@ -84,6 +84,12 @@ export function useMemberPaymentMutation() {
         p_member_package: memberPackageData,
       });
       if (error) throw new Error(error.message);
+
+      return {
+        ...paymentData,
+        payment_id: crypto.randomUUID(),
+        created_at: new Date().toISOString(),
+      } as MemberPayment;
     },
     // Toast is shown by the page (one general toast for the whole save & print action).
     onSuccess: () => {

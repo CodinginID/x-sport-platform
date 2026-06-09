@@ -12,7 +12,7 @@ import { PrinterSection } from './PrinterSection';
 import { StaffSection } from './StaffSection';
 import {
   ChevronRight, ChevronLeft, Building2, Printer, Globe,
-  Users, ShieldCheck, HardDrive, Info, Eye, EyeOff, Loader2, Check,
+  Users, ShieldCheck, HardDrive, Database, Info, Eye, EyeOff, Loader2, Check,
   SlidersHorizontal,
 } from 'lucide-react';
 
@@ -25,7 +25,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   language: 'Bahasa',
   staff:    'Manajemen Staff',
   license:  'Lisensi',
-  backup:   'Backup & Restore',
+  backup:   'Reset Data',
   about:    'Tentang Aplikasi',
 };
 
@@ -339,7 +339,7 @@ export default function SettingsPage() {
 
       {/* Group 3: Data */}
       <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-        <MenuItem icon={HardDrive} iconBg="bg-orange-100 text-orange-500" label="Backup & Restore" isActive={active === 'backup'} onClick={() => goTo('backup')} />
+        <MenuItem icon={Database} iconBg="bg-red-50 text-red-500" label="Reset Data" isActive={active === 'backup'} onClick={() => goTo('backup')} />
         <MenuItem icon={Info}      iconBg="bg-zen-ink/8 text-zen-ink/50"  label="Tentang Aplikasi" isActive={active === 'about'}  onClick={() => goTo('about')}  last />
       </div>
     </div>

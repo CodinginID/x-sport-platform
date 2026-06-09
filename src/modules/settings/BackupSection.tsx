@@ -1,140 +1,208 @@
-import { useState, useRef } from 'react';
-import { useBackupStore } from '@/stores/backup';
-import { performBackup, performRestore, exportToFile, importFromFile } from '@/utils/backup';
-import { Card, Button, Input, Modal } from '@/components/ui';
-import { Cloud, Download, Upload, RefreshCw, Shield, Wifi, WifiOff } from 'lucide-react';
-import { formatDateTime } from '@/utils';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth';
+import { supabase } from '@/lib/supabase';
+import { Trash2, AlertTriangle, RefreshCw, ShieldOff, Database, CheckCircle2 } from 'lucide-react';
+
+const TRANSAKSI_TABLES: { key: string; label: string }[] = [
+  { key: 'bookings',          label: 'Booking sesi' },
+  { key: 'product_sales',     label: 'Penjualan produk' },
+  { key: 'member_payments',   label: 'Pembayaran paket member' },
+  { key: 'coach_commissions', label: 'Komisi pelatih' },
+  { key: 'member_packages',   label: 'Paket aktif member (sisa sesi)' },
+];
+
+const AMAN_ITEMS = ['Data member', 'Data pelatih', 'Produk', 'Paket'];
+
+type ResetPhase = 'idle' | 'deleting' | 'done';
 
 export function BackupSection() {
-  const { studioId, pin, lastBackupAt, autoBackupEnabled, isBackingUp, setAutoBackup } = useBackupStore();
-  const [restoreOpen, setRestoreOpen] = useState(false);
-  const [restoreId, setRestoreId] = useState('');
-  const [restorePin, setRestorePin] = useState('');
-  const [restoring, setRestoring] = useState(false);
-  const [message, setMessage] = useState('');
-  const [online, setOnline] = useState(navigator.onLine);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const authStudioId = useAuthStore(s => s.studioId);
+  const queryClient  = useQueryClient();
 
-  // Track online status
-  useState(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
-  });
+  const [modalOpen, setModalOpen]   = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [phase, setPhase]           = useState<ResetPhase>('idle');
 
-  const handleBackup = async () => {
-    const result = await performBackup();
-    setMessage(result.ok ? '✅ Backup cloud berhasil!' : `❌ Backup gagal: ${result.error}`);
-    setTimeout(() => setMessage(''), 6000);
+  const canConfirm = confirmText.toUpperCase() === 'HAPUS';
+
+  const handleReset = async () => {
+    if (!authStudioId || !canConfirm) return;
+
+    // tutup modal konfirmasi, tampilkan overlay blocking
+    setModalOpen(false);
+    setPhase('deleting');
+
+    await Promise.all(
+      TRANSAKSI_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
+    );
+
+    // hapus semua cache react-query agar data di semua halaman ikut kosong
+    queryClient.clear();
+
+    setPhase('done');
+    setTimeout(() => {
+      setPhase('idle');
+      setConfirmText('');
+    }, 2000);
   };
 
-  const handleRestore = async () => {
-    setRestoring(true);
-    const result = await performRestore(restoreId, restorePin);
-    setRestoring(false);
-    if (result.ok) {
-      setRestoreOpen(false);
-      setMessage('✅ Data berhasil di-restore!');
-      setTimeout(() => window.location.reload(), 1000);
-    } else {
-      setMessage(`❌ Restore gagal: ${result.error}`);
-      setTimeout(() => setMessage(''), 6000);
-    }
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const result = await importFromFile(file);
-    if (result.ok) {
-      setMessage('✅ Import berhasil!');
-      setTimeout(() => window.location.reload(), 1000);
-    } else {
-      setMessage(`❌ Import gagal: ${result.error}`);
-      setTimeout(() => setMessage(''), 6000);
-    }
-  };
+  const openModal  = () => { setConfirmText(''); setModalOpen(true); };
+  const closeModal = () => { setModalOpen(false); setConfirmText(''); };
 
   return (
     <>
-      <Card title="💾 Backup & Restore">
-        {/* Online status */}
-        <div className="flex items-center gap-2 mb-5">
-          {online ? <Wifi size={14} className="text-emerald-500" /> : <WifiOff size={14} className="text-red-400" />}
-          <span className="text-xs font-medium text-zen-ink/50">{online ? 'Online — cloud backup tersedia' : 'Offline — backup otomatis saat kembali online'}</span>
-        </div>
-
-        {/* Credentials */}
-        <div className="space-y-2 mb-5">
-          <div className="flex justify-between items-center py-2 border-b border-zen-brand/5">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Studio ID</span>
-            <span className="font-mono font-bold text-sm">{studioId || '-'}</span>
+      {/* ── Card Reset Data ── */}
+      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-zen-ink/5 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-red-50 flex items-center justify-center shrink-0">
+            <Database size={17} className="text-red-500" />
           </div>
-          <div className="flex justify-between items-center py-2 border-b border-zen-brand/5">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">PIN</span>
-            <span className="font-mono font-bold text-sm">{pin || '-'}</span>
-          </div>
-          <div className="flex justify-between items-center py-2 border-b border-zen-brand/5">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Backup Terakhir</span>
-            <span className="text-sm">{lastBackupAt ? formatDateTime(lastBackupAt) : 'Belum pernah'}</span>
+          <div>
+            <p className="text-sm font-bold">Reset Data Transaksi</p>
+            <p className="text-[10px] text-zen-ink/40 mt-0.5">Hapus historis transaksi untuk memulai dari awal</p>
           </div>
         </div>
 
-        {/* Auto backup toggle */}
-        <label className="flex items-center justify-between py-3 border-b border-zen-brand/5 cursor-pointer mb-5">
-          <div className="flex items-center gap-2">
-            <Cloud size={16} className="text-zen-brand" />
-            <span className="text-sm font-medium">Auto Backup saat online</span>
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-red-50 rounded-2xl px-4 py-3 space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-red-500">Akan dihapus</p>
+              <ul className="space-y-1.5">
+                {TRANSAKSI_TABLES.map(t => (
+                  <li key={t.key} className="flex items-center gap-2 text-xs text-red-700">
+                    <span className="w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                    {t.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-green-50 rounded-2xl px-4 py-3 space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-green-600">Tetap aman</p>
+              <ul className="space-y-1.5">
+                {AMAN_ITEMS.map(item => (
+                  <li key={item} className="flex items-center gap-2 text-xs text-green-700">
+                    <span className="w-1 h-1 rounded-full bg-green-400 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <input type="checkbox" checked={autoBackupEnabled} onChange={e => setAutoBackup(e.target.checked)} className="rounded" />
-        </label>
 
-        {/* Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Cloud</span>
-            <Button size="sm" onClick={handleBackup} disabled={isBackingUp || !studioId || !online} className="w-full justify-center">
-              <RefreshCw size={14} className={isBackingUp ? 'animate-spin mr-2' : 'mr-2'} />
-              {isBackingUp ? 'Uploading...' : 'Backup Cloud'}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setRestoreOpen(true)} disabled={!online} className="w-full justify-center">
-              <Download size={14} className="mr-2" /> Restore Cloud
-            </Button>
+          <button
+            onClick={openModal}
+            className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white text-sm font-bold rounded-2xl min-h-[48px] transition-all"
+          >
+            <Trash2 size={15} />
+            Hapus Semua Transaksi
+          </button>
+        </div>
+      </div>
+
+      {/* ── Modal Konfirmasi ── */}
+      {modalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/40"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[28px] rounded-t-[28px] p-6 space-y-5 animate-slide-up sm:animate-page-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto sm:hidden -mt-1" />
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center shrink-0">
+                <ShieldOff size={18} className="text-red-500" />
+              </div>
+              <div>
+                <p className="text-base font-bold">Konfirmasi Hapus</p>
+                <p className="text-xs text-zen-ink/40">Tindakan ini tidak bisa dibatalkan</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 rounded-2xl px-4 py-3 flex items-start gap-2">
+              <AlertTriangle size={13} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-700 leading-relaxed">
+                Semua data booking, penjualan, pembayaran, komisi, dan paket aktif member akan <strong>dihapus permanen</strong>.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">
+                Ketik <span className="text-red-500 font-black">HAPUS</span> untuk lanjut
+              </label>
+              <input
+                value={confirmText}
+                onChange={e => setConfirmText(e.target.value)}
+                placeholder="HAPUS"
+                autoFocus
+                className="w-full bg-zen-bg rounded-2xl px-4 py-3 text-sm font-mono outline-none focus:ring-2 ring-red-200 placeholder:text-zen-ink/20"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={closeModal}
+                className="flex-1 py-3.5 border border-zen-ink/10 text-zen-ink/60 text-sm font-bold rounded-2xl min-h-[48px]"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={!canConfirm}
+                className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-2xl min-h-[48px] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={14} /> Hapus
+              </button>
+            </div>
           </div>
-          <div className="space-y-2">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Lokal</span>
-            <Button size="sm" variant="secondary" onClick={exportToFile} className="w-full justify-center">
-              <Download size={14} className="mr-2" /> Export JSON
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => fileRef.current?.click()} className="w-full justify-center">
-              <Upload size={14} className="mr-2" /> Import JSON
-            </Button>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Overlay Blocking — tampil selama proses & setelah selesai ── */}
+      {phase !== 'idle' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zen-ink/60 backdrop-blur-md">
+          <div className="bg-white rounded-3xl px-8 py-8 w-72 flex flex-col items-center gap-5 shadow-2xl">
+            {phase === 'deleting' ? (
+              <>
+                {/* Skeleton rows animasi */}
+                <div className="w-full space-y-2.5">
+                  {TRANSAKSI_TABLES.map((t, i) => (
+                    <div key={t.key} className="flex items-center gap-3">
+                      <div
+                        className="h-2 bg-red-100 rounded-full animate-pulse"
+                        style={{ width: `${62 + (i % 3) * 12}%`, animationDelay: `${i * 80}ms` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2.5 text-zen-ink/60">
+                  <RefreshCw size={16} className="animate-spin text-red-400 shrink-0" />
+                  <p className="text-sm font-semibold">Menghapus data transaksi...</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
+                  <CheckCircle2 size={32} className="text-green-500" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-base font-bold">Selesai</p>
+                  <p className="text-xs text-zen-ink/40">Semua data transaksi berhasil dihapus</p>
+                </div>
+              </>
+            )}
           </div>
-          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
-        </div>
-
-        {/* Note */}
-        <div className="mt-4 p-3 bg-amber-50 rounded-xl text-xs text-amber-700">
-          <Shield size={12} className="inline mr-1" />
-          Simpan Studio ID & PIN. Diperlukan untuk restore di device baru. Data di-enkripsi sebelum upload.
-        </div>
-
-        {message && <div className="mt-3 text-sm font-medium">{message}</div>}
-      </Card>
-
-      {/* Restore modal */}
-      <Modal open={restoreOpen} onClose={() => setRestoreOpen(false)} title="Restore dari Cloud">
-        <div className="space-y-4">
-          <p className="text-sm text-zen-ink/60">Masukkan Studio ID dan PIN untuk mengambil data dari cloud.</p>
-          <Input label="Studio ID" placeholder="XSP-XXXXX" value={restoreId} onChange={e => setRestoreId(e.target.value.toUpperCase())} />
-          <Input label="PIN" placeholder="1234" type="password" value={restorePin} onChange={e => setRestorePin(e.target.value)} />
-          <Button onClick={handleRestore} className="w-full" disabled={restoring || !restoreId || !restorePin}>
-            {restoring ? 'Restoring...' : 'Restore Data'}
-          </Button>
-          <p className="text-[10px] text-red-400 text-center">⚠️ Ini akan mengganti semua data lokal dengan data dari cloud.</p>
-        </div>
-      </Modal>
+        </div>,
+        document.body
+      )}
     </>
   );
 }

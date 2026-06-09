@@ -18,9 +18,9 @@ export function useStaff() {
     enabled: !!studioId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('license_users')
+        .from('users')
         .select('id, email, full_name, role, created_at')
-        .eq('license_id', studioId!)
+        .eq('studio_id', studioId!)
         .order('role')
         .order('created_at');
       if (error) throw error;
@@ -41,14 +41,14 @@ export function useStaffMutation() {
       if (newPassword) updates.password_hash = await hashPassword(newPassword);
       if (!Object.keys(updates).length) return;
 
-      // Update license_users (source of truth for auth)
-      const { error } = await supabase.from('license_users').update(updates).eq('id', id);
+      // Update users table (primary source for studio UI)
+      const { error } = await supabase.from('users').update(updates).eq('id', id);
       if (error) throw error;
 
-      // Sync to users table best-effort (for login via users path)
+      // Sync to license_users (auth source of truth) by license_id + email
       if (studioId) {
-        await supabase.from('users').update(updates)
-          .eq('studio_id', studioId)
+        await supabase.from('license_users').update(updates)
+          .eq('license_id', studioId)
           .eq('email', email);
       }
     },

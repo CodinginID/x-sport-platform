@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/utils';
@@ -135,14 +135,14 @@ function LicenseKeyModal({ licenseKey, studioName, onClose }: {
 // ─── Confirm Sheet ────────────────────────────────────────────────────────────
 
 function ConfirmSheet({ title, message, variant, onConfirm, onCancel }: {
-  title: string; message: string; variant: 'danger' | 'warning'; onConfirm: () => void; onCancel: () => void;
+  title: string; message: React.ReactNode; variant: 'danger' | 'warning'; onConfirm: () => void; onCancel: () => void;
 }) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={onCancel}>
       <div className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[24px] rounded-t-[24px] p-6 space-y-4 animate-slide-up sm:animate-page-in" onClick={e => e.stopPropagation()}>
         <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto sm:hidden" />
         <h2 className="text-base font-bold pt-1">{title}</h2>
-        <p className="text-sm text-zen-ink/60 leading-relaxed">{message}</p>
+        <div className="text-sm text-zen-ink/60 leading-relaxed">{message}</div>
         <div className="flex flex-col gap-2 pt-1">
           <button onClick={onConfirm} className={`w-full py-4 text-sm font-bold rounded-2xl text-white min-h-[52px] active:scale-[0.98] transition-transform ${variant === 'danger' ? 'bg-red-500' : 'bg-amber-500'}`}>
             {variant === 'danger' ? 'Ya, Hapus' : 'Ya, Setujui'}
@@ -478,7 +478,7 @@ export default function LicensesPage() {
   const [search, setSearch] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
-    open: boolean; title: string; message: string; variant: 'danger' | 'warning'; onConfirm: () => void;
+    open: boolean; title: string; message: React.ReactNode; variant: 'danger' | 'warning'; onConfirm: () => void;
   }>({ open: false, title: '', message: '', variant: 'warning', onConfirm: () => {} });
 
   const fetchAll = useCallback(async () => {
@@ -633,18 +633,40 @@ export default function LicensesPage() {
   };
 
   const handleResetActivation = (lic: LicenseRow) => {
+    const studioLabel = lic.studio_name || lic.owner_email;
     setConfirm({
       open: true,
       title: 'Reset Aktivasi?',
-      message: `Reset aktivasi untuk "${lic.studio_name || lic.owner_email}".\n\nIni akan:\n• Hapus sesi aktif (otomatis logout)\n• Hapus akun staff yang ter-provision di users\n• Kembalikan lisensi ke status belum diaktivasi\n\nOwner harus aktivasi ulang dari halaman Lisensi. Lisensi tetap aktif dan approved.`,
+      message: (
+        <div className="space-y-3">
+          <p>Reset aktivasi untuk <span className="font-semibold text-zen-ink">{studioLabel}</span>. Tindakan ini akan:</p>
+          <ul className="space-y-2">
+            {[
+              'Hapus semua sesi aktif (otomatis logout)',
+              'Hapus akun staff dari tabel users dan license_users',
+              'Kembalikan lisensi ke status belum diaktivasi',
+            ].map(item => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="text-amber-500 font-bold mt-0.5 shrink-0">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs bg-amber-50 text-amber-700 rounded-xl px-3 py-2 leading-relaxed">
+            Lisensi tetap aktif & approved. Owner harus aktivasi ulang dari halaman Lisensi.
+          </p>
+        </div>
+      ),
       variant: 'warning',
       onConfirm: async () => {
         setActionLoading(lic.id);
         // 1. Hapus semua sesi
         await supabase.from('sessions').delete().eq('studio_id', lic.id);
-        // 2. Hapus akun yang sudah di-provision ke users
+        // 2. Hapus semua user dari tabel users
         await supabase.from('users').delete().eq('studio_id', lic.id);
-        // 3. Reset device binding di licenses (activated_at & device_fingerprint)
+        // 3. Hapus akun staff dari license_users (owner tetap agar bisa login kembali)
+        await supabase.from('license_users').delete().eq('license_id', lic.id).eq('role', 'staff');
+        // 4. Reset status aktivasi di licenses
         const { error: updErr } = await supabase.from('licenses')
           .update({ activated_at: null, device_fingerprint: null, last_validated_at: null })
           .eq('id', lic.id);
