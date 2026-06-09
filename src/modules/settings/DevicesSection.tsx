@@ -75,32 +75,51 @@ function PrinterCard() {
   } = usePrinterStore();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
+  // true = background retry sedang berjalan (printer tersimpan tapi belum konek)
+  const [searching, setSearching] = useState(false);
   const supported = bt.isSupported();
 
-  // Auto-reconnect saat mount + watchAdvertisements agar auto-connect saat printer nyala
+  // Setelah pernah pair: coba reconnect langsung, pasang watcher iklan,
+  // dan mulai background retry loop agar printer auto-connect saat menyala
   useEffect(() => {
     if (!supported || !deviceId) return;
-    // Coba reconnect langsung (tanpa gesture)
+
+    const onConnected = () => { setStatus('connected'); setSearching(false); };
+
+    // 1. Coba reconnect sekarang (tanpa gesture)
+    setSearching(true);
     bt.reconnect(deviceId).then((ok) => {
-      if (ok) setStatus('connected');
+      if (ok) { onConnected(); return; }
+      // Gagal — background loop akan terus mencoba
     });
-    // Daftarkan watcher: printer masuk jangkauan → auto-connect (bertahan setelah app update)
-    bt.watchForDevice(deviceId, () => setStatus('connected'));
+
+    // 2. watchAdvertisements: kalau printer nyala & masuk range, langsung connect
+    bt.watchForDevice(deviceId, onConnected);
+
+    // 3. Background retry setiap 7 detik — inilah "kunci pairing"
+    const stop = bt.startBackgroundReconnect(deviceId, onConnected);
+
+    return () => { stop(); setSearching(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
+  // Sync searching state dengan status store (kalau connect dari tempat lain)
+  useEffect(() => {
+    if (status === 'connected') setSearching(false);
+    if (status === 'disconnected' && !!deviceId) setSearching(true);
+  }, [status, deviceId]);
+
   const handlePairNew = async () => {
     setBusy(true);
+    setSearching(false);
     try {
       setStatus('connecting');
       const dev = await bt.connect();
       setDevice(dev.id, dev.name ?? 'Printer');
       setStatus('connected');
-      // Langsung pasang watcher untuk device baru ini
-      bt.watchForDevice(dev.id, () => setStatus('connected'));
-      addToast(`${dev.name ?? 'Printer'} terhubung`, 'success');
+      addToast(`${dev.name ?? 'Printer'} terhubung & dikunci`, 'success');
     } catch (e) {
-      setStatus('disconnected');
+      setStatus(deviceId ? 'disconnected' : 'disconnected');
       if (e instanceof Error && e.name !== 'NotFoundError') addToast('Gagal menghubungkan printer', 'error');
     } finally {
       setBusy(false);
@@ -146,6 +165,7 @@ function PrinterCard() {
   };
 
   const handleForget = () => {
+    setSearching(false);
     bt.disconnect();
     forgetDevice();
     addToast('Printer dihapus', 'info');
@@ -156,9 +176,23 @@ function PrinterCard() {
   const hasSaved = !!deviceId;
 
   // Status untuk header compact
-  const statusLabel = isConnected ? 'Terhubung' : isConnecting ? 'Menghubungkan...' : hasSaved ? 'Terputus' : 'Belum dipasang';
-  const statusColor = isConnected ? 'text-green-500' : isConnecting ? 'text-zen-brand' : hasSaved ? 'text-amber-500' : 'text-zen-ink/30';
-  const iconBg = isConnected ? 'bg-green-50 text-green-600' : hasSaved ? 'bg-amber-50 text-amber-500' : 'bg-zen-bg text-zen-ink/40';
+  const statusLabel = isConnected
+    ? 'Terhubung'
+    : isConnecting
+    ? 'Menghubungkan...'
+    : searching
+    ? 'Mencari printer...'
+    : hasSaved
+    ? 'Terputus'
+    : 'Belum dipasang';
+  const statusColor = isConnected
+    ? 'text-green-500'
+    : isConnecting || searching
+    ? 'text-zen-brand'
+    : hasSaved
+    ? 'text-amber-500'
+    : 'text-zen-ink/30';
+  const iconBg = isConnected ? 'bg-green-50 text-green-600' : (searching || isConnecting) ? 'bg-zen-brand/10 text-zen-brand' : hasSaved ? 'bg-amber-50 text-amber-500' : 'bg-zen-bg text-zen-ink/40';
 
   if (!supported) {
     return (
@@ -251,13 +285,15 @@ function PrinterCard() {
       {isConnected && (
         <div className="flex items-center gap-2 text-[11px] text-green-600 font-medium -mt-1">
           <CheckCircle2 size={12} />
-          <span>Printer siap · akan reconnect otomatis saat printer menyala</span>
+          <span>Printer terkunci · reconnect otomatis saat printer menyala</span>
         </div>
       )}
       {hasSaved && !isConnected && !isConnecting && (
-        <div className="flex items-center gap-2 text-[11px] text-zen-ink/40">
-          <WifiOff size={12} />
-          <span>Akan terhubung otomatis saat printer menyala &amp; dalam jangkauan</span>
+        <div className={`flex items-center gap-2 text-[11px] -mt-1 ${searching ? 'text-zen-brand' : 'text-zen-ink/40'}`}>
+          {searching
+            ? <><RefreshCw size={12} className="animate-spin shrink-0" /><span>Mencari printer secara otomatis...</span></>
+            : <><WifiOff size={12} className="shrink-0" /><span>Printer tidak dalam jangkauan</span></>
+          }
         </div>
       )}
     </DeviceCard>
