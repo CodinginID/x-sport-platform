@@ -53,7 +53,9 @@
       "Bash(git commit -q -m 'fix: auto-recover from stale code-split chunks after deploy *)",
       "Bash(echo \"exit $?\")",
       "Bash(supabase projects *)",
-      "Bash(grep -E \"\\\\.json$|\\\\.config\\\\.\")"
+      "Bash(grep -E \"\\\\.json$|\\\\.config\\\\.\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(git commit *)"
     ]
   }
 }
