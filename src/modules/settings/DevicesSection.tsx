@@ -88,16 +88,19 @@ function PrinterCard() {
     const onConnected = () => { setStatus('connected'); setSearching(false); setPermissionLost(false); };
     const onPermissionLost = () => { setSearching(false); setPermissionLost(true); };
 
-    // Delay 1.5 detik sebelum attempt pertama.
-    // Alasan: setelah refresh browser, Chrome membutuhkan ~1-2 detik untuk
-    // menutup koneksi GATT sesi sebelumnya. Printer menolak koneksi baru
-    // sampai koneksi lama benar-benar terputus di sisi firmware.
+    // Startup delay berbeda tergantung jenis navigasi:
+    // - reload (F5/Ctrl+R): 1500ms — Chrome perlu bersihkan GATT sesi sebelumnya
+    // - navigate (restart browser / buka tab baru): 500ms — tidak ada GATT lama,
+    //   cukup tunggu BT stack browser siap
+    const navType = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type;
+    const startupDelay = navType === 'reload' ? 1500 : 500;
+
     const startupTimer = setTimeout(async () => {
       const result = await bt.reconnect(deviceId);
       if (result === 'connected') { onConnected(); return; }
       if (result === 'permission_lost') { onPermissionLost(); return; }
       // 'out_of_range' → background loop terus mencoba
-    }, 1500);
+    }, startupDelay);
 
     // watchAdvertisements: printer broadcast saat nyala → langsung connect
     // tanpa menunggu interval background loop (instant reconnect saat printer restart)
