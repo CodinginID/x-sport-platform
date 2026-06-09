@@ -27,7 +27,7 @@ export function PrinterSection() {
 
   if (!supported) {
     return (
-      <Card title="Printer Bluetooth">
+      <Card title="Printer Struk">
         <div className="flex items-start gap-3 p-1">
           <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0">
             <AlertTriangle size={18} className="text-amber-500" />
@@ -110,7 +110,7 @@ export function PrinterSection() {
   const hasSaved = !!deviceId;
 
   return (
-    <Card title="Printer Bluetooth">
+    <Card title="Printer Struk">
       <div className="space-y-5">
 
         {/* ── Status Hero ── */}

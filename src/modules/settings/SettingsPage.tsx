@@ -11,17 +11,17 @@ import { LicenseSection } from './LicenseSection';
 import { PrinterSection } from './PrinterSection';
 import { StaffSection } from './StaffSection';
 import {
-  ChevronRight, ChevronLeft, Building2, Printer, Globe,
-  Users, ShieldCheck, HardDrive, Database, Info, Eye, EyeOff, Loader2, Check,
-  SlidersHorizontal,
+  ChevronRight, ChevronLeft, Building2, Globe,
+  Users, ShieldCheck, Database, Info, Eye, EyeOff, Loader2, Check,
+  SlidersHorizontal, Bluetooth,
 } from 'lucide-react';
 
-type SectionKey = 'account' | 'studio' | 'printer' | 'language' | 'staff' | 'license' | 'backup' | 'about';
+type SectionKey = 'account' | 'studio' | 'devices' | 'language' | 'staff' | 'license' | 'backup' | 'about';
 
 const SECTION_TITLES: Record<SectionKey, string> = {
   account:  'Akun',
   studio:   'Studio',
-  printer:  'Printer Struk',
+  devices:  'Perangkat',
   language: 'Bahasa',
   staff:    'Manajemen Staff',
   license:  'Lisensi',
@@ -269,7 +269,7 @@ function SectionContent({ section }: { section: SectionKey }) {
   switch (section) {
     case 'account':  return <AccountSection />;
     case 'studio':   return <StudioSection />;
-    case 'printer':  return <PrinterSection />;
+    case 'devices':  return <PrinterSection />;
     case 'language': return <LanguageSection />;
     case 'staff':    return <StaffSection />;
     case 'license':  return <LicenseSection />;
@@ -324,9 +324,9 @@ export default function SettingsPage() {
 
       {/* Group 1: Umum */}
       <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-        <MenuItem icon={Building2} iconBg="bg-blue-100 text-blue-600"     label="Studio"       subtitle={licenseInfo?.studio_name ?? '—'} isActive={active === 'studio'}   onClick={() => goTo('studio')}   />
-        <MenuItem icon={Printer}   iconBg="bg-purple-100 text-purple-600" label="Printer Struk"                                            isActive={active === 'printer'}  onClick={() => goTo('printer')}  />
-        <MenuItem icon={Globe}     iconBg="bg-green-100 text-green-600"   label="Bahasa"       subtitle={lang === 'id' ? 'Indonesia' : 'English'} isActive={active === 'language'} onClick={() => goTo('language')} last />
+        <MenuItem icon={Building2} iconBg="bg-blue-100 text-blue-600"     label="Studio"    subtitle={licenseInfo?.studio_name ?? '—'}      isActive={active === 'studio'}   onClick={() => goTo('studio')}   />
+        <MenuItem icon={Bluetooth} iconBg="bg-purple-100 text-purple-600" label="Perangkat" subtitle="Printer, scanner, & perangkat lainnya"  isActive={active === 'devices'}  onClick={() => goTo('devices')}  />
+        <MenuItem icon={Globe}     iconBg="bg-green-100 text-green-600"   label="Bahasa"    subtitle={lang === 'id' ? 'Indonesia' : 'English'} isActive={active === 'language'} onClick={() => goTo('language')} last />
       </div>
 
       {/* Group 2: Owner only */}
