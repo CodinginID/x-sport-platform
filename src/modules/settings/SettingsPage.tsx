@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { BackupSection } from './BackupSection';
 import { StudioSection } from './StudioSection';
 import { LicenseSection } from './LicenseSection';
-import { PrinterSection } from './PrinterSection';
+import { DevicesSection } from './DevicesSection';
 import { StaffSection } from './StaffSection';
 import {
   ChevronRight, ChevronLeft, Building2, Globe,
@@ -269,7 +269,7 @@ function SectionContent({ section }: { section: SectionKey }) {
   switch (section) {
     case 'account':  return <AccountSection />;
     case 'studio':   return <StudioSection />;
-    case 'devices':  return <PrinterSection />;
+    case 'devices':  return <DevicesSection />;
     case 'language': return <LanguageSection />;
     case 'staff':    return <StaffSection />;
     case 'license':  return <LicenseSection />;
