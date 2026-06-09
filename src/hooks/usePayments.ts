@@ -1,9 +1,31 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getStudioId, requireStudioId } from '@/utils/studioContext';
-import type { MemberPackage, MemberPayment, ProductSale, ProductSaleItem, CoachCommission } from '@/types';
+import type { Booking, MemberPackage, MemberPayment, ProductSale, ProductSaleItem, CoachCommission } from '@/types';
 import { addDays } from 'date-fns';
 import { productSaleSchema, memberPaymentSchema } from '@/utils/schemas';
+
+/** Booking milik member yang belum dibayar (member_package_id masih null, status masih booked) */
+export function useUnpaidBookings(member_id: string) {
+  return useQuery({
+    queryKey: ['unpaidBookings', member_id],
+    enabled: !!member_id,
+    queryFn: async () => {
+      const studioId = getStudioId();
+      if (!studioId) return [];
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('booking_id, package_id, package_price, booking_date, booking_time')
+        .eq('studio_id', studioId)
+        .eq('member_id', member_id)
+        .eq('booking_status', 'booked')
+        .is('member_package_id', null)
+        .order('booking_date', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as Pick<Booking, 'booking_id' | 'package_id' | 'package_price' | 'booking_date' | 'booking_time'>[];
+    },
+  });
+}
 
 export function useMemberPackages(member_id?: string) {
   return useQuery({
@@ -40,7 +62,7 @@ export function useMemberPayments(filters?: { member_id?: string; startDate?: st
 export function useMemberPaymentMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payment: Omit<MemberPayment, 'payment_id' | 'created_at'>) => {
+    mutationFn: async (payment: Omit<MemberPayment, 'payment_id' | 'created_at'> & { booking_id?: string }) => {
       const studioId = requireStudioId();
 
       const parsed = memberPaymentSchema.safeParse(payment);
@@ -77,11 +99,12 @@ export function useMemberPaymentMutation() {
         remaining_sessions: pkg.session_count ?? 0,
       };
 
-      // Atomic via RPC
+      // Atomic via RPC — juga link booking jika booking_id dikirim
       const { error } = await supabase.rpc('create_member_payment', {
         p_studio_id: studioId,
         p_payment: paymentData,
         p_member_package: memberPackageData,
+        p_booking_id: payment.booking_id ?? null,
       });
       if (error) throw new Error(error.message);
 
@@ -95,6 +118,8 @@ export function useMemberPaymentMutation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['memberPayments'] });
       qc.invalidateQueries({ queryKey: ['memberPackages'] });
+      qc.invalidateQueries({ queryKey: ['bookings'] });
+      qc.invalidateQueries({ queryKey: ['unpaidBookings'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });

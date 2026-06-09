@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMembers, usePackages, useMemberPayments, useMemberPaymentMutation } from "@/hooks";
+import { useUnpaidBookings } from "@/hooks/usePayments";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { Button, Modal, Input, Select } from "@/components/ui";
@@ -7,7 +8,7 @@ import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
 import { useToastStore } from "@/stores/toast";
 import { PrintPreview } from "@/components/PrintPreview";
-import { Calendar, Plus, Printer, Receipt } from "lucide-react";
+import { Calendar, Plus, Printer, Receipt, CalendarCheck } from "lucide-react";
 
 type Preset = '7d' | '30d' | 'month' | 'custom';
 
@@ -44,7 +45,24 @@ export default function MemberPaymentPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ member_id: "", package_id: "", payment_method: "cash" as "cash" | "transfer" | "qris", notes: "" });
+  const [bookingId, setBookingId] = useState<string | undefined>(undefined);
   const [pdfUrl, setPdfUrl] = useState("");
+
+  // Fetch unpaid bookings when member is selected
+  const { data: unpaidBookings = [] } = useUnpaidBookings(form.member_id);
+
+  // Auto-fill package dari booking terbaru yang belum dibayar
+  useEffect(() => {
+    if (!form.member_id) { setBookingId(undefined); return; }
+    const latest = unpaidBookings[0];
+    if (latest) {
+      setForm(f => ({ ...f, package_id: latest.package_id }));
+      setBookingId(latest.booking_id);
+    } else {
+      setForm(f => ({ ...f, package_id: "" }));
+      setBookingId(undefined);
+    }
+  }, [form.member_id, unpaidBookings]);
 
   const selectedPkg = packages.find(p => p.package_id === form.package_id);
   const amount = selectedPkg?.package_price ?? 0;
@@ -87,13 +105,19 @@ export default function MemberPaymentPage() {
   };
 
   const handleSubmit = async () => {
-    // One general toast for the whole save & print action.
     try {
-      const saved = await mutation.mutateAsync(
-        { payment_date: today, member_id: form.member_id, package_id: form.package_id, amount, payment_method: form.payment_method, notes: form.notes },
-      );
+      const saved = await mutation.mutateAsync({
+        payment_date: today,
+        member_id: form.member_id,
+        package_id: form.package_id,
+        amount,
+        payment_method: form.payment_method,
+        notes: form.notes,
+        booking_id: bookingId,
+      });
       setModalOpen(false);
       setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
+      setBookingId(undefined);
       let note = '';
       if (usePrinterStore.getState().autoPrint && (await printReceipt(saved))) note = ' & struk dicetak';
       addToast(`Pembayaran berhasil disimpan${note}`, 'success');
@@ -189,8 +213,43 @@ export default function MemberPaymentPage() {
       {/* Add modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('payments.add_payment')}>
         <div className="space-y-4">
-          <Select label="Member" options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]} value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })} />
-          <Select label={t('packages.title')} options={[{ value: "", label: t('payments.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]} value={form.package_id} onChange={e => setForm({ ...form, package_id: e.target.value })} />
+          <Select
+            label="Member"
+            options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]}
+            value={form.member_id}
+            onChange={e => setForm({ ...form, member_id: e.target.value, package_id: "" })}
+          />
+
+          {/* Booking info banner — shown when unpaid booking found */}
+          {form.member_id && bookingId && unpaidBookings[0] && (
+            <div className="flex items-center gap-2.5 bg-zen-brand/8 rounded-2xl px-4 py-3">
+              <CalendarCheck size={15} className="text-zen-brand shrink-0" />
+              <div className="text-xs">
+                <span className="font-semibold text-zen-brand">Booking ditemukan</span>
+                <span className="text-zen-ink/50 ml-1">
+                  {formatDate(unpaidBookings[0].booking_date)}
+                  {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* No unpaid booking info */}
+          {form.member_id && !bookingId && (
+            <div className="flex items-center gap-2.5 bg-zen-bg rounded-2xl px-4 py-3">
+              <CalendarCheck size={15} className="text-zen-ink/30 shrink-0" />
+              <p className="text-xs text-zen-ink/40">Tidak ada booking aktif — pilih paket secara manual</p>
+            </div>
+          )}
+
+          <Select
+            label={t('packages.title')}
+            options={[{ value: "", label: t('payments.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]}
+            value={form.package_id}
+            onChange={e => setForm({ ...form, package_id: e.target.value })}
+            disabled={!!bookingId}
+          />
+
           <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
           <Select label={t('payments.method')} options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]} value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value as any })} />
           <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />

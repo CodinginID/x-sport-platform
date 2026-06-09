@@ -3,7 +3,7 @@ import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, u
 import { Modal, Button, Input, Select, QueryError } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Calendar, Plus, CheckCircle2, XCircle, CalendarX } from "lucide-react";
+import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard } from "lucide-react";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -124,13 +124,20 @@ export default function BookingsPage() {
                       <StatusBadge status={b.booking_status} />
                       {b.booking_status === 'booked' && (
                         <>
-                          <button
-                            onClick={() => bookingMutation.mutate({ action: 'attend', booking: { booking_id: b.booking_id } })}
-                            className="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors"
-                            title="Hadir"
-                          >
-                            <CheckCircle2 size={15} />
-                          </button>
+                          {b.member_package_id == null ? (
+                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-600 text-[10px] font-bold whitespace-nowrap">
+                              <CreditCard size={11} />
+                              Belum Bayar
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => bookingMutation.mutate({ action: 'attend', booking: { booking_id: b.booking_id } })}
+                              className="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors"
+                              title="Hadir"
+                            >
+                              <CheckCircle2 size={15} />
+                            </button>
+                          )}
                           <button
                             onClick={() => bookingMutation.mutate({ action: 'cancel', booking: { booking_id: b.booking_id } })}
                             className="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors"
