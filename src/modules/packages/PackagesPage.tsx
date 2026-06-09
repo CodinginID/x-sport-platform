@@ -2,13 +2,14 @@ import { useState } from "react";
 import { usePackages, usePackageMutation, useCoaches, usePackageCoaches, usePackageCoachMutation } from "@/hooks";
 import { formatCurrency } from "@/utils";
 import { Button, Modal, Input, Select, NumericInput } from "@/components/ui";
+import { ListSkeleton } from "@/components/Skeleton";
 import { Package, PackageCoach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Trash2, Plus, Boxes } from "lucide-react";
 
 export default function PackagesPage() {
   const { t } = useTranslation();
-  const { data: packages = [] } = usePackages();
+  const { data: packages = [], isLoading: pkgLoading } = usePackages();
   const mutation = usePackageMutation();
   const { data: coaches = [] } = useCoaches();
   const { data: allPackageCoaches = [] } = usePackageCoaches();
@@ -99,7 +100,7 @@ export default function PackagesPage() {
       </div>
 
       {/* List */}
-      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+      {pkgLoading ? <ListSkeleton rows={4} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
         {packages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
             <Boxes size={32} className="mb-3" />
@@ -156,7 +157,7 @@ export default function PackagesPage() {
             })}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? `${t('common.edit')} ${t('packages.title')}` : t('packages.add')} size="lg">

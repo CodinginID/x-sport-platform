@@ -3,6 +3,7 @@ import { useProducts, useProductMutation } from '@/hooks';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { formatCurrency } from '@/utils';
 import { Button, Modal, Badge, Input, QueryError, NumericInput } from '@/components/ui';
+import { ListSkeleton } from '@/components/Skeleton';
 import { Product } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Plus, Package2, AlertTriangle } from 'lucide-react';
@@ -12,7 +13,7 @@ const emptyForm: ProductForm = { product_name: '', category: '', stock: 0, unit:
 
 export default function ProductsPage() {
   const { t } = useTranslation();
-  const { data: products = [], isError, refetch } = useProducts();
+  const { data: products = [], isLoading, isError, refetch } = useProducts();
   const mutation = useProductMutation();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export default function ProductsPage() {
       )}
 
       {/* List */}
-      {isError ? <QueryError onRetry={() => refetch()} /> : (
+      {isLoading ? <ListSkeleton rows={5} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">

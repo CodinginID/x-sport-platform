@@ -4,6 +4,7 @@ import { useUnpaidBookings } from "@/hooks/usePayments";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { Button, Modal, Input, Select } from "@/components/ui";
+import { ListSkeleton } from "@/components/Skeleton";
 import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
 import { useToastStore } from "@/stores/toast";
@@ -37,7 +38,7 @@ export default function MemberPaymentPage() {
   const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
   const [endDate, setEndDate] = useState(today);
 
-  const { data: payments = [] } = useMemberPayments({ startDate, endDate });
+  const { data: payments = [], isLoading: paymentsLoading } = useMemberPayments({ startDate, endDate });
   const { data: members = [] } = useMembers();
   const { data: packages = [] } = usePackages();
   const mutation = useMemberPaymentMutation();
@@ -174,7 +175,7 @@ export default function MemberPaymentPage() {
       </div>
 
       {/* List */}
-      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+      {paymentsLoading ? <ListSkeleton rows={5} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
         {payments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
             <Receipt size={32} className="mb-3" />
@@ -208,7 +209,7 @@ export default function MemberPaymentPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Add modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('payments.add_payment')}>

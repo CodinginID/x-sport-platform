@@ -3,6 +3,7 @@ import { useCoachCommissions, useCoaches, useMembers } from '@/hooks';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuthStore } from '@/stores/auth';
 import { Select, BarChartH, TrendBars } from '@/components/ui';
+import { ListSkeleton } from '@/components/Skeleton';
 import { formatCurrency, formatDate } from '@/utils';
 import { Calendar, Award } from 'lucide-react';
 
@@ -33,7 +34,7 @@ export default function CommissionsPage() {
   const [endDate, setEndDate] = useState(() => getPresetDates('month').end);
 
   const filterCoachId = isAdmin ? coachFilter || undefined : user?.id;
-  const { data: commissions = [] } = useCoachCommissions({ coach_id: filterCoachId, startDate, endDate });
+  const { data: commissions = [], isLoading: commissionsLoading } = useCoachCommissions({ coach_id: filterCoachId, startDate, endDate });
   const { data: coaches = [] } = useCoaches();
   const { data: members = [] } = useMembers();
 
@@ -117,7 +118,7 @@ export default function CommissionsPage() {
       )}
 
       {/* Detail list */}
-      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+      {commissionsLoading ? <ListSkeleton rows={5} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
         <div className="px-5 py-4 border-b border-zen-ink/5">
           <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Rincian Komisi</p>
         </div>
@@ -145,7 +146,7 @@ export default function CommissionsPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

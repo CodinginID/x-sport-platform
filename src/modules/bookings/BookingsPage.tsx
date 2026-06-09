@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches } from "@/hooks";
 import { Modal, Button, Input, Select, QueryError } from "@/components/ui";
+import { ListSkeleton } from "@/components/Skeleton";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard } from "lucide-react";
@@ -32,7 +33,7 @@ export default function BookingsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
 
-  const { data: bookings = [], isError, refetch } = useBookings({ date: filterDate || undefined, status: filterStatus || undefined });
+  const { data: bookings = [], isLoading, isError, refetch } = useBookings({ date: filterDate || undefined, status: filterStatus || undefined });
   const bookingMutation = useBookingMutation();
   const { data: members = [] } = useMembers();
   const { data: coaches = [] } = useCoaches();
@@ -94,7 +95,7 @@ export default function BookingsPage() {
       </div>
 
       {/* List */}
-      {isError ? <QueryError onRetry={() => refetch()} /> : (
+      {isLoading ? <ListSkeleton rows={6} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
           {bookings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">

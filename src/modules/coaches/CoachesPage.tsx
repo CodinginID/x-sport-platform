@@ -3,6 +3,7 @@ import { useCoaches, useCoachMutation } from "@/hooks";
 import { useAuthStore } from "@/stores/auth";
 import { useConfirmStore } from "@/components/ConfirmDialog";
 import { Modal, Button, Input, QueryError } from "@/components/ui";
+import { ListSkeleton } from "@/components/Skeleton";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Plus, Dumbbell } from "lucide-react";
@@ -15,7 +16,7 @@ const defaultForm = { full_name: "", phone_number: "", email: "", notes: "" };
 
 export default function CoachesPage() {
   const { t } = useTranslation();
-  const { data: coaches = [], isError, refetch } = useCoaches();
+  const { data: coaches = [], isLoading, isError, refetch } = useCoaches();
   const mutation = useCoachMutation();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Coach | null>(null);
@@ -63,7 +64,7 @@ export default function CoachesPage() {
       </div>
 
       {/* List */}
-      {isError ? <QueryError onRetry={() => refetch()} /> : (
+      {isLoading ? <ListSkeleton rows={5} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
           {coaches.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">

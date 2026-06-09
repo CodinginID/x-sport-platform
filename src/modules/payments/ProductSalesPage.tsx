@@ -7,6 +7,7 @@ import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
 import { useToastStore } from "@/stores/toast";
 import { Button, Input, NumericInput } from "@/components/ui";
+import { ListSkeleton } from "@/components/Skeleton";
 import { PrintPreview } from "@/components/PrintPreview";
 import { Plus, Minus, Trash2, ShoppingCart, Coins, X, Printer, ShoppingBag, Calendar } from "lucide-react";
 import type { Product, ProductSaleItem, PaymentMethod } from "@/types";
@@ -36,7 +37,7 @@ export default function ProductSalesPage() {
   const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
   const [endDate, setEndDate] = useState(today);
   const handlePreset = (p: Preset) => { setPreset(p); if (p !== 'custom') { const d = getPresetDates(p); setStartDate(d.start); setEndDate(d.end); } };
-  const { data: sales = [] } = useProductSales({ startDate, endDate });
+  const { data: sales = [], isLoading: salesLoading } = useProductSales({ startDate, endDate });
   const { data: products = [] } = useProducts();
   const mutation = useProductSaleMutation();
   const { printSale } = usePrintReceipt();
@@ -194,7 +195,7 @@ export default function ProductSalesPage() {
       </div>
 
       {/* Sales list */}
-      <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+      {salesLoading ? <ListSkeleton rows={5} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
         {sales.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
             <ShoppingBag size={32} className="mb-3" />
@@ -236,7 +237,7 @@ export default function ProductSalesPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {modalOpen && createPortal(
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
