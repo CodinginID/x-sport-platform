@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches, useSearchPaginate } from "@/hooks";
-import { Modal, Button, Input, Select, QueryError, SearchBar } from "@/components/ui";
+import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches, useSearchPaginate, useActiveMemberPackages, useWalkInMutation } from "@/hooks";
+import { Modal, Button, QueryError, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
 import { Pagination } from "@/components/Pagination";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard, Boxes, Clock, User, ChevronRight, Tag } from "lucide-react";
+import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard, Boxes, Clock, User, ChevronRight, Tag, Footprints } from "lucide-react";
 import type { Booking } from "@/types";
 
 function initials(name: string) {
@@ -28,6 +28,9 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const defaultForm = { member_id: "", coach_id: "", package_id: "", package_price: 0, booking_date: "", booking_time: "" };
+const today = new Date().toISOString().split('T')[0];
+const nowTime = new Date().toTimeString().slice(0, 5);
+const defaultWi = { member_id: "", member_package_id: "", package_id: "", coach_id: "", date: today, time: nowTime };
 
 export default function BookingsPage() {
   const { t } = useTranslation();
@@ -36,13 +39,17 @@ export default function BookingsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [detail, setDetail] = useState<Booking | null>(null);
+  const [wiOpen, setWiOpen] = useState(false);
+  const [wi, setWi] = useState(defaultWi);
 
   const { data: bookings = [], isLoading, isError, refetch } = useBookings({ date: filterDate || undefined, status: filterStatus || undefined });
   const bookingMutation = useBookingMutation();
+  const walkInMutation = useWalkInMutation();
   const { data: members = [] } = useMembers();
   const { data: coaches = [] } = useCoaches();
   const { data: packages = [] } = usePackages();
   const { data: allPackageCoaches = [] } = usePackageCoaches();
+  const { data: activePkgs = [], isLoading: activePkgsLoading } = useActiveMemberPackages(wi.member_id);
 
   const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
@@ -63,6 +70,19 @@ export default function BookingsPage() {
     .filter(pc => pc.package_id === form.package_id)
     .map(pc => ({ value: pc.coach_id, label: coachMap[pc.coach_id] ?? pc.coach_id }));
 
+  // Walk-in: coach options untuk paket yang dipilih
+  const wiCoachOptions = allPackageCoaches
+    .filter(pc => pc.package_id === wi.package_id)
+    .map(pc => ({ value: pc.coach_id, label: coachMap[pc.coach_id] ?? pc.coach_id }));
+
+  const handleWalkIn = () => {
+    if (!wi.member_id || !wi.member_package_id || !wi.coach_id || !wi.date || !wi.time) return;
+    walkInMutation.mutate(
+      { member_id: wi.member_id, member_package_id: wi.member_package_id, coach_id: wi.coach_id, date: wi.date, time: wi.time },
+      { onSuccess: () => { setWiOpen(false); setWi(defaultWi); } },
+    );
+  };
+
   const handleSubmit = () => {
     bookingMutation.mutate({ action: 'create', booking: { ...form } });
     setForm(defaultForm);
@@ -82,9 +102,14 @@ export default function BookingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('bookings.title')}</h1>
-        <Button onClick={() => { setForm(defaultForm); setOpen(true); }}>
-          <span className="flex items-center gap-1.5"><Plus size={15} />{t('bookings.add')}</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => { setWi(defaultWi); setWiOpen(true); }}>
+            <span className="flex items-center gap-1.5"><Footprints size={15} />Walk-in</span>
+          </Button>
+          <Button onClick={() => { setForm(defaultForm); setOpen(true); }}>
+            <span className="flex items-center gap-1.5"><Plus size={15} />{t('bookings.add')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -236,6 +261,162 @@ export default function BookingsPage() {
           </DetailSheet>
         );
       })()}
+
+      {/* Walk-in Modal */}
+      <Modal open={wiOpen} onClose={() => { setWiOpen(false); setWi(defaultWi); }} title="Walk-in Check-in">
+        <div className="space-y-5">
+          {/* Step 1 — Pilih Member */}
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">Member</label>
+            <select
+              value={wi.member_id}
+              onChange={e => setWi({ ...defaultWi, member_id: e.target.value })}
+              className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium text-zen-ink outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none"
+            >
+              <option value="">Pilih member...</option>
+              {members.map(m => <option key={m.member_id} value={m.member_id}>{m.full_name}</option>)}
+            </select>
+          </div>
+
+          {/* Step 2 — Paket aktif member */}
+          {wi.member_id && (
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2 block">Paket Aktif</label>
+              {activePkgsLoading ? (
+                <div className="space-y-2">
+                  {[1, 2].map(i => (
+                    <div key={i} className="h-16 rounded-2xl bg-zen-ink/5 animate-pulse" />
+                  ))}
+                </div>
+              ) : activePkgs.length === 0 ? (
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 rounded-2xl px-4 py-3.5">
+                  <CreditCard size={14} className="shrink-0" />
+                  <p className="text-xs font-medium">Member ini tidak punya paket aktif. Lakukan booking &amp; pembayaran terlebih dahulu.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activePkgs.map(mp => {
+                    const pkgName = packageMap[mp.package_id] || mp.package_id;
+                    const selected = wi.member_package_id === mp.member_package_id;
+                    return (
+                      <button
+                        key={mp.member_package_id}
+                        type="button"
+                        onClick={() => setWi({ ...wi, member_package_id: mp.member_package_id, package_id: mp.package_id, coach_id: '' })}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all ${
+                          selected
+                            ? 'bg-zen-brand/8 border-zen-brand text-zen-ink'
+                            : 'bg-zen-bg border-transparent hover:border-zen-brand/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${selected ? 'bg-zen-brand text-white' : 'bg-zen-brand/10 text-zen-brand'}`}>
+                          <Boxes size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate">{pkgName}</p>
+                          <p className="text-[11px] text-zen-ink/40 mt-0.5">{mp.remaining_sessions} sesi tersisa · exp {formatDate(mp.expired_date)}</p>
+                        </div>
+                        {selected && <CheckCircle2 size={16} className="text-zen-brand shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 3 — Pilih Coach */}
+          {wi.member_package_id && (
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2 block">Coach</label>
+              {wiCoachOptions.length === 0 ? (
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 rounded-xl px-3 py-2.5">
+                  <ChevronRight size={13} className="shrink-0" />
+                  <p className="text-xs font-medium">Paket ini belum punya coach terdaftar.</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {wiCoachOptions.map(opt => {
+                    const selected = wi.coach_id === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setWi({ ...wi, coach_id: opt.value })}
+                        className={`flex items-center gap-2 pl-1.5 pr-3.5 py-1.5 rounded-2xl text-xs font-bold transition-all border ${
+                          selected
+                            ? 'bg-zen-brand text-white border-zen-brand shadow-sm'
+                            : 'bg-zen-bg text-zen-ink/60 border-zen-ink/10 hover:border-zen-brand/40 hover:text-zen-ink'
+                        }`}
+                      >
+                        <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${selected ? 'bg-white/20' : 'bg-zen-ink/8'}`}>
+                          {initials(opt.label)}
+                        </span>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 4 — Tanggal & Jam */}
+          {wi.coach_id && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 flex items-center gap-1.5">
+                  <Calendar size={10} />Tanggal
+                </label>
+                <input
+                  type="date"
+                  value={wi.date}
+                  onChange={e => setWi({ ...wi, date: e.target.value })}
+                  className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 flex items-center gap-1.5">
+                  <Clock size={10} />Jam
+                </label>
+                <input
+                  type="time"
+                  value={wi.time}
+                  onChange={e => setWi({ ...wi, time: e.target.value })}
+                  className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          {wi.member_id && wi.coach_id && wi.date && (
+            <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-green-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                {initials(memberMap[wi.member_id] ?? '?')}
+              </div>
+              <div className="flex-1 min-w-0 text-xs">
+                <p className="font-bold truncate text-zen-ink">{memberMap[wi.member_id]}</p>
+                <p className="text-zen-ink/50 mt-0.5 truncate">{coachMap[wi.coach_id]} · {formatDate(wi.date)} {wi.time.slice(0, 5)}</p>
+              </div>
+              <Footprints size={14} className="text-green-600 shrink-0" />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => { setWiOpen(false); setWi(defaultWi); }} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleWalkIn}
+              disabled={!wi.member_id || !wi.member_package_id || !wi.coach_id || !wi.date || !wi.time || walkInMutation.isPending}
+              className="flex-1"
+            >
+              {walkInMutation.isPending ? 'Memproses...' : 'Check-in Sekarang'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Add Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title={t('bookings.add')}>
