@@ -83,25 +83,30 @@ function PrinterCard() {
   useEffect(() => {
     if (!supported || !deviceId) return;
     setPermissionLost(false);
+    setSearching(true);
 
     const onConnected = () => { setStatus('connected'); setSearching(false); setPermissionLost(false); };
     const onPermissionLost = () => { setSearching(false); setPermissionLost(true); };
 
-    // 1. Coba reconnect langsung
-    setSearching(true);
-    bt.reconnect(deviceId).then((result) => {
+    // Delay 1.5 detik sebelum attempt pertama.
+    // Alasan: setelah refresh browser, Chrome membutuhkan ~1-2 detik untuk
+    // menutup koneksi GATT sesi sebelumnya. Printer menolak koneksi baru
+    // sampai koneksi lama benar-benar terputus di sisi firmware.
+    const startupTimer = setTimeout(async () => {
+      const result = await bt.reconnect(deviceId);
       if (result === 'connected') { onConnected(); return; }
       if (result === 'permission_lost') { onPermissionLost(); return; }
-      // 'out_of_range' → background loop akan terus mencoba
-    });
+      // 'out_of_range' → background loop terus mencoba
+    }, 1500);
 
-    // 2. watchAdvertisements: printer masuk jangkauan → langsung connect
+    // watchAdvertisements: printer broadcast saat nyala → langsung connect
+    // tanpa menunggu interval background loop (instant reconnect saat printer restart)
     bt.watchForDevice(deviceId, onConnected);
 
-    // 3. Background retry — berhenti sendiri jika permission_lost
+    // Background retry setiap 2 detik — fallback jika watchAdvertisements tidak tersedia
     const stop = bt.startBackgroundReconnect(deviceId, onConnected, onPermissionLost);
 
-    return () => { stop(); setSearching(false); };
+    return () => { clearTimeout(startupTimer); stop(); setSearching(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 

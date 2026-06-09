@@ -10,9 +10,11 @@ const PRINTER_SERVICES = [
 ];
 const CHUNK = 256;
 
+// State module-level
 let device: BluetoothDevice | null = null;
 let characteristic: BluetoothRemoteGATTCharacteristic | null = null;
 let bgTimer: ReturnType<typeof setInterval> | null = null;
+let isReconnecting = false; // cegah concurrent GATT connect
 
 export function isSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
@@ -45,21 +47,26 @@ function handleDisconnected(): void {
   usePrinterStore.getState().setStatus('disconnected');
 }
 
-const GATT_TIMEOUT_MS = 4000;
+// GATT timeout 3 detik — cukup untuk printer yang responsif,
+// gagal cepat untuk yang tidak dalam jangkauan
+const GATT_TIMEOUT_MS = 3000;
 
 async function attach(dev: BluetoothDevice): Promise<void> {
-  // gatt.connect() tidak punya timeout bawaan — Chrome bisa hang 10-30 detik.
-  // Race melawan timer agar gagal cepat dan bisa retry segera.
-  const server = await Promise.race([
-    dev.gatt!.connect(),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('gatt timeout')), GATT_TIMEOUT_MS),
-    ),
-  ]) as BluetoothRemoteGATTServer;
-  characteristic = await findWritableCharacteristic(server);
-  device = dev;
-  dev.removeEventListener('gattserverdisconnected', handleDisconnected);
-  dev.addEventListener('gattserverdisconnected', handleDisconnected);
+  // Wrap seluruh proses (connect + service discovery) dalam satu timeout
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('gatt timeout')), GATT_TIMEOUT_MS);
+    dev.gatt!.connect()
+      .then((server) => findWritableCharacteristic(server))
+      .then((char) => {
+        clearTimeout(timer);
+        characteristic = char;
+        device = dev;
+        dev.removeEventListener('gattserverdisconnected', handleDisconnected);
+        dev.addEventListener('gattserverdisconnected', handleDisconnected);
+        resolve();
+      })
+      .catch((e) => { clearTimeout(timer); reject(e); });
+  });
 }
 
 /** Tampilkan device chooser — butuh user gesture. */
@@ -82,20 +89,12 @@ export async function connect(): Promise<BluetoothDevice> {
 export type ReconnectResult = 'connected' | 'out_of_range' | 'permission_lost';
 
 export async function reconnect(deviceId?: string): Promise<ReconnectResult> {
-  if (!isSupported() || !deviceId) return 'permission_lost';
-  // getDevices() tidak ada di semua browser → anggap permission_lost
-  if (!navigator.bluetooth.getDevices) return 'permission_lost';
+  if (!isSupported() || !deviceId || !navigator.bluetooth.getDevices) return 'permission_lost';
   let known: BluetoothDevice[];
   try { known = await navigator.bluetooth.getDevices(); } catch { return 'permission_lost'; }
   const dev = known.find((d) => d.id === deviceId);
-  // Device tidak ada di daftar izin browser → perlu pair ulang (beda dari "printer mati")
   if (!dev) return 'permission_lost';
-  // Device dikenal, coba GATT connect 2x (BT stack printer kadang butuh jeda saat baru nyala)
-  for (let i = 0; i < 2; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, 800));
-    try { await attach(dev); return 'connected'; } catch { /* lanjut */ }
-  }
-  return 'out_of_range';
+  try { await attach(dev); return 'connected'; } catch { return 'out_of_range'; }
 }
 
 export function isConnected(): boolean {
@@ -110,13 +109,18 @@ export function disconnect(): void {
 }
 
 /**
- * Mulai background reconnect loop.
- * Coba reconnect setiap INTERVAL_MS selama belum connected.
- * Berhenti otomatis saat berhasil, atau saat cleanup dipanggil.
- * Ini adalah mekanisme utama "kunci pairing" — setelah pernah pair,
- * printer selalu tersambung kembali tanpa user gesture.
+ * Background reconnect loop.
+ *
+ * Interval 2s, tapi tidak akan overlap: kalau attempt sebelumnya belum
+ * selesai (GATT timeout 3s), tick berikutnya di-skip via isReconnecting flag.
+ * Efeknya: printer selalu di-coba ulang segera setelah setiap attempt selesai.
+ *
+ * Berhenti otomatis saat:
+ * - berhasil connect
+ * - permission_lost (browser tidak kenal device)
+ * - cleanup dipanggil (unmount)
  */
-const BG_INTERVAL_MS = 3000; // 4s timeout + 3s gap = max ~7s per siklus
+const BG_INTERVAL_MS = 2000;
 
 export function startBackgroundReconnect(
   deviceId: string,
@@ -126,17 +130,21 @@ export function startBackgroundReconnect(
   stopBackgroundReconnect();
 
   bgTimer = setInterval(async () => {
-    if (isConnected()) { stopBackgroundReconnect(); return; }
-    const result = await reconnect(deviceId);
-    if (result === 'connected') {
-      onConnected();
-      stopBackgroundReconnect();
-    } else if (result === 'permission_lost') {
-      // Browser tidak kenal device ini — retry tidak akan membantu, hentikan loop
-      stopBackgroundReconnect();
-      onPermissionLost();
+    if (isConnected() || isReconnecting) return;
+    isReconnecting = true;
+    try {
+      const result = await reconnect(deviceId);
+      if (result === 'connected') {
+        onConnected();
+        stopBackgroundReconnect();
+      } else if (result === 'permission_lost') {
+        stopBackgroundReconnect();
+        onPermissionLost();
+      }
+      // 'out_of_range' → terus retry
+    } finally {
+      isReconnecting = false;
     }
-    // 'out_of_range' → lanjut retry di interval berikutnya
   }, BG_INTERVAL_MS);
 
   return stopBackgroundReconnect;
@@ -147,9 +155,10 @@ function stopBackgroundReconnect(): void {
 }
 
 /**
- * Daftarkan watchAdvertisements — jika printer masuk jangkauan,
- * langsung reconnect tanpa menunggu interval.
- * Fallback graceful: kalau browser tidak support, tidak error.
+ * Daftarkan watchAdvertisements untuk deviceId tersimpan.
+ * Ketika printer broadcast (nyala & dalam jangkauan), langsung connect
+ * tanpa menunggu background loop — ini yang bikin "instant reconnect"
+ * saat printer dinyalakan ulang.
  */
 export async function watchForDevice(deviceId: string, onConnected: () => void): Promise<void> {
   if (!isSupported() || !navigator.bluetooth.getDevices) return;
@@ -160,23 +169,25 @@ export async function watchForDevice(deviceId: string, onConnected: () => void):
 
     type BtDevExt = BluetoothDevice & {
       _xsportHandler?: EventListener;
-      watchAdvertisements?: () => Promise<void>;
+      watchAdvertisements?: (opts?: { signal?: AbortSignal }) => Promise<void>;
     };
     const d = dev as BtDevExt;
-
     if (!d.watchAdvertisements) return;
 
     if (d._xsportHandler) dev.removeEventListener('advertisementreceived', d._xsportHandler);
 
     const handler: EventListener = async () => {
-      if (!isConnected()) {
-        try { await attach(dev); onConnected(); } catch { /* GATT gagal sementara */ }
+      if (!isConnected() && !isReconnecting) {
+        isReconnecting = true;
+        try { await attach(dev); onConnected(); }
+        catch { /* printer terdeteksi tapi GATT belum siap */ }
+        finally { isReconnecting = false; }
       }
     };
     d._xsportHandler = handler;
     dev.addEventListener('advertisementreceived', handler);
     await d.watchAdvertisements();
-  } catch { /* tidak tersedia */ }
+  } catch { /* tidak tersedia di browser ini */ }
 }
 
 /** Kirim byte ESC/POS dengan chunking. */
