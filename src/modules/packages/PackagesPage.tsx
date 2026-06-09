@@ -3,9 +3,10 @@ import { usePackages, usePackageMutation, useCoaches, usePackageCoaches, usePack
 import { formatCurrency } from "@/utils";
 import { Button, Modal, Input, Select, NumericInput } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
+import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { Package, PackageCoach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Trash2, Plus, Boxes } from "lucide-react";
+import { Trash2, Plus, Boxes, Calendar, Hash, Clock } from "lucide-react";
 
 export default function PackagesPage() {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ export default function PackagesPage() {
 
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Package | null>(null);
+  const [detail, setDetail] = useState<Package | null>(null);
   const [form, setForm] = useState({ package_name: "", package_type: "session" as Package["package_type"], session_count: 0, valid_days: 0, package_price: 0, description: "" });
   const [assignedList, setAssignedList] = useState<{ coach_id: string; commission_percentage: number }[]>([]);
   const [addCoachId, setAddCoachId] = useState("");
@@ -111,7 +113,7 @@ export default function PackagesPage() {
             {packages.map(pkg => {
               const pcs = getPackageCoaches(pkg.package_id);
               return (
-                <div key={pkg.package_id} className="px-5 py-4 hover:bg-zen-bg transition-colors">
+                <div key={pkg.package_id} className="px-5 py-4 hover:bg-zen-bg transition-colors cursor-pointer" onClick={() => setDetail(pkg)}>
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand flex items-center justify-center shrink-0 mt-0.5">
                       <Boxes size={16} />
@@ -137,7 +139,7 @@ export default function PackagesPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
+                    <div className="flex gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => openEdit(pkg)}
                         className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/40 hover:text-zen-brand transition-colors text-xs font-bold"
@@ -158,6 +160,72 @@ export default function PackagesPage() {
           </div>
         )}
       </div>}
+
+      {/* Detail Sheet */}
+      {detail && (() => {
+        const pcs = getPackageCoaches(detail.package_id);
+        return (
+          <DetailSheet
+            open={!!detail}
+            onClose={() => setDetail(null)}
+            title={detail.package_name}
+            subtitle={detail.active_status ? 'Aktif' : 'Nonaktif'}
+          >
+            {/* Hero price */}
+            <div className="bg-zen-brand/8 rounded-2xl px-4 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-zen-brand/15 flex items-center justify-center shrink-0">
+                <Boxes size={17} className="text-zen-brand" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand/60">Harga Paket</p>
+                <p className="text-2xl font-black text-zen-brand">{formatCurrency(detail.package_price)}</p>
+              </div>
+            </div>
+
+            <DetailSection title="Detail Paket">
+              <DetailRow label="Tipe" value={detail.package_type === 'session' ? 'Per Sesi' : 'Durasi'} />
+              {detail.session_count != null && (
+                <DetailRow label="Jumlah Sesi" value={<span className="flex items-center gap-1"><Hash size={11} />{detail.session_count} sesi</span>} accent />
+              )}
+              <DetailRow label="Masa Aktif" value={<span className="flex items-center gap-1"><Calendar size={11} />{detail.valid_days} hari</span>} />
+              <DetailRow label="Status" value={
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${detail.active_status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                  {detail.active_status ? 'Aktif' : 'Nonaktif'}
+                </span>
+              } />
+            </DetailSection>
+
+            {detail.description && (
+              <DetailSection title="Deskripsi">
+                <p className="py-2.5 text-xs text-zen-ink/60 leading-relaxed">{detail.description}</p>
+              </DetailSection>
+            )}
+
+            {pcs.length > 0 && (
+              <DetailSection title="Coach & Komisi">
+                {pcs.map(pc => (
+                  <div key={pc.coach_id} className="flex items-center gap-3 py-2.5 border-b border-zen-ink/5 last:border-0">
+                    <div className="w-7 h-7 rounded-xl bg-zen-brand/10 text-zen-brand font-bold text-[10px] flex items-center justify-center shrink-0">
+                      {getCoachName(pc.coach_id).slice(0, 2).toUpperCase()}
+                    </div>
+                    <p className="flex-1 text-xs font-bold truncate">{getCoachName(pc.coach_id)}</p>
+                    <span className="text-xs font-bold text-zen-brand">{pc.commission_percentage}%</span>
+                  </div>
+                ))}
+              </DetailSection>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { setDetail(null); openEdit(detail); }}
+                className="flex-1 py-3 bg-zen-brand text-white text-sm font-bold rounded-2xl"
+              >
+                Edit Paket
+              </button>
+            </div>
+          </DetailSheet>
+        );
+      })()}
 
       {/* Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? `${t('common.edit')} ${t('packages.title')}` : t('packages.add')} size="lg">

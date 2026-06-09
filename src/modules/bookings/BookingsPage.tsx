@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches } from "@/hooks";
 import { Modal, Button, Input, Select, QueryError } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
+import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard, Boxes, Clock, User, ChevronRight } from "lucide-react";
+import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard, Boxes, Clock, User, ChevronRight, Tag } from "lucide-react";
+import type { Booking } from "@/types";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -32,6 +34,7 @@ export default function BookingsPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [detail, setDetail] = useState<Booking | null>(null);
 
   const { data: bookings = [], isLoading, isError, refetch } = useBookings({ date: filterDate || undefined, status: filterStatus || undefined });
   const bookingMutation = useBookingMutation();
@@ -110,7 +113,7 @@ export default function BookingsPage() {
                 const coachName = coachMap[b.coach_id] || '—';
                 const pkgName = packageMap[b.package_id] || '—';
                 return (
-                  <div key={b.booking_id} className="flex items-center gap-3 px-5 py-4">
+                  <div key={b.booking_id} className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-zen-bg transition-colors" onClick={() => setDetail(b)}>
                     <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
                       {initials(memberName)}
                     </div>
@@ -122,7 +125,7 @@ export default function BookingsPage() {
                       <p className="text-xs font-bold">{formatDate(b.booking_date)}</p>
                       <p className="text-xs text-zen-ink/40">{b.booking_time}</p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                       <StatusBadge status={b.booking_status} />
                       {b.booking_status === 'booked' && (
                         <>
@@ -157,6 +160,71 @@ export default function BookingsPage() {
           )}
         </div>
       )}
+
+      {/* Booking Detail Sheet */}
+      {detail && (() => {
+        const STATUS_COLOR: Record<string, string> = {
+          booked: 'bg-blue-100 text-blue-700',
+          attended: 'bg-green-100 text-green-700',
+          cancelled: 'bg-red-100 text-red-600',
+          completed: 'bg-zen-bg text-zen-ink/60',
+        };
+        return (
+          <DetailSheet
+            open={!!detail}
+            onClose={() => setDetail(null)}
+            title={memberMap[detail.member_id] || '—'}
+            subtitle={`Booking · ${formatDate(detail.booking_date)}`}
+          >
+            {/* Status hero */}
+            <div className="flex justify-center">
+              <span className={`text-xs font-bold px-3.5 py-1.5 rounded-full ${STATUS_COLOR[detail.booking_status] ?? 'bg-zen-bg text-zen-ink/50'}`}>
+                {detail.booking_status.toUpperCase()}
+              </span>
+            </div>
+
+            <DetailSection title="Jadwal">
+              <DetailRow label="Tanggal" value={<span className="flex items-center gap-1"><Calendar size={11} />{formatDate(detail.booking_date)}</span>} />
+              <DetailRow label="Jam" value={<span className="flex items-center gap-1"><Clock size={11} />{detail.booking_time?.slice(0, 5)}</span>} />
+            </DetailSection>
+
+            <DetailSection title="Sesi">
+              <DetailRow label="Paket" value={<span className="flex items-center gap-1"><Boxes size={11} />{packageMap[detail.package_id] || '—'}</span>} />
+              <DetailRow label="Coach" value={<span className="flex items-center gap-1"><User size={11} />{coachMap[detail.coach_id] || '—'}</span>} />
+              <DetailRow label="Harga" value={<span className="flex items-center gap-1"><Tag size={11} />{formatCurrency(detail.package_price)}</span>} accent />
+            </DetailSection>
+
+            <DetailSection title="Pembayaran">
+              <DetailRow
+                label="Status Bayar"
+                value={detail.member_package_id
+                  ? <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">Lunas</span>
+                  : <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">Belum Bayar</span>
+                }
+              />
+            </DetailSection>
+
+            {detail.booking_status === 'booked' && (
+              <div className="flex gap-2 pt-1">
+                {detail.member_package_id && (
+                  <button
+                    onClick={() => { bookingMutation.mutate({ action: 'attend', booking: { booking_id: detail.booking_id } }); setDetail(null); }}
+                    className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-2xl flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 size={15} /> Hadir
+                  </button>
+                )}
+                <button
+                  onClick={() => { bookingMutation.mutate({ action: 'cancel', booking: { booking_id: detail.booking_id } }); setDetail(null); }}
+                  className="flex-1 py-3 bg-red-50 text-red-500 hover:bg-red-100 text-sm font-bold rounded-2xl flex items-center justify-center gap-2"
+                >
+                  <XCircle size={15} /> Batalkan
+                </button>
+              </div>
+            )}
+          </DetailSheet>
+        );
+      })()}
 
       {/* Add Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title={t('bookings.add')}>

@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useCoaches, useCoachMutation } from "@/hooks";
+import { useCoaches, useCoachMutation, usePackages, usePackageCoaches } from "@/hooks";
 import { useAuthStore } from "@/stores/auth";
 import { useConfirmStore } from "@/components/ConfirmDialog";
 import { Modal, Button, Input, QueryError } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
+import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Plus, Dumbbell } from "lucide-react";
+import { formatCurrency } from "@/utils";
+import { Plus, Dumbbell, Phone, Mail, FileText, Boxes } from "lucide-react";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -18,9 +20,12 @@ export default function CoachesPage() {
   const { t } = useTranslation();
   const { data: coaches = [], isLoading, isError, refetch } = useCoaches();
   const mutation = useCoachMutation();
+  const { data: packages = [] } = usePackages();
+  const { data: allPackageCoaches = [] } = usePackageCoaches();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Coach | null>(null);
   const [form, setForm] = useState(defaultForm);
+  const [detail, setDetail] = useState<Coach | null>(null);
 
   const activeCount = coaches.filter(c => c.active_status).length;
 
@@ -74,7 +79,11 @@ export default function CoachesPage() {
           ) : (
             <div className="divide-y divide-zen-ink/5">
               {coaches.map(coach => (
-                <div key={coach.coach_id} className="flex items-center gap-3 px-5 py-4 hover:bg-zen-bg transition-colors">
+                <div
+                  key={coach.coach_id}
+                  className="flex items-center gap-3 px-5 py-4 hover:bg-zen-bg transition-colors cursor-pointer"
+                  onClick={() => setDetail(coach)}
+                >
                   <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
                     {initials(coach.full_name)}
                   </div>
@@ -82,7 +91,7 @@ export default function CoachesPage() {
                     <p className="text-sm font-bold truncate">{coach.full_name}</p>
                     <p className="text-xs text-zen-ink/40 truncate">{coach.phone_number || coach.email || '—'}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline ${coach.active_status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                       {coach.active_status ? t('members.active') : t('members.inactive')}
                     </span>
@@ -108,6 +117,74 @@ export default function CoachesPage() {
           )}
         </div>
       )}
+
+      {/* Detail Sheet */}
+      {detail && (() => {
+        const coachPackages = allPackageCoaches
+          .filter(pc => pc.coach_id === detail.coach_id)
+          .map(pc => ({ pkg: packages.find(p => p.package_id === pc.package_id), pct: pc.commission_percentage }))
+          .filter(x => x.pkg);
+        return (
+          <DetailSheet
+            open={!!detail}
+            onClose={() => setDetail(null)}
+            title={detail.full_name}
+            subtitle={detail.active_status ? 'Aktif' : 'Nonaktif'}
+          >
+            {/* Avatar */}
+            <div className="flex justify-center pt-1 pb-2">
+              <div className="w-16 h-16 rounded-[20px] bg-zen-brand/10 text-zen-brand font-black text-xl flex items-center justify-center">
+                {initials(detail.full_name)}
+              </div>
+            </div>
+
+            <DetailSection title="Informasi">
+              {detail.phone_number && <DetailRow label="Telepon" value={<span className="flex items-center gap-1"><Phone size={11} />{detail.phone_number}</span>} />}
+              {detail.email && <DetailRow label="Email" value={<span className="flex items-center gap-1"><Mail size={11} />{detail.email}</span>} />}
+              <DetailRow label="Status" value={
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${detail.active_status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                  {detail.active_status ? 'Aktif' : 'Nonaktif'}
+                </span>
+              } />
+            </DetailSection>
+
+            {detail.notes && (
+              <DetailSection title="Catatan">
+                <div className="py-2.5 flex gap-2 text-xs text-zen-ink/60">
+                  <FileText size={13} className="shrink-0 mt-0.5" />
+                  <span>{detail.notes}</span>
+                </div>
+              </DetailSection>
+            )}
+
+            {coachPackages.length > 0 && (
+              <DetailSection title="Paket yang Dipegang">
+                {coachPackages.map(({ pkg, pct }) => pkg && (
+                  <div key={pkg.package_id} className="flex items-center gap-3 py-2.5 border-b border-zen-ink/5 last:border-0">
+                    <div className="w-7 h-7 rounded-xl bg-zen-brand/10 flex items-center justify-center shrink-0">
+                      <Boxes size={12} className="text-zen-brand" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate">{pkg.package_name}</p>
+                      <p className="text-[11px] text-zen-ink/40">{formatCurrency(pkg.package_price)}</p>
+                    </div>
+                    <span className="text-xs font-bold text-zen-brand">{pct}%</span>
+                  </div>
+                ))}
+              </DetailSection>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { setDetail(null); openEdit(detail); }}
+                className="flex-1 py-3 bg-zen-brand text-white text-sm font-bold rounded-2xl"
+              >
+                Edit Coach
+              </button>
+            </div>
+          </DetailSheet>
+        );
+      })()}
 
       {/* Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? `${t('common.edit')} Coach` : t('coaches.add')}>
