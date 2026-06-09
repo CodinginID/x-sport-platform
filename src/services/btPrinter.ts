@@ -122,12 +122,17 @@ export function disconnect(): void {
  */
 const BG_INTERVAL_MS = 2000;
 
+// Berapa kali getDevices() boleh return kosong sebelum dianggap permission benar-benar hilang.
+// getDevices() bisa return [] sementara setelah refresh/restart — bukan berarti izin hilang.
+const PERMISSION_LOST_THRESHOLD = 10;
+
 export function startBackgroundReconnect(
   deviceId: string,
   onConnected: () => void,
   onPermissionLost: () => void,
 ): () => void {
   stopBackgroundReconnect();
+  let consecutivePermissionLost = 0;
 
   bgTimer = setInterval(async () => {
     if (isConnected() || isReconnecting) return;
@@ -135,13 +140,20 @@ export function startBackgroundReconnect(
     try {
       const result = await reconnect(deviceId);
       if (result === 'connected') {
+        consecutivePermissionLost = 0;
         onConnected();
         stopBackgroundReconnect();
       } else if (result === 'permission_lost') {
-        stopBackgroundReconnect();
-        onPermissionLost();
+        consecutivePermissionLost++;
+        // Hanya stop jika konsisten kosong — bukan sekali saja
+        if (consecutivePermissionLost >= PERMISSION_LOST_THRESHOLD) {
+          stopBackgroundReconnect();
+          onPermissionLost();
+        }
+      } else {
+        // 'out_of_range': device ada di getDevices(), GATT gagal — reset counter
+        consecutivePermissionLost = 0;
       }
-      // 'out_of_range' → terus retry
     } finally {
       isReconnecting = false;
     }

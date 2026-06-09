@@ -98,8 +98,8 @@ function PrinterCard() {
     const startupTimer = setTimeout(async () => {
       const result = await bt.reconnect(deviceId);
       if (result === 'connected') { onConnected(); return; }
-      if (result === 'permission_lost') { onPermissionLost(); return; }
-      // 'out_of_range' → background loop terus mencoba
+      // permission_lost maupun out_of_range: biarkan background loop yang memutuskan.
+      // getDevices() bisa return kosong sementara setelah refresh — jangan langsung menyerah.
     }, startupDelay);
 
     // watchAdvertisements: printer broadcast saat nyala → langsung connect
