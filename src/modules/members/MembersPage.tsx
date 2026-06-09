@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/utils/zodResolver';
-import { useMembers, useMemberMutation } from '@/hooks';
+import { useMembers, useMemberMutation, useSearchPaginate } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirmStore } from '@/components/ConfirmDialog';
-import { Button, Input, Select, Modal, TableSkeleton, QueryError } from '@/components/ui';
+import { Button, Input, Select, Modal, TableSkeleton, QueryError, SearchBar } from '@/components/ui';
 import type { Member } from '@/types';
 import { formatDate } from '@/utils';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Search, Plus, ChevronRight, UserRound } from 'lucide-react';
+import { Plus, ChevronRight, UserRound } from 'lucide-react';
+import { Pagination } from '@/components/Pagination';
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -21,13 +22,13 @@ export default function MembersPage() {
   const navigate = useNavigate();
   const { data: members = [], isLoading, isError, refetch } = useMembers();
   const mutation = useMemberMutation();
-  const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<MemberFormData>({ resolver: zodResolver(memberSchema) });
 
-  const filtered = members.filter(m =>
-    m.full_name.toLowerCase().includes(search.toLowerCase())
+  const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
+    members,
+    (m, q) => m.full_name.toLowerCase().includes(q) || (m.phone_number ?? '').includes(q) || (m.email ?? '').toLowerCase().includes(q),
   );
 
   const activeCount = members.filter(m => m.status_active).length;
@@ -73,28 +74,19 @@ export default function MembersPage() {
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
-        <input
-          type="text"
-          placeholder={t('members.search')}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20"
-        />
-      </div>
+      <SearchBar value={query} onChange={setQuery} placeholder={t('members.search')} />
 
       {/* List */}
       {isLoading ? <TableSkeleton /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          {filtered.length === 0 ? (
+          {pageItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
               <UserRound size={32} className="mb-3" />
-              <p className="text-sm">{search ? 'Tidak ada hasil' : 'Belum ada member'}</p>
+              <p className="text-sm">{query ? 'Tidak ada hasil' : 'Belum ada member'}</p>
             </div>
           ) : (
             <div className="divide-y divide-zen-ink/5">
-              {filtered.map(m => (
+              {pageItems.map(m => (
                 <div
                   key={m.member_id}
                   onClick={() => navigate(`/members/${m.member_id}`)}
@@ -138,6 +130,8 @@ export default function MembersPage() {
           )}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? `${t('common.edit')} ${t('members.title')}` : t('members.add')} size="lg">

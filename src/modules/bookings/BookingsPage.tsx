@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches } from "@/hooks";
-import { Modal, Button, Input, Select, QueryError } from "@/components/ui";
+import { useBookings, useBookingMutation, useMembers, useCoaches, usePackages, usePackageCoaches, useSearchPaginate } from "@/hooks";
+import { Modal, Button, Input, Select, QueryError, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
+import { Pagination } from "@/components/Pagination";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -46,6 +47,11 @@ export default function BookingsPage() {
   const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
   const packageMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
+
+  const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
+    bookings,
+    (b, q) => (memberMap[b.member_id] ?? '').toLowerCase().includes(q) || (coachMap[b.coach_id] ?? '').toLowerCase().includes(q),
+  );
 
   const handlePackageChange = (package_id: string) => {
     const pkg = packages.find(p => p.package_id === package_id);
@@ -98,17 +104,20 @@ export default function BookingsPage() {
         </div>
       </div>
 
+      {/* Search */}
+      <SearchBar value={query} onChange={setQuery} placeholder="Cari member atau coach..." />
+
       {/* List */}
       {isLoading ? <ListSkeleton rows={6} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          {bookings.length === 0 ? (
+          {pageItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
               <CalendarX size={32} className="mb-3" />
-              <p className="text-sm">{t("common.no_data")}</p>
+              <p className="text-sm">{query ? 'Tidak ada hasil' : t("common.no_data")}</p>
             </div>
           ) : (
             <div className="divide-y divide-zen-ink/5">
-              {bookings.map(b => {
+              {pageItems.map(b => {
                 const memberName = memberMap[b.member_id] || '?';
                 const coachName = coachMap[b.coach_id] || '—';
                 const pkgName = packageMap[b.package_id] || '—';
@@ -160,6 +169,8 @@ export default function BookingsPage() {
           )}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 
       {/* Booking Detail Sheet */}
       {detail && (() => {

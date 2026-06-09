@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { usePackages, usePackageMutation, useCoaches, usePackageCoaches, usePackageCoachMutation } from "@/hooks";
+import { usePackages, usePackageMutation, useCoaches, usePackageCoaches, usePackageCoachMutation, useSearchPaginate } from "@/hooks";
 import { formatCurrency } from "@/utils";
-import { Button, Modal, Input, Select, NumericInput } from "@/components/ui";
+import { Button, Modal, Input, Select, NumericInput, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
+import { Pagination } from "@/components/Pagination";
 import { Package, PackageCoach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Trash2, Plus, Boxes, Calendar, Hash, Clock } from "lucide-react";
@@ -19,6 +20,11 @@ export default function PackagesPage() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Package | null>(null);
   const [detail, setDetail] = useState<Package | null>(null);
+
+  const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
+    packages,
+    (p, q) => p.package_name.toLowerCase().includes(q),
+  );
   const [form, setForm] = useState({ package_name: "", package_type: "session" as Package["package_type"], session_count: 0, valid_days: 0, package_price: 0, description: "" });
   const [assignedList, setAssignedList] = useState<{ coach_id: string; commission_percentage: number }[]>([]);
   const [addCoachId, setAddCoachId] = useState("");
@@ -101,16 +107,19 @@ export default function PackagesPage() {
         </Button>
       </div>
 
+      {/* Search */}
+      <SearchBar value={query} onChange={setQuery} placeholder="Cari paket..." />
+
       {/* List */}
       {pkgLoading ? <ListSkeleton rows={4} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-        {packages.length === 0 ? (
+        {pageItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
             <Boxes size={32} className="mb-3" />
-            <p className="text-sm">Belum ada paket</p>
+            <p className="text-sm">{query ? 'Tidak ada hasil' : 'Belum ada paket'}</p>
           </div>
         ) : (
           <div className="divide-y divide-zen-ink/5">
-            {packages.map(pkg => {
+            {pageItems.map(pkg => {
               const pcs = getPackageCoaches(pkg.package_id);
               return (
                 <div key={pkg.package_id} className="px-5 py-4 hover:bg-zen-bg transition-colors cursor-pointer" onClick={() => setDetail(pkg)}>
@@ -160,6 +169,8 @@ export default function PackagesPage() {
           </div>
         )}
       </div>}
+
+      <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 
       {/* Detail Sheet */}
       {detail && (() => {

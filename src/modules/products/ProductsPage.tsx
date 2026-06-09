@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useProducts, useProductMutation } from '@/hooks';
+import { useProducts, useProductMutation, useSearchPaginate } from '@/hooks';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { formatCurrency } from '@/utils';
-import { Button, Modal, Badge, Input, QueryError, NumericInput } from '@/components/ui';
+import { Button, Modal, Badge, Input, QueryError, NumericInput, SearchBar } from '@/components/ui';
 import { ListSkeleton } from '@/components/Skeleton';
+import { Pagination } from '@/components/Pagination';
 import { Product } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Plus, Package2, AlertTriangle } from 'lucide-react';
@@ -55,8 +56,13 @@ export default function ProductsPage() {
 
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
   const [catFilter, setCatFilter] = useState('');
-  const filtered = catFilter ? products.filter(p => p.category === catFilter) : products;
+  const catFiltered = catFilter ? products.filter(p => p.category === catFilter) : products;
   const lowStockCount = products.filter(p => p.stock < 5).length;
+
+  const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
+    catFiltered,
+    (p, q) => p.product_name.toLowerCase().includes(q) || (p.category ?? '').toLowerCase().includes(q),
+  );
 
   return (
     <div className="space-y-5">
@@ -74,6 +80,9 @@ export default function ProductsPage() {
           <span className="flex items-center gap-1.5"><Plus size={15} />{t('products.add')}</span>
         </Button>
       </div>
+
+      {/* Search */}
+      <SearchBar value={query} onChange={setQuery} placeholder="Cari produk..." />
 
       {/* Category filter */}
       {categories.length > 0 && (
@@ -94,14 +103,14 @@ export default function ProductsPage() {
       {/* List */}
       {isLoading ? <ListSkeleton rows={5} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          {filtered.length === 0 ? (
+          {pageItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
               <Package2 size={32} className="mb-3" />
               <p className="text-sm">Belum ada produk</p>
             </div>
           ) : (
             <div className="divide-y divide-zen-ink/5">
-              {filtered.map(p => (
+              {pageItems.map(p => (
                 <div key={p.product_id} className="flex items-center gap-3 px-5 py-4 hover:bg-zen-bg transition-colors">
                   <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${p.stock < 5 ? 'bg-amber-50 text-amber-400' : 'bg-zen-brand/10 text-zen-brand'}`}>
                     <Package2 size={16} />
@@ -139,6 +148,8 @@ export default function ProductsPage() {
           )}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? `${t('common.edit')} ${t('products.title')}` : t('products.add')}>

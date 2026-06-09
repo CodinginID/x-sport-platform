@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useCoaches, useCoachMutation, usePackages, usePackageCoaches } from "@/hooks";
+import { useCoaches, useCoachMutation, usePackages, usePackageCoaches, useSearchPaginate } from "@/hooks";
 import { useAuthStore } from "@/stores/auth";
 import { useConfirmStore } from "@/components/ConfirmDialog";
-import { Modal, Button, Input, QueryError } from "@/components/ui";
+import { Modal, Button, Input, QueryError, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
+import { Pagination } from "@/components/Pagination";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -26,6 +27,11 @@ export default function CoachesPage() {
   const [editing, setEditing] = useState<Coach | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [detail, setDetail] = useState<Coach | null>(null);
+
+  const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
+    coaches,
+    (c, q) => c.full_name.toLowerCase().includes(q) || (c.phone_number ?? '').includes(q) || (c.email ?? '').toLowerCase().includes(q),
+  );
 
   const activeCount = coaches.filter(c => c.active_status).length;
 
@@ -68,17 +74,20 @@ export default function CoachesPage() {
         </Button>
       </div>
 
+      {/* Search */}
+      <SearchBar value={query} onChange={setQuery} placeholder="Cari coach..." />
+
       {/* List */}
       {isLoading ? <ListSkeleton rows={5} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          {coaches.length === 0 ? (
+          {pageItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
               <Dumbbell size={32} className="mb-3" />
-              <p className="text-sm">Belum ada pelatih</p>
+              <p className="text-sm">{query ? 'Tidak ada hasil' : 'Belum ada pelatih'}</p>
             </div>
           ) : (
             <div className="divide-y divide-zen-ink/5">
-              {coaches.map(coach => (
+              {pageItems.map(coach => (
                 <div
                   key={coach.coach_id}
                   className="flex items-center gap-3 px-5 py-4 hover:bg-zen-bg transition-colors cursor-pointer"
@@ -117,6 +126,8 @@ export default function CoachesPage() {
           )}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 
       {/* Detail Sheet */}
       {detail && (() => {

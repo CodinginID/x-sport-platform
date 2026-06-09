@@ -1,7 +1,7 @@
 import { InputHTMLAttributes, SelectHTMLAttributes, ReactNode, forwardRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/utils';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 
 // Button
 export function Button({ children, variant = 'primary', size = 'md', className, disabled, onClick, type = 'button' }: {
@@ -357,6 +357,32 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
 }
 
 export { ActionButtons } from './ActionButtons';
+
+// SearchBar
+export function SearchBar({ value, onChange, placeholder = 'Cari...' }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <div className="relative">
+      <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full pl-10 pr-10 py-3 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20 placeholder:text-zen-ink/30"
+      />
+      {value && (
+        <button
+          onClick={() => onChange('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-lg bg-zen-ink/10 flex items-center justify-center text-zen-ink/40 hover:bg-zen-ink/20 transition-colors"
+        >
+          <X size={10} />
+        </button>
+      )}
+    </div>
+  );
+}
 
 // NumericInput - displays formatted number with thousand separators
 export function NumericInput({ label, value, onChange, error, className, min, max, ...rest }: {
