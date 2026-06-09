@@ -45,8 +45,17 @@ function handleDisconnected(): void {
   usePrinterStore.getState().setStatus('disconnected');
 }
 
+const GATT_TIMEOUT_MS = 4000;
+
 async function attach(dev: BluetoothDevice): Promise<void> {
-  const server = await dev.gatt!.connect();
+  // gatt.connect() tidak punya timeout bawaan — Chrome bisa hang 10-30 detik.
+  // Race melawan timer agar gagal cepat dan bisa retry segera.
+  const server = await Promise.race([
+    dev.gatt!.connect(),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('gatt timeout')), GATT_TIMEOUT_MS),
+    ),
+  ]) as BluetoothRemoteGATTServer;
   characteristic = await findWritableCharacteristic(server);
   device = dev;
   dev.removeEventListener('gattserverdisconnected', handleDisconnected);
@@ -71,15 +80,16 @@ export async function connect(): Promise<BluetoothDevice> {
  */
 export async function reconnect(deviceId?: string): Promise<boolean> {
   if (!isSupported() || !deviceId || !navigator.bluetooth.getDevices) return false;
-  try {
-    const known = await navigator.bluetooth.getDevices();
-    const dev = known.find((d) => d.id === deviceId);
-    if (!dev) return false; // izin hilang (browser di-reset / storage dihapus)
-    await attach(dev);
-    return true;
-  } catch {
-    return false;
+  let known: BluetoothDevice[];
+  try { known = await navigator.bluetooth.getDevices(); } catch { return false; }
+  const dev = known.find((d) => d.id === deviceId);
+  if (!dev) return false; // izin hilang — perlu pair ulang sekali
+  // Coba 2x: langsung, lalu setelah 800ms (BT stack printer kadang butuh jeda)
+  for (let i = 0; i < 2; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 800));
+    try { await attach(dev); return true; } catch { /* lanjut */ }
   }
+  return false;
 }
 
 export function isConnected(): boolean {
@@ -100,7 +110,7 @@ export function disconnect(): void {
  * Ini adalah mekanisme utama "kunci pairing" — setelah pernah pair,
  * printer selalu tersambung kembali tanpa user gesture.
  */
-const BG_INTERVAL_MS = 7000;
+const BG_INTERVAL_MS = 3000; // 4s timeout + 3s gap = max ~7s per siklus
 
 export function startBackgroundReconnect(deviceId: string, onConnected: () => void): () => void {
   stopBackgroundReconnect();
