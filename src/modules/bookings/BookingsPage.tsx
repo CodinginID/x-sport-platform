@@ -46,12 +46,13 @@ export default function BookingsPage() {
 
   const handlePackageChange = (package_id: string) => {
     const pkg = packages.find(p => p.package_id === package_id);
-    // Coach is derived from the package's linked coach (first one if several) — the
-    // coach field is not chosen manually. If the package has no linked coach, coach_id
-    // stays empty and the form blocks submit (see the warning below).
-    const linked = allPackageCoaches.find(pc => pc.package_id === package_id);
-    setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0, coach_id: linked?.coach_id ?? '' });
+    setForm({ ...form, package_id, package_price: pkg?.package_price ?? 0, coach_id: '' });
   };
+
+  // Semua coach yang terhubung ke paket yang sedang dipilih
+  const packageCoachOptions = allPackageCoaches
+    .filter(pc => pc.package_id === form.package_id)
+    .map(pc => ({ value: pc.coach_id, label: coachMap[pc.coach_id] ?? pc.coach_id }));
 
   const handleSubmit = () => {
     bookingMutation.mutate({ action: 'create', booking: { ...form } });
@@ -165,8 +166,13 @@ export default function BookingsPage() {
           <Select label={t('bookings.package')} value={form.package_id} onChange={e => handlePackageChange(e.target.value)}
             options={[{ value: "", label: t('bookings.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]} />
           {form.package_id && (
-            form.coach_id
-              ? <Input label={t('bookings.coach')} value={coachMap[form.coach_id] ?? '—'} readOnly />
+            packageCoachOptions.length > 0
+              ? <Select
+                  label={t('bookings.coach')}
+                  value={form.coach_id}
+                  onChange={e => setForm({ ...form, coach_id: e.target.value })}
+                  options={[{ value: "", label: "Pilih coach..." }, ...packageCoachOptions]}
+                />
               : <p className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5">
                   Paket ini belum punya coach. Tambahkan coach ke paket dulu di menu Paket.
                 </p>
