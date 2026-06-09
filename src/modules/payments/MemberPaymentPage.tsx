@@ -49,7 +49,7 @@ export default function MemberPaymentPage() {
   const [pdfUrl, setPdfUrl] = useState("");
 
   // Fetch unpaid bookings when member is selected
-  const { data: unpaidBookings = [] } = useUnpaidBookings(form.member_id);
+  const { data: unpaidBookings = [], isLoading: bookingLoading } = useUnpaidBookings(form.member_id);
 
   // Auto-fill package dari booking terbaru yang belum dibayar
   useEffect(() => {
@@ -220,8 +220,16 @@ export default function MemberPaymentPage() {
             onChange={e => setForm({ ...form, member_id: e.target.value, package_id: "" })}
           />
 
+          {/* Skeleton saat loading booking */}
+          {form.member_id && bookingLoading && (
+            <div className="rounded-2xl bg-zen-bg px-4 py-3 space-y-2 animate-pulse">
+              <div className="h-2.5 bg-zen-ink/10 rounded-full w-1/2" />
+              <div className="h-2 bg-zen-ink/8 rounded-full w-3/4" />
+            </div>
+          )}
+
           {/* Booking info banner — shown when unpaid booking found */}
-          {form.member_id && bookingId && unpaidBookings[0] && (
+          {form.member_id && !bookingLoading && bookingId && unpaidBookings[0] && (
             <div className="flex items-center gap-2.5 bg-zen-brand/8 rounded-2xl px-4 py-3">
               <CalendarCheck size={15} className="text-zen-brand shrink-0" />
               <div className="text-xs">
@@ -235,20 +243,28 @@ export default function MemberPaymentPage() {
           )}
 
           {/* No unpaid booking info */}
-          {form.member_id && !bookingId && (
+          {form.member_id && !bookingLoading && !bookingId && (
             <div className="flex items-center gap-2.5 bg-zen-bg rounded-2xl px-4 py-3">
               <CalendarCheck size={15} className="text-zen-ink/30 shrink-0" />
               <p className="text-xs text-zen-ink/40">Tidak ada booking aktif — pilih paket secara manual</p>
             </div>
           )}
 
-          <Select
-            label={t('packages.title')}
-            options={[{ value: "", label: t('payments.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]}
-            value={form.package_id}
-            onChange={e => setForm({ ...form, package_id: e.target.value })}
-            disabled={!!bookingId}
-          />
+          {/* Skeleton package select saat loading */}
+          {form.member_id && bookingLoading ? (
+            <div className="space-y-1.5">
+              <div className="h-2 bg-zen-ink/10 rounded-full w-16 animate-pulse" />
+              <div className="h-11 bg-zen-ink/8 rounded-2xl animate-pulse" />
+            </div>
+          ) : (
+            <Select
+              label={t('packages.title')}
+              options={[{ value: "", label: t('payments.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]}
+              value={form.package_id}
+              onChange={e => setForm({ ...form, package_id: e.target.value })}
+              disabled={!!bookingId}
+            />
+          )}
 
           <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
           <Select label={t('payments.method')} options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]} value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value as any })} />
