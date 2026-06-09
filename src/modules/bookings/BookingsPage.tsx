@@ -4,7 +4,7 @@ import { Modal, Button, Input, Select, QueryError } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
 import { formatCurrency, formatDate } from "@/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard } from "lucide-react";
+import { Calendar, Plus, CheckCircle2, XCircle, CalendarX, CreditCard, Boxes, Clock, User, ChevronRight } from "lucide-react";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -160,30 +160,143 @@ export default function BookingsPage() {
 
       {/* Add Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title={t('bookings.add')}>
-        <div className="space-y-4">
-          <Select label={t('bookings.member')} value={form.member_id} onChange={e => setForm({ ...form, member_id: e.target.value })}
-            options={[{ value: "", label: t('bookings.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]} />
-          <Select label={t('bookings.package')} value={form.package_id} onChange={e => handlePackageChange(e.target.value)}
-            options={[{ value: "", label: t('bookings.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]} />
-          {form.package_id && (
-            packageCoachOptions.length > 0
-              ? <Select
-                  label={t('bookings.coach')}
-                  value={form.coach_id}
-                  onChange={e => setForm({ ...form, coach_id: e.target.value })}
-                  options={[{ value: "", label: "Pilih coach..." }, ...packageCoachOptions]}
+        <div className="space-y-5">
+
+          {/* Member */}
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">Member</label>
+            <select
+              value={form.member_id}
+              onChange={e => setForm({ ...form, member_id: e.target.value })}
+              className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium text-zen-ink outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none"
+            >
+              <option value="">Pilih member...</option>
+              {members.map(m => <option key={m.member_id} value={m.member_id}>{m.full_name}</option>)}
+            </select>
+          </div>
+
+          {/* Package */}
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">Paket</label>
+            <select
+              value={form.package_id}
+              onChange={e => handlePackageChange(e.target.value)}
+              className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium text-zen-ink outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none"
+            >
+              <option value="">Pilih paket...</option>
+              {packages.map(p => <option key={p.package_id} value={p.package_id}>{p.package_name}</option>)}
+            </select>
+          </div>
+
+          {/* Package info card + Coach chips — muncul setelah pilih paket */}
+          {form.package_id && (() => {
+            const pkg = packages.find(p => p.package_id === form.package_id);
+            return (
+              <div className="rounded-2xl overflow-hidden border border-zen-ink/8">
+                {/* Package summary */}
+                <div className="bg-zen-brand/6 px-4 py-3.5 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-zen-brand/15 flex items-center justify-center shrink-0">
+                    <Boxes size={15} className="text-zen-brand" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-zen-ink truncate">{pkg?.package_name}</p>
+                    <p className="text-[11px] text-zen-ink/40 mt-0.5">
+                      {pkg?.session_count ? `${pkg.session_count} sesi` : pkg?.package_type}
+                      {pkg?.valid_days ? ` · ${pkg.valid_days} hari` : ''}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-zen-brand shrink-0">{formatCurrency(pkg?.package_price ?? 0)}</span>
+                </div>
+
+                {/* Divider + Coach selector */}
+                <div className="px-4 py-3.5 bg-white">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mb-3">Pilih Coach</p>
+                  {packageCoachOptions.length === 0 ? (
+                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 rounded-xl px-3 py-2.5">
+                      <ChevronRight size={13} className="shrink-0" />
+                      <p className="text-xs font-medium">Paket ini belum punya coach. Tambahkan di menu Paket.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {packageCoachOptions.map(opt => {
+                        const selected = form.coach_id === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setForm({ ...form, coach_id: opt.value })}
+                            className={`flex items-center gap-2 pl-1.5 pr-3.5 py-1.5 rounded-2xl text-xs font-bold transition-all border ${
+                              selected
+                                ? 'bg-zen-brand text-white border-zen-brand shadow-sm'
+                                : 'bg-zen-bg text-zen-ink/60 border-zen-ink/10 hover:border-zen-brand/40 hover:text-zen-ink'
+                            }`}
+                          >
+                            <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${selected ? 'bg-white/20' : 'bg-zen-ink/8'}`}>
+                              {initials(opt.label)}
+                            </span>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Tanggal + Jam — muncul setelah pilih coach */}
+          {form.coach_id && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 flex items-center gap-1.5">
+                  <Calendar size={10} />Tanggal
+                </label>
+                <input
+                  type="date"
+                  value={form.booking_date}
+                  onChange={e => setForm({ ...form, booking_date: e.target.value })}
+                  className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30"
                 />
-              : <p className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2.5">
-                  Paket ini belum punya coach. Tambahkan coach ke paket dulu di menu Paket.
-                </p>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 flex items-center gap-1.5">
+                  <Clock size={10} />Jam
+                </label>
+                <input
+                  type="time"
+                  value={form.booking_time}
+                  onChange={e => setForm({ ...form, booking_time: e.target.value })}
+                  className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30"
+                />
+              </div>
+            </div>
           )}
-          <Input label={t('bookings.price')} value={form.package_price ? formatCurrency(form.package_price) : ''} readOnly />
-          <Input label={t('bookings.date')} type="date" value={form.booking_date} onChange={e => setForm({ ...form, booking_date: e.target.value })} />
-          <Input label={t('bookings.time')} type="time" value={form.booking_time} onChange={e => setForm({ ...form, booking_time: e.target.value })} />
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={handleSubmit} disabled={!form.member_id || !form.coach_id || !form.package_id || !form.booking_date || !form.booking_time}>
-              {t('common.save')}
+
+          {/* Summary sebelum simpan */}
+          {form.member_id && form.coach_id && form.booking_date && form.booking_time && (
+            <div className="bg-zen-bg rounded-2xl px-4 py-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
+                {initials(members.find(m => m.member_id === form.member_id)?.full_name ?? '?')}
+              </div>
+              <div className="flex-1 min-w-0 text-xs">
+                <p className="font-bold truncate">{members.find(m => m.member_id === form.member_id)?.full_name}</p>
+                <p className="text-zen-ink/40 mt-0.5 truncate">
+                  {coachMap[form.coach_id]} · {formatDate(form.booking_date)} {form.booking_time.slice(0, 5)}
+                </p>
+              </div>
+              <User size={14} className="text-zen-brand shrink-0" />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setOpen(false)} className="flex-1">{t('common.cancel')}</Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!form.member_id || !form.coach_id || !form.package_id || !form.booking_date || !form.booking_time}
+              className="flex-1"
+            >
+              Buat Booking
             </Button>
           </div>
         </div>
