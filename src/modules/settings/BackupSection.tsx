@@ -13,7 +13,12 @@ const TRANSAKSI_TABLES: { key: string; label: string }[] = [
   { key: 'member_packages',   label: 'Paket aktif member (sisa sesi)' },
 ];
 
-const AMAN_ITEMS = ['Data member', 'Data pelatih', 'Produk', 'Paket'];
+const MASTER_TABLES: { key: string; label: string }[] = [
+  { key: 'members',  label: 'Data member' },
+  { key: 'coaches',  label: 'Data pelatih' },
+  { key: 'products', label: 'Produk' },
+  { key: 'packages', label: 'Paket' },
+];
 
 type ResetPhase = 'idle' | 'deleting' | 'done';
 
@@ -34,8 +39,17 @@ export function BackupSection() {
     setModalOpen(false);
     setPhase('deleting');
 
+    // 1. hapus transaksi dulu (ada FK ke master data)
     await Promise.all(
       TRANSAKSI_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
+    );
+
+    // 2. hapus relasi paket-pelatih (FK ke packages & coaches)
+    await supabase.from('package_coaches').delete().eq('studio_id', authStudioId);
+
+    // 3. hapus master data
+    await Promise.all(
+      MASTER_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
     );
 
     // hapus semua cache react-query agar data di semua halaman ikut kosong
@@ -61,8 +75,8 @@ export function BackupSection() {
             <Database size={17} className="text-red-500" />
           </div>
           <div>
-            <p className="text-sm font-bold">Reset Data Transaksi</p>
-            <p className="text-[10px] text-zen-ink/40 mt-0.5">Hapus historis transaksi untuk memulai dari awal</p>
+            <p className="text-sm font-bold">Reset Semua Data</p>
+            <p className="text-[10px] text-zen-ink/40 mt-0.5">Hapus seluruh data untuk memulai dari awal</p>
           </div>
         </div>
 
@@ -70,7 +84,7 @@ export function BackupSection() {
         <div className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-red-50 rounded-2xl px-4 py-3 space-y-2">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-red-500">Akan dihapus</p>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-red-500">Data Transaksi</p>
               <ul className="space-y-1.5">
                 {TRANSAKSI_TABLES.map(t => (
                   <li key={t.key} className="flex items-center gap-2 text-xs text-red-700">
@@ -80,13 +94,13 @@ export function BackupSection() {
                 ))}
               </ul>
             </div>
-            <div className="bg-green-50 rounded-2xl px-4 py-3 space-y-2">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-green-600">Tetap aman</p>
+            <div className="bg-red-50 rounded-2xl px-4 py-3 space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-red-500">Data Master</p>
               <ul className="space-y-1.5">
-                {AMAN_ITEMS.map(item => (
-                  <li key={item} className="flex items-center gap-2 text-xs text-green-700">
-                    <span className="w-1 h-1 rounded-full bg-green-400 shrink-0" />
-                    {item}
+                {MASTER_TABLES.map(t => (
+                  <li key={t.key} className="flex items-center gap-2 text-xs text-red-700">
+                    <span className="w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                    {t.label}
                   </li>
                 ))}
               </ul>
@@ -98,7 +112,7 @@ export function BackupSection() {
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white text-sm font-bold rounded-2xl min-h-[48px] transition-all"
           >
             <Trash2 size={15} />
-            Hapus Semua Transaksi
+            Hapus Semua Data
           </button>
         </div>
       </div>
@@ -128,7 +142,7 @@ export function BackupSection() {
             <div className="bg-red-50 rounded-2xl px-4 py-3 flex items-start gap-2">
               <AlertTriangle size={13} className="text-red-500 shrink-0 mt-0.5" />
               <p className="text-xs text-red-700 leading-relaxed">
-                Semua data booking, penjualan, pembayaran, komisi, dan paket aktif member akan <strong>dihapus permanen</strong>.
+                Semua data transaksi <strong>dan</strong> data master (member, pelatih, produk, paket) akan <strong>dihapus permanen</strong>.
               </p>
             </div>
 
@@ -173,7 +187,7 @@ export function BackupSection() {
               <>
                 {/* Skeleton rows animasi */}
                 <div className="w-full space-y-2.5">
-                  {TRANSAKSI_TABLES.map((t, i) => (
+                  {[...TRANSAKSI_TABLES, ...MASTER_TABLES].map((t, i) => (
                     <div key={t.key} className="flex items-center gap-3">
                       <div
                         className="h-2 bg-red-100 rounded-full animate-pulse"
@@ -185,7 +199,7 @@ export function BackupSection() {
 
                 <div className="flex items-center gap-2.5 text-zen-ink/60">
                   <RefreshCw size={16} className="animate-spin text-red-400 shrink-0" />
-                  <p className="text-sm font-semibold">Menghapus data transaksi...</p>
+                  <p className="text-sm font-semibold">Menghapus semua data...</p>
                 </div>
               </>
             ) : (
@@ -195,7 +209,7 @@ export function BackupSection() {
                 </div>
                 <div className="text-center space-y-1">
                   <p className="text-base font-bold">Selesai</p>
-                  <p className="text-xs text-zen-ink/40">Semua data transaksi berhasil dihapus</p>
+                  <p className="text-xs text-zen-ink/40">Semua data berhasil dihapus</p>
                 </div>
               </>
             )}
