@@ -213,6 +213,8 @@ export default function MemberPaymentPage() {
       {/* Add modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('payments.add_payment')}>
         <div className="space-y-4">
+
+          {/* Step 1: Pilih member */}
           <Select
             label="Member"
             options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]}
@@ -220,59 +222,84 @@ export default function MemberPaymentPage() {
             onChange={e => setForm({ ...form, member_id: e.target.value, package_id: "" })}
           />
 
-          {/* Skeleton saat loading booking */}
+          {/* Step 2: Loading skeleton */}
           {form.member_id && bookingLoading && (
-            <div className="rounded-2xl bg-zen-bg px-4 py-3 space-y-2 animate-pulse">
-              <div className="h-2.5 bg-zen-ink/10 rounded-full w-1/2" />
-              <div className="h-2 bg-zen-ink/8 rounded-full w-3/4" />
-            </div>
-          )}
-
-          {/* Booking info banner — shown when unpaid booking found */}
-          {form.member_id && !bookingLoading && bookingId && unpaidBookings[0] && (
-            <div className="flex items-center gap-2.5 bg-zen-brand/8 rounded-2xl px-4 py-3">
-              <CalendarCheck size={15} className="text-zen-brand shrink-0" />
-              <div className="text-xs">
-                <span className="font-semibold text-zen-brand">Booking ditemukan</span>
-                <span className="text-zen-ink/50 ml-1">
-                  {formatDate(unpaidBookings[0].booking_date)}
-                  {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
-                </span>
+            <div className="space-y-3 animate-pulse">
+              <div className="h-14 bg-zen-ink/6 rounded-2xl" />
+              <div className="space-y-1.5">
+                <div className="h-2 bg-zen-ink/8 rounded-full w-16" />
+                <div className="h-11 bg-zen-ink/6 rounded-2xl" />
               </div>
             </div>
           )}
 
-          {/* No unpaid booking info */}
+          {/* Step 2a: Booking ditemukan → lanjut ke form bayar */}
+          {form.member_id && !bookingLoading && bookingId && unpaidBookings[0] && (
+            <>
+              {/* Booking card */}
+              <div className="bg-zen-brand/8 rounded-2xl px-4 py-3.5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-zen-brand/15 flex items-center justify-center shrink-0">
+                  <CalendarCheck size={15} className="text-zen-brand" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-zen-brand">Booking aktif ditemukan</p>
+                  <p className="text-[11px] text-zen-ink/50 mt-0.5 truncate">
+                    {packageMap[unpaidBookings[0].package_id] || '—'} · {formatDate(unpaidBookings[0].booking_date)}
+                    {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
+                  </p>
+                </div>
+                <span className="text-sm font-bold text-zen-brand shrink-0">{formatCurrency(unpaidBookings[0].package_price ?? amount)}</span>
+              </div>
+
+              {/* Nominal */}
+              <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
+
+              {/* Metode bayar */}
+              <Select
+                label={t('payments.method')}
+                options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
+                value={form.payment_method}
+                onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
+              />
+
+              {/* Catatan */}
+              <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+
+              <div className="flex gap-2 justify-end">
+                <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
+                <Button onClick={handleSubmit}>{t('common.save')}</Button>
+              </div>
+            </>
+          )}
+
+          {/* Step 2b: Tidak ada booking → blokir, arahkan buat booking dulu */}
           {form.member_id && !bookingLoading && !bookingId && (
-            <div className="flex items-center gap-2.5 bg-zen-bg rounded-2xl px-4 py-3">
-              <CalendarCheck size={15} className="text-zen-ink/30 shrink-0" />
-              <p className="text-xs text-zen-ink/40">Tidak ada booking aktif — pilih paket secara manual</p>
+            <>
+              <div className="bg-amber-50 rounded-2xl px-4 py-4 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <CalendarCheck size={15} className="text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-amber-700">Belum ada booking aktif</p>
+                  <p className="text-[11px] text-amber-600/70 mt-0.5 leading-relaxed">
+                    Member ini belum memiliki booking yang menunggu pembayaran. Buat booking sesi terlebih dahulu, kemudian lakukan pembayaran di sini.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={() => setModalOpen(false)}>Tutup</Button>
+              </div>
+            </>
+          )}
+
+          {/* Placeholder saat belum pilih member */}
+          {!form.member_id && (
+            <div className="flex flex-col items-center justify-center py-6 text-zen-ink/20 gap-2">
+              <CalendarCheck size={28} />
+              <p className="text-xs text-center">Pilih member untuk melihat<br />booking yang perlu dibayar</p>
             </div>
           )}
 
-          {/* Skeleton package select saat loading */}
-          {form.member_id && bookingLoading ? (
-            <div className="space-y-1.5">
-              <div className="h-2 bg-zen-ink/10 rounded-full w-16 animate-pulse" />
-              <div className="h-11 bg-zen-ink/8 rounded-2xl animate-pulse" />
-            </div>
-          ) : (
-            <Select
-              label={t('packages.title')}
-              options={[{ value: "", label: t('payments.select_package') }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} - ${formatCurrency(p.package_price)}` }))]}
-              value={form.package_id}
-              onChange={e => setForm({ ...form, package_id: e.target.value })}
-              disabled={!!bookingId}
-            />
-          )}
-
-          <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
-          <Select label={t('payments.method')} options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]} value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value as any })} />
-          <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={handleSubmit} disabled={!form.member_id || !form.package_id}>{t('common.save')}</Button>
-          </div>
         </div>
       </Modal>
 
