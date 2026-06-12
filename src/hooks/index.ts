@@ -8,3 +8,4 @@ export { useMemberPackages, useMemberPayments, useMemberPaymentMutation, useProd
 export { useDashboardStats } from './useDashboard'
 export { useSearchPaginate } from './useSearchPaginate'
 export { useActiveMemberPackages, useWalkInMutation } from './useWalkIn'
+export { useTrainingSessions, useSessionParticipants, useSessionCounts, useTrainingSessionMutation, useRegisterParticipant, slotInfo } from './useTrainingSessions'
