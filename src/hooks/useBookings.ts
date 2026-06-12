@@ -54,6 +54,7 @@ export function useBookingMutation() {
           coach_id: data.booking.coach_id || '',
           package_id: data.booking.package_id || '',
           member_package_id: activePkg?.member_package_id ?? null,
+          training_session_id: data.booking.training_session_id ?? null,
           package_price: data.booking.package_price ?? 0,
           booking_status: 'booked',
           created_at: now,

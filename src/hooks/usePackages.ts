@@ -37,6 +37,7 @@ export function usePackageMutation() {
           session_count: data.pkg.session_count ?? null,
           valid_days: data.pkg.valid_days ?? 30,
           package_price: data.pkg.package_price ?? 0,
+          default_capacity: data.pkg.default_capacity ?? 1,
           description: data.pkg.description || '',
           active_status: data.pkg.active_status ?? true,
           created_at: now,
