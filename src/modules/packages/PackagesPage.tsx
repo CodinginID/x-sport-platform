@@ -25,21 +25,21 @@ export default function PackagesPage() {
     packages,
     (p, q) => p.package_name.toLowerCase().includes(q),
   );
-  const [form, setForm] = useState({ package_name: "", package_type: "session" as Package["package_type"], session_count: 0, valid_days: 0, package_price: 0, description: "" });
+  const [form, setForm] = useState({ package_name: "", package_type: "session" as Package["package_type"], session_count: 0, valid_days: 0, package_price: 0, default_capacity: 1, description: "" });
   const [assignedList, setAssignedList] = useState<{ coach_id: string; commission_percentage: number }[]>([]);
   const [addCoachId, setAddCoachId] = useState("");
   const [addCommission, setAddCommission] = useState(10);
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ package_name: "", package_type: "session", session_count: 0, valid_days: 0, package_price: 0, description: "" });
+    setForm({ package_name: "", package_type: "session", session_count: 0, valid_days: 0, package_price: 0, default_capacity: 1, description: "" });
     setAssignedList([]);
     setModal(true);
   };
 
   const openEdit = (pkg: Package) => {
     setEditing(pkg);
-    setForm({ package_name: pkg.package_name, package_type: pkg.package_type, session_count: pkg.session_count ?? 0, valid_days: pkg.valid_days, package_price: pkg.package_price, description: pkg.description });
+    setForm({ package_name: pkg.package_name, package_type: pkg.package_type, session_count: pkg.session_count ?? 0, valid_days: pkg.valid_days, package_price: pkg.package_price, default_capacity: pkg.default_capacity ?? 1, description: pkg.description });
     const existing = allPackageCoaches.filter(pc => pc.package_id === pkg.package_id);
     setAssignedList(existing.map(pc => ({ coach_id: pc.coach_id, commission_percentage: pc.commission_percentage })));
     setModal(true);
@@ -248,6 +248,7 @@ export default function PackagesPage() {
             <Input label={t('packages.session_count')} type="number" value={form.session_count} onChange={(e) => setForm({ ...form, session_count: +e.target.value })} />
             <Input label={t('packages.valid_days')} type="number" value={form.valid_days} onChange={(e) => setForm({ ...form, valid_days: +e.target.value })} />
             <NumericInput label={t('packages.price')} value={form.package_price} onChange={(v) => setForm({ ...form, package_price: v })} />
+            <Input label="Kapasitas default per sesi" type="number" min={1} value={form.default_capacity} onChange={(e) => setForm({ ...form, default_capacity: Math.max(1, +e.target.value) })} />
           </div>
           <Input label={t('packages.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
