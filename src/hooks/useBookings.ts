@@ -87,6 +87,9 @@ export function useBookingMutation() {
       qc.invalidateQueries({ queryKey: ['unpaidBookings'] });
       qc.invalidateQueries({ queryKey: ['coachCommissions'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
+      // Refresh tampilan sesi latihan (peserta + badge slot) saat hadir/batal dari sheet sesi
+      qc.invalidateQueries({ queryKey: ['sessionParticipants'] });
+      qc.invalidateQueries({ queryKey: ['sessionCounts'] });
       const msg = vars.action === 'create' ? 'Booking berhasil dibuat' : vars.action === 'attend' ? 'Check-in berhasil' : 'Booking dibatalkan';
       useToastStore.getState().addToast(msg, vars.action === 'cancel' ? 'warning' : 'success');
     },
