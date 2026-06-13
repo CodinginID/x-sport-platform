@@ -36,6 +36,8 @@ export function useCoachMutation() {
           phone_number: data.coach.phone_number || '',
           email: data.coach.email || '',
           active_status: data.coach.active_status ?? true,
+          commission_regular_pct: data.coach.commission_regular_pct ?? 0,
+          commission_private_pct: data.coach.commission_private_pct ?? 0,
           notes: data.coach.notes || '',
           created_at: now,
           updated_at: now,

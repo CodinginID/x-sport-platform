@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCoaches, useCoachMutation, usePackages, usePackageCoaches, useSearchPaginate } from "@/hooks";
+import { useCoaches, useCoachMutation, useSearchPaginate } from "@/hooks";
 import { useAuthStore } from "@/stores/auth";
 import { useConfirmStore } from "@/components/ConfirmDialog";
 import { Modal, Button, Input, QueryError, SearchBar } from "@/components/ui";
@@ -8,21 +8,18 @@ import { Pagination } from "@/components/Pagination";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { formatCurrency } from "@/utils";
-import { Plus, Dumbbell, Phone, Mail, FileText, Boxes } from "lucide-react";
+import { Plus, Dumbbell, Phone, Mail, FileText } from "lucide-react";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 }
 
-const defaultForm = { full_name: "", phone_number: "", email: "", notes: "" };
+const defaultForm = { full_name: "", phone_number: "", email: "", notes: "", commission_regular_pct: 0, commission_private_pct: 0 };
 
 export default function CoachesPage() {
   const { t } = useTranslation();
   const { data: coaches = [], isLoading, isError, refetch } = useCoaches();
   const mutation = useCoachMutation();
-  const { data: packages = [] } = usePackages();
-  const { data: allPackageCoaches = [] } = usePackageCoaches();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Coach | null>(null);
   const [form, setForm] = useState(defaultForm);
@@ -38,7 +35,14 @@ export default function CoachesPage() {
   const openCreate = () => { setEditing(null); setForm(defaultForm); setOpen(true); };
   const openEdit = (coach: Coach) => {
     setEditing(coach);
-    setForm({ full_name: coach.full_name, phone_number: coach.phone_number, email: coach.email, notes: coach.notes || "" });
+    setForm({
+      full_name: coach.full_name,
+      phone_number: coach.phone_number,
+      email: coach.email,
+      notes: coach.notes || "",
+      commission_regular_pct: coach.commission_regular_pct ?? 0,
+      commission_private_pct: coach.commission_private_pct ?? 0,
+    });
     setOpen(true);
   };
 
@@ -131,10 +135,6 @@ export default function CoachesPage() {
 
       {/* Detail Sheet */}
       {detail && (() => {
-        const coachPackages = allPackageCoaches
-          .filter(pc => pc.coach_id === detail.coach_id)
-          .map(pc => ({ pkg: packages.find(p => p.package_id === pc.package_id), pct: pc.commission_percentage }))
-          .filter(x => x.pkg);
         return (
           <DetailSheet
             open={!!detail}
@@ -159,29 +159,17 @@ export default function CoachesPage() {
               } />
             </DetailSection>
 
+            <DetailSection title="Komisi">
+              <DetailRow label="Reguler" value={<span className="font-bold text-zen-brand">{detail.commission_regular_pct ?? 0}%</span>} />
+              <DetailRow label="Pribadi" value={<span className="font-bold text-zen-brand">{detail.commission_private_pct ?? 0}%</span>} />
+            </DetailSection>
+
             {detail.notes && (
               <DetailSection title="Catatan">
                 <div className="py-2.5 flex gap-2 text-xs text-zen-ink/60">
                   <FileText size={13} className="shrink-0 mt-0.5" />
                   <span>{detail.notes}</span>
                 </div>
-              </DetailSection>
-            )}
-
-            {coachPackages.length > 0 && (
-              <DetailSection title="Paket yang Dipegang">
-                {coachPackages.map(({ pkg, pct }) => pkg && (
-                  <div key={pkg.package_id} className="flex items-center gap-3 py-2.5 border-b border-zen-ink/5 last:border-0">
-                    <div className="w-7 h-7 rounded-xl bg-zen-brand/10 flex items-center justify-center shrink-0">
-                      <Boxes size={12} className="text-zen-brand" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold truncate">{pkg.package_name}</p>
-                      <p className="text-[11px] text-zen-ink/40">{formatCurrency(pkg.package_price)}</p>
-                    </div>
-                    <span className="text-xs font-bold text-zen-brand">{pct}%</span>
-                  </div>
-                ))}
               </DetailSection>
             )}
 
@@ -203,6 +191,24 @@ export default function CoachesPage() {
           <Input label={t('coaches.name')} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
           <Input label={t('coaches.phone')} value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} />
           <Input label={t('coaches.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Komisi Reguler (%)"
+              type="number"
+              min={0}
+              max={100}
+              value={form.commission_regular_pct}
+              onChange={(e) => setForm({ ...form, commission_regular_pct: Number(e.target.value) })}
+            />
+            <Input
+              label="Komisi Pribadi (%)"
+              type="number"
+              min={0}
+              max={100}
+              value={form.commission_private_pct}
+              onChange={(e) => setForm({ ...form, commission_private_pct: Number(e.target.value) })}
+            />
+          </div>
           <Input label={t('coaches.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
