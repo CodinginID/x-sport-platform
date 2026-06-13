@@ -112,7 +112,6 @@ describe('useMemberPaymentMutation', () => {
       session_count: 10,
       valid_days: 30,
       package_price: 500000,
-      default_capacity: 1,
       description: '',
       active_status: true,
       created_at: '2024-01-01',
