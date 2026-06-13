@@ -79,7 +79,7 @@ export function useTrainingSessionMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data:
-      | { action: 'create'; session: Pick<TrainingSession, 'package_id' | 'coach_id' | 'session_date' | 'session_time' | 'capacity'> }
+      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity'> }
       | { action: 'cancel'; training_session_id: string }
     ) => {
       const studioId = requireStudioId();
@@ -119,11 +119,20 @@ export function useTrainingSessionMutation() {
 export function useRegisterParticipant() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { training_session_id: string; member_id: string }) => {
+    mutationFn: async (vars: {
+      training_session_id: string;
+      member_id: string;
+      member_package_id: string;
+      coach_id: string;
+      price: number;
+    }) => {
       const studioId = requireStudioId();
       const { error } = await supabase.rpc('register_session_participant', {
         p_training_session_id: vars.training_session_id,
         p_member_id: vars.member_id,
+        p_member_package_id: vars.member_package_id,
+        p_coach_id: vars.coach_id,
+        p_price: vars.price,
         p_studio_id: studioId,
       });
       if (error) throw new Error(error.message);
