@@ -44,10 +44,7 @@ export function BackupSection() {
       TRANSAKSI_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
     );
 
-    // 2. hapus relasi paket-pelatih (FK ke packages & coaches)
-    await supabase.from('package_coaches').delete().eq('studio_id', authStudioId);
-
-    // 3. hapus master data
+    // 2. hapus master data
     await Promise.all(
       MASTER_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
     );
