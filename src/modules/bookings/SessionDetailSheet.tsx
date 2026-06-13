@@ -15,7 +15,7 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
   const register = useRegisterParticipant();
   const bookingMutation = useBookingMutation();
 
-  // Form daftar peserta v2: member → paket(member_package) → coach → harga (editable, prefill harga paket).
+  // Form daftar peserta v3: member → paket(member_package) → coach. Harga otomatis dari paket.
   const [form, setForm] = useState(emptyForm);
   const { data: memberPackages = [] } = useActiveMemberPackages(form.memberId);
 
@@ -30,7 +30,7 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
 
   const resetForm = () => setForm(emptyForm);
 
-  // Saat pilih member_package → set harga default dari harga paket terkait
+  // Saat pilih member_package → harga otomatis = harga paket terkait (tidak bisa diubah manual)
   const onPickPackage = (memberPackageId: string) => {
     const mp = memberPackages.find(m => m.member_package_id === memberPackageId);
     const pkg = packages.find(p => p.package_id === mp?.package_id);
@@ -120,12 +120,12 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
               {coaches.map(c => <option key={c.coach_id} value={c.coach_id}>{c.full_name}</option>)}
             </select>
 
-            <div>
-              <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">Harga</label>
-              <input type="number" min={0} value={form.price}
-                onChange={e => setForm(f => ({ ...f, price: Math.max(0, Number(e.target.value)) }))}
-                className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30" />
-            </div>
+            {form.memberPackageId && (
+              <div className="flex items-center justify-between px-4 py-3 bg-zen-bg rounded-2xl">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Harga Paket</span>
+                <span className="text-sm font-bold text-zen-brand">{formatCurrency(form.price)}</span>
+              </div>
+            )}
 
             <button onClick={doRegister} disabled={!valid || register.isPending}
               className="w-full px-4 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50">
