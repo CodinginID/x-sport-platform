@@ -71,7 +71,6 @@ export interface Package {
   session_count: number | null;
   valid_days: number;
   package_price: number;
-  default_capacity: number;
   description: string;
   active_status: boolean;
   created_at: string;
@@ -83,6 +82,7 @@ export interface PackageCoach {
   package_id: string;
   coach_id: string;
   commission_percentage: number;
+  commission_flat: number;
   created_at: string;
 }
 
@@ -115,8 +115,6 @@ export interface Booking {
 
 export interface TrainingSession {
   training_session_id: string;
-  package_id: string;
-  coach_id: string;
   session_date: string;
   session_time: string;
   capacity: number;
