@@ -46,6 +46,8 @@ export interface Coach {
   phone_number: string;
   email: string;
   active_status: boolean;
+  commission_regular_pct: number;
+  commission_private_pct: number;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -67,7 +69,7 @@ export interface Product {
 export interface Package {
   package_id: string;
   package_name: string;
-  package_type: 'session' | 'duration';
+  package_category: 'reguler' | 'pribadi';
   session_count: number | null;
   valid_days: number;
   package_price: number;
@@ -75,15 +77,6 @@ export interface Package {
   active_status: boolean;
   created_at: string;
   updated_at: string;
-}
-
-export interface PackageCoach {
-  package_coach_id: string;
-  package_id: string;
-  coach_id: string;
-  commission_percentage: number;
-  commission_flat: number;
-  created_at: string;
 }
 
 export interface MemberPackage {
