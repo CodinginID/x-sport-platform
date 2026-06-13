@@ -108,7 +108,7 @@ describe('useMemberPaymentMutation', () => {
     await db.packages.add({
       package_id: 'pkg1',
       package_name: 'Yoga 10 Sessions',
-      package_type: 'session',
+      package_category: 'reguler',
       session_count: 10,
       valid_days: 30,
       package_price: 500000,
@@ -149,6 +149,8 @@ describe('useBookingMutation attend', () => {
       phone_number: '08123',
       email: 'coach@test.com',
       active_status: true,
+      commission_regular_pct: 0,
+      commission_private_pct: 0,
       notes: '',
       created_at: '2024-01-01',
       updated_at: '2024-01-01',
@@ -208,7 +210,7 @@ describe('useDashboardStats', () => {
     ]);
 
     await db.coaches.add({
-      coach_id: 'c1', full_name: 'Coach', phone_number: '', email: '', active_status: true, notes: '', created_at: today, updated_at: today,
+      coach_id: 'c1', full_name: 'Coach', phone_number: '', email: '', active_status: true, commission_regular_pct: 0, commission_private_pct: 0, notes: '', created_at: today, updated_at: today,
     });
 
     await db.products.add({
