@@ -25,23 +25,24 @@ export default function PackagesPage() {
     packages,
     (p, q) => p.package_name.toLowerCase().includes(q),
   );
-  const [form, setForm] = useState({ package_name: "", package_type: "session" as Package["package_type"], session_count: 0, valid_days: 0, package_price: 0, default_capacity: 1, description: "" });
-  const [assignedList, setAssignedList] = useState<{ coach_id: string; commission_percentage: number }[]>([]);
+  const [form, setForm] = useState({ package_name: "", package_type: "session" as Package["package_type"], session_count: 0, valid_days: 0, package_price: 0, description: "" });
+  const [assignedList, setAssignedList] = useState<{ coach_id: string; commission_percentage: number; commission_flat: number }[]>([]);
   const [addCoachId, setAddCoachId] = useState("");
   const [addCommission, setAddCommission] = useState(10);
+  const [addFlat, setAddFlat] = useState(0);
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ package_name: "", package_type: "session", session_count: 0, valid_days: 0, package_price: 0, default_capacity: 1, description: "" });
+    setForm({ package_name: "", package_type: "session", session_count: 0, valid_days: 0, package_price: 0, description: "" });
     setAssignedList([]);
     setModal(true);
   };
 
   const openEdit = (pkg: Package) => {
     setEditing(pkg);
-    setForm({ package_name: pkg.package_name, package_type: pkg.package_type, session_count: pkg.session_count ?? 0, valid_days: pkg.valid_days, package_price: pkg.package_price, default_capacity: pkg.default_capacity ?? 1, description: pkg.description });
+    setForm({ package_name: pkg.package_name, package_type: pkg.package_type, session_count: pkg.session_count ?? 0, valid_days: pkg.valid_days, package_price: pkg.package_price, description: pkg.description });
     const existing = allPackageCoaches.filter(pc => pc.package_id === pkg.package_id);
-    setAssignedList(existing.map(pc => ({ coach_id: pc.coach_id, commission_percentage: pc.commission_percentage })));
+    setAssignedList(existing.map(pc => ({ coach_id: pc.coach_id, commission_percentage: pc.commission_percentage, commission_flat: pc.commission_flat ?? 0 })));
     setModal(true);
   };
 
@@ -49,7 +50,7 @@ export default function PackagesPage() {
     // Fold in a coach that's selected in the dropdown but not yet committed via "+",
     // so the assignment saves whether or not the user clicked the "+" button.
     const finalAssigned = addCoachId && !assignedList.some(a => a.coach_id === addCoachId)
-      ? [...assignedList, { coach_id: addCoachId, commission_percentage: addCommission }]
+      ? [...assignedList, { coach_id: addCoachId, commission_percentage: addCommission, commission_flat: addFlat }]
       : assignedList;
 
     // Await every write so coach links are actually persisted before closing the modal,
@@ -64,13 +65,13 @@ export default function PackagesPage() {
           }
         }
         for (const a of finalAssigned) {
-          await coachMutation.mutateAsync({ action: 'add', package_id: editing.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage });
+          await coachMutation.mutateAsync({ action: 'add', package_id: editing.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage, commission_flat: a.commission_flat });
         }
       } else {
         const newPkg = await mutation.mutateAsync({ action: "add", pkg: { ...form, active_status: true } });
         if (newPkg?.package_id) {
           for (const a of finalAssigned) {
-            await coachMutation.mutateAsync({ action: 'add', package_id: newPkg.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage });
+            await coachMutation.mutateAsync({ action: 'add', package_id: newPkg.package_id, coach_id: a.coach_id, commission_percentage: a.commission_percentage, commission_flat: a.commission_flat });
           }
         }
       }
@@ -86,9 +87,10 @@ export default function PackagesPage() {
 
   const addCoachToList = () => {
     if (!addCoachId || assignedList.some(a => a.coach_id === addCoachId)) return;
-    setAssignedList([...assignedList, { coach_id: addCoachId, commission_percentage: addCommission }]);
+    setAssignedList([...assignedList, { coach_id: addCoachId, commission_percentage: addCommission, commission_flat: addFlat }]);
     setAddCoachId("");
     setAddCommission(10);
+    setAddFlat(0);
   };
 
   const getCoachName = (id: string) => coaches.find(c => c.coach_id === id)?.full_name ?? '-';
@@ -247,23 +249,26 @@ export default function PackagesPage() {
               options={[{ value: "session", label: t('packages.session') }, { value: "duration", label: t('packages.duration') }]} />
             <Input label={t('packages.session_count')} type="number" value={form.session_count} onChange={(e) => setForm({ ...form, session_count: +e.target.value })} />
             <Input label={t('packages.valid_days')} type="number" value={form.valid_days} onChange={(e) => setForm({ ...form, valid_days: +e.target.value })} />
-            <NumericInput label={t('packages.price')} value={form.package_price} onChange={(v) => setForm({ ...form, package_price: v })} />
-            <Input label="Kapasitas default per sesi" type="number" min={1} value={form.default_capacity} onChange={(e) => setForm({ ...form, default_capacity: Math.max(1, +e.target.value) })} />
+            <NumericInput label={t('packages.price')} value={form.package_price} onChange={(v) => setForm({ ...form, package_price: v })} className="col-span-2" />
           </div>
           <Input label={t('packages.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
-          {/* Coach assignment */}
+          {/* Tarif Komisi Coach: persen (paket sesi) + nominal flat (paket durasi) */}
           <div className="pt-4 border-t border-zen-ink/5">
-            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-3">Assign Coach & Komisi</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1">Tarif Komisi Coach</p>
+            <p className="text-[10px] text-zen-ink/40 mb-3">Persen dipakai utk paket berbasis sesi; nominal flat dipakai utk paket durasi.</p>
             {assignedList.length > 0 && (
               <div className="space-y-2 mb-3">
                 {assignedList.map(a => (
                   <div key={a.coach_id} className="flex items-center justify-between p-3 rounded-2xl bg-zen-bg">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold">{getCoachName(a.coach_id)}</span>
                       <span className="text-xs text-zen-brand font-bold">{a.commission_percentage}%</span>
-                      {form.package_price > 0 && (
-                        <span className="text-[10px] text-zen-ink/40">= {formatCurrency(form.package_price * a.commission_percentage / 100)}/sesi</span>
+                      {form.package_price > 0 && (form.session_count ?? 0) > 0 && (
+                        <span className="text-[10px] text-zen-ink/40">= {formatCurrency((form.package_price / form.session_count) * a.commission_percentage / 100)}/sesi</span>
+                      )}
+                      {a.commission_flat > 0 && (
+                        <span className="text-[10px] text-zen-ink/40">flat {formatCurrency(a.commission_flat)}/hadir</span>
                       )}
                     </div>
                     <button type="button" onClick={() => setAssignedList(assignedList.filter(x => x.coach_id !== a.coach_id))}
@@ -279,8 +284,10 @@ export default function PackagesPage() {
                 <Select label="Coach" value={addCoachId} onChange={(e) => setAddCoachId(e.target.value)}
                   options={[{ value: "", label: "Pilih coach..." }, ...availableCoaches.map(c => ({ value: c.coach_id, label: c.full_name }))]}
                   className="flex-1" />
-                <Input label="%" type="number" min={0} max={100} value={addCommission}
+                <Input label="% (sesi)" type="number" min={0} max={100} value={addCommission}
                   onChange={(e) => setAddCommission(+e.target.value)} className="w-20" />
+                <Input label="Flat (durasi)" type="number" min={0} value={addFlat}
+                  onChange={(e) => setAddFlat(+e.target.value)} className="w-28" />
                 <Button type="button" onClick={addCoachToList} disabled={!addCoachId} size="sm">+</Button>
               </div>
             )}

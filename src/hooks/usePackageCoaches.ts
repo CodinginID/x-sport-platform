@@ -23,7 +23,7 @@ export function usePackageCoaches(package_id?: string) {
 export function usePackageCoachMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { action: 'add' | 'remove'; package_id: string; coach_id: string; commission_percentage?: number }) => {
+    mutationFn: async (input: { action: 'add' | 'remove'; package_id: string; coach_id: string; commission_percentage?: number; commission_flat?: number }) => {
       const studioId = requireStudioId();
 
       if (input.action === 'add') {
@@ -37,7 +37,7 @@ export function usePackageCoachMutation() {
 
         if (existing) {
           const { error } = await supabase.from('package_coaches')
-            .update({ commission_percentage: input.commission_percentage ?? 0 })
+            .update({ commission_percentage: input.commission_percentage ?? 0, commission_flat: input.commission_flat ?? 0 })
             .eq('package_coach_id', existing.package_coach_id);
           if (error) throw new Error(error.message);
           return;
@@ -49,6 +49,7 @@ export function usePackageCoachMutation() {
           package_id: input.package_id,
           coach_id: input.coach_id,
           commission_percentage: input.commission_percentage ?? 0,
+          commission_flat: input.commission_flat ?? 0,
           created_at: new Date().toISOString(),
         };
         const { error } = await supabase.from('package_coaches').insert(entry);
