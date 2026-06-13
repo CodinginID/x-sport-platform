@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Calendar, Plus, CalendarX } from 'lucide-react';
 import { ListSkeleton } from '@/components/Skeleton';
-import { useTrainingSessions, useSessionCounts, usePackages, useCoaches } from '@/hooks';
+import { useTrainingSessions, useSessionCounts, slotInfo } from '@/hooks';
 import { CreateSessionModal } from './CreateSessionModal';
 import { SessionDetailSheet } from './SessionDetailSheet';
 import type { TrainingSession } from '@/types';
@@ -13,18 +13,11 @@ const todayLocal = () => {
 
 export default function BookingsPage() {
   const [date, setDate] = useState(todayLocal());
-  const [packageFilter, setPackageFilter] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<TrainingSession | null>(null);
 
   const { data: sessions = [], isLoading } = useTrainingSessions(date);
-  const { data: packages = [] } = usePackages();
-  const { data: coaches = [] } = useCoaches();
   const counts = useSessionCounts(sessions.map(s => s.training_session_id));
-
-  const pkgMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
-  const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
-  const shown = packageFilter ? sessions.filter(s => s.package_id === packageFilter) : sessions;
 
   return (
     <div className="space-y-5">
@@ -41,35 +34,25 @@ export default function BookingsPage() {
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand" />
         </div>
-        <select value={packageFilter} onChange={e => setPackageFilter(e.target.value)}
-          className="px-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl">
-          <option value="">Semua paket</option>
-          {packages.map(p => <option key={p.package_id} value={p.package_id}>{p.package_name}</option>)}
-        </select>
       </div>
 
       {isLoading ? <ListSkeleton rows={5} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          {shown.length === 0 ? (
+          {sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
               <CalendarX size={32} className="mb-3" />
               <p className="text-sm">Belum ada sesi pada tanggal ini</p>
             </div>
           ) : (
             <div className="divide-y divide-zen-ink/5">
-              {shown.map(s => {
-                const filled = counts[s.training_session_id] ?? 0;
-                const full = filled >= s.capacity;
+              {sessions.map(s => {
+                const slot = slotInfo(counts[s.training_session_id] ?? 0, s.capacity);
                 return (
                   <div key={s.training_session_id} onClick={() => setDetail(s)}
                     className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-zen-bg transition-colors">
-                    <div className="w-14 shrink-0 text-sm font-bold text-zen-ink">{s.session_time}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{pkgMap[s.package_id] ?? '—'}</p>
-                      <p className="text-xs text-zen-ink/40 truncate">Coach {coachMap[s.coach_id] ?? '—'}</p>
-                    </div>
-                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${full ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                      {full ? 'PENUH' : `${filled}/${s.capacity}`}
+                    <div className="flex-1 min-w-0 text-sm font-bold text-zen-ink">{s.session_time || 'Sesi'}</div>
+                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${slot.isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                      {slot.isFull ? 'PENUH' : `${slot.filled}/${slot.capacity}`}
                     </span>
                   </div>
                 );
