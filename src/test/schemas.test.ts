@@ -61,32 +61,32 @@ describe('coachSchema', () => {
       full_name: 'Coach A',
       phone_number: '081234567890',
       email: 'coach@studio.com',
-      commission_type: 'percentage',
-      commission_percentage: 20,
+      commission_regular_pct: 20,
+      commission_private_pct: 40,
       notes: '',
     });
     expect(result.success).toBe(true);
   });
 
-  it('rejects commission_percentage > 100', () => {
+  it('rejects commission pct > 100', () => {
     const result = coachSchema.safeParse({
       full_name: 'Coach A',
       phone_number: '081234567890',
       email: '',
-      commission_type: 'percentage',
-      commission_percentage: 150,
+      commission_regular_pct: 150,
+      commission_private_pct: 40,
       notes: '',
     });
     expect(result.success).toBe(false);
   });
 
-  it('accepts commission_percentage as string (coerce)', () => {
+  it('accepts commission pct as string (coerce)', () => {
     const result = coachSchema.safeParse({
       full_name: 'Coach A',
       phone_number: '081234567890',
       email: '',
-      commission_type: 'fixed',
-      commission_percentage: '25',
+      commission_regular_pct: '25',
+      commission_private_pct: '30',
       notes: '',
     });
     expect(result.success).toBe(true);
@@ -144,10 +144,10 @@ describe('productSchema', () => {
 });
 
 describe('packageSchema', () => {
-  it('validates session package', () => {
+  it('validates reguler package', () => {
     const result = packageSchema.safeParse({
       package_name: 'Yoga 10x',
-      package_type: 'session',
+      package_category: 'reguler',
       session_count: 10,
       valid_days: 30,
       package_price: 500000,
@@ -156,22 +156,34 @@ describe('packageSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('validates duration package with null session_count', () => {
+  it('validates pribadi package', () => {
     const result = packageSchema.safeParse({
-      package_name: 'Monthly Unlimited',
-      package_type: 'duration',
-      session_count: null,
-      valid_days: 30,
-      package_price: 1000000,
+      package_name: 'Private Coaching 8x',
+      package_category: 'pribadi',
+      session_count: 8,
+      valid_days: 60,
+      package_price: 1600000,
       description: '',
     });
     expect(result.success).toBe(true);
   });
 
+  it('rejects invalid category', () => {
+    const result = packageSchema.safeParse({
+      package_name: 'Bad Package',
+      package_category: 'duration',
+      session_count: 5,
+      valid_days: 30,
+      package_price: 100000,
+      description: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects valid_days < 1', () => {
     const result = packageSchema.safeParse({
       package_name: 'Bad Package',
-      package_type: 'session',
+      package_category: 'reguler',
       session_count: 5,
       valid_days: 0,
       package_price: 100000,
