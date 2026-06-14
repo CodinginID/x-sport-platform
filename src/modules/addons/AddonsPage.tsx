@@ -1,11 +1,17 @@
-import { useState } from 'react';
-import { Sparkles, Check, Clock, MessageCircle, X } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Sparkles, Check, Clock, MessageCircle, X, Eye } from 'lucide-react';
 import { FEATURES, FEATURE_KEYS, type FeatureKey } from '@/config/features';
 import { featureState } from '@/lib/featureState';
 import { useFeatureTrial } from '@/hooks/useFeatureTrial';
 import { usePlatformConfig } from '@/hooks/usePlatformConfig';
 import { useAuthStore } from '@/stores/auth';
 import { formatCurrency } from '@/utils';
+import { PremiumBookingPreview } from './PremiumBookingPreview';
+
+// Preview visualisasi per fitur (tampil di tombol "Lihat Preview").
+const FEATURE_PREVIEWS: Partial<Record<FeatureKey, ReactNode>> = {
+  premium_booking: <PremiumBookingPreview />,
+};
 
 function buyWaLink(wa: string, studio: string, licenseKey: string, label: string) {
   const text = `Halo Admin, saya dari studio "${studio}" (lisensi ${licenseKey}) ingin membeli add-on: ${label}.`;
@@ -17,6 +23,7 @@ export default function AddonsPage() {
   const { startTrial, pending } = useFeatureTrial();
   const { data: config } = usePlatformConfig();
   const [buyKey, setBuyKey] = useState<FeatureKey | null>(null);
+  const [previewKey, setPreviewKey] = useState<FeatureKey | null>(null);
   const nowISO = new Date().toISOString();
 
   const priceOf = (key: FeatureKey): number | null => config?.feature_prices?.[key] ?? null;
@@ -50,6 +57,13 @@ export default function AddonsPage() {
                 ))}
               </ul>
 
+              {FEATURE_PREVIEWS[key] && (
+                <button onClick={() => setPreviewKey(key)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-zen-brand hover:underline">
+                  <Eye size={13} /> Lihat Preview
+                </button>
+              )}
+
               <p className="text-lg font-bold text-zen-brand">{fmtPrice(key)}</p>
 
               {state === 'active' && (
@@ -81,6 +95,25 @@ export default function AddonsPage() {
           );
         })}
       </div>
+
+      {/* Modal Preview */}
+      {previewKey && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={() => setPreviewKey(null)}>
+          <div className="bg-zen-bg w-full sm:max-w-2xl sm:mx-4 sm:rounded-[28px] rounded-t-[28px] max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white/90 backdrop-blur px-5 py-4 flex items-center justify-between border-b border-zen-ink/5">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand">Preview</p>
+                <p className="text-base font-bold">{FEATURES[previewKey].label}</p>
+              </div>
+              <button onClick={() => setPreviewKey(null)}><X size={18} className="text-zen-ink/40" /></button>
+            </div>
+            <div className="p-4">
+              <p className="text-[11px] text-zen-ink/40 mb-3">Contoh tampilan dengan data dummy — beginilah jadwal Anda akan terlihat dengan fitur ini.</p>
+              {FEATURE_PREVIEWS[previewKey]}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Beli */}
       {buyKey && (
