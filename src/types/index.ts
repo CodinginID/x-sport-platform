@@ -111,6 +111,7 @@ export interface TrainingSession {
   session_date: string;
   session_time: string;
   capacity: number;
+  coach_id: string | null;
   status: 'scheduled' | 'cancelled';
   created_at: string;
   updated_at: string;

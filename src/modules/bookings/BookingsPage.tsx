@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Calendar, Plus, CalendarX } from 'lucide-react';
 import { ListSkeleton } from '@/components/Skeleton';
-import { useTrainingSessions, useSessionCounts, slotInfo } from '@/hooks';
+import { useTrainingSessions, useSessionCounts, useCoaches, slotInfo } from '@/hooks';
 import { CreateSessionModal } from './CreateSessionModal';
 import { SessionDetailSheet } from './SessionDetailSheet';
 import type { TrainingSession } from '@/types';
@@ -17,7 +17,9 @@ export default function BookingsPage() {
   const [detail, setDetail] = useState<TrainingSession | null>(null);
 
   const { data: sessions = [], isLoading } = useTrainingSessions(date);
+  const { data: coaches = [] } = useCoaches();
   const counts = useSessionCounts(sessions.map(s => s.training_session_id));
+  const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
 
   return (
     <div className="space-y-5">
@@ -50,7 +52,10 @@ export default function BookingsPage() {
                 return (
                   <div key={s.training_session_id} onClick={() => setDetail(s)}
                     className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-zen-bg transition-colors">
-                    <div className="flex-1 min-w-0 text-sm font-bold text-zen-ink">{s.session_time || 'Sesi'}</div>
+                    <div className="w-14 shrink-0 text-sm font-bold text-zen-ink">{s.session_time || 'Sesi'}</div>
+                    <div className="flex-1 min-w-0 text-xs text-zen-ink/50 truncate">
+                      {s.coach_id ? `Coach ${coachMap[s.coach_id] ?? '—'}` : <span className="text-amber-600">Belum ada coach</span>}
+                    </div>
                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${slot.isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
                       {slot.isFull ? 'PENUH' : `${slot.filled}/${slot.capacity}`}
                     </span>

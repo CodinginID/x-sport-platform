@@ -79,7 +79,8 @@ export function useTrainingSessionMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data:
-      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity'> }
+      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity' | 'coach_id'> }
+      | { action: 'update'; training_session_id: string; coach_id: string | null }
       | { action: 'cancel'; training_session_id: string }
     ) => {
       const studioId = requireStudioId();
@@ -92,6 +93,14 @@ export function useTrainingSessionMutation() {
         const { error } = await supabase.from('training_sessions').insert(row);
         if (error) throw new Error(error.message);
         return row;
+      }
+      if (data.action === 'update') {
+        // edit sesi — saat ini hanya assign/ganti coach
+        const { error } = await supabase.from('training_sessions')
+          .update({ coach_id: data.coach_id, updated_at: now })
+          .eq('training_session_id', data.training_session_id).eq('studio_id', studioId);
+        if (error) throw new Error(error.message);
+        return;
       }
       // cancel: batalkan sesi + semua peserta booked
       const { error: e1 } = await supabase.from('training_sessions')
@@ -108,8 +117,8 @@ export function useTrainingSessionMutation() {
       qc.invalidateQueries({ queryKey: ['trainingSessions'] });
       qc.invalidateQueries({ queryKey: ['sessionParticipants'] });
       qc.invalidateQueries({ queryKey: ['sessionCounts'] });
-      useToastStore.getState().addToast(vars.action === 'create' ? 'Sesi dibuat' : 'Sesi dibatalkan',
-        vars.action === 'cancel' ? 'warning' : 'success');
+      const msg = vars.action === 'create' ? 'Sesi dibuat' : vars.action === 'update' ? 'Coach sesi diperbarui' : 'Sesi dibatalkan';
+      useToastStore.getState().addToast(msg, vars.action === 'cancel' ? 'warning' : 'success');
     },
     onError: (e: Error) => useToastStore.getState().addToast(e.message || 'Gagal memproses sesi', 'error'),
   });
@@ -123,7 +132,6 @@ export function useRegisterParticipant() {
       training_session_id: string;
       member_id: string;
       member_package_id: string;
-      coach_id: string;
       price: number;
     }) => {
       const studioId = requireStudioId();
@@ -131,7 +139,6 @@ export function useRegisterParticipant() {
         p_training_session_id: vars.training_session_id,
         p_member_id: vars.member_id,
         p_member_package_id: vars.member_package_id,
-        p_coach_id: vars.coach_id,
         p_price: vars.price,
         p_studio_id: studioId,
       });

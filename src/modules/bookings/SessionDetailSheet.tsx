@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { DetailSheet, DetailSection } from '@/components/DetailSheet';
-import { CheckCircle2, XCircle, UserPlus } from 'lucide-react';
-import { useMembers, useCoaches, usePackages, useActiveMemberPackages, useSessionParticipants, useRegisterParticipant, useBookingMutation, slotInfo } from '@/hooks';
+import { CheckCircle2, XCircle, UserPlus, Pencil } from 'lucide-react';
+import { useMembers, useCoaches, usePackages, useActiveMemberPackages, useSessionParticipants, useRegisterParticipant, useBookingMutation, useTrainingSessionMutation, slotInfo } from '@/hooks';
 import { formatCurrency } from '@/utils';
 import type { TrainingSession } from '@/types';
 
-const emptyForm = { memberId: '', memberPackageId: '', coachId: '', price: 0 };
+const emptyForm = { memberId: '', memberPackageId: '', price: 0 };
 
 export function SessionDetailSheet({ session, onClose }: { session: TrainingSession | null; onClose: () => void }) {
   const { data: members = [] } = useMembers();
@@ -14,9 +14,11 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
   const { data: participants = [] } = useSessionParticipants(session?.training_session_id);
   const register = useRegisterParticipant();
   const bookingMutation = useBookingMutation();
+  const sessionMutation = useTrainingSessionMutation();
 
-  // Form daftar peserta v3: member → paket(member_package) → coach. Harga otomatis dari paket.
+  // Form daftar peserta v4: member → paket(member_package). Coach IKUT coach sesi (tidak dipilih di sini).
   const [form, setForm] = useState(emptyForm);
+  const [editCoach, setEditCoach] = useState(false);
   const { data: memberPackages = [] } = useActiveMemberPackages(form.memberId);
 
   // Reset paket terpilih saat ganti member
@@ -27,17 +29,25 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
   const pkgMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
   const slot = slotInfo(participants.length, session.capacity);
+  const coachName = session.coach_id ? (coachMap[session.coach_id] ?? '—') : null;
 
   const resetForm = () => setForm(emptyForm);
 
-  // Saat pilih member_package → harga otomatis = harga paket terkait (tidak bisa diubah manual)
+  // Saat pilih member_package → harga otomatis = harga paket terkait
   const onPickPackage = (memberPackageId: string) => {
     const mp = memberPackages.find(m => m.member_package_id === memberPackageId);
     const pkg = packages.find(p => p.package_id === mp?.package_id);
     setForm(f => ({ ...f, memberPackageId, price: pkg?.package_price ?? 0 }));
   };
 
-  const valid = form.memberId && form.memberPackageId && form.coachId && form.price >= 0;
+  const setCoach = (coach_id: string) => {
+    sessionMutation.mutate(
+      { action: 'update', training_session_id: session.training_session_id, coach_id: coach_id || null },
+      { onSuccess: () => setEditCoach(false) },
+    );
+  };
+
+  const valid = form.memberId && form.memberPackageId && form.price >= 0;
   const doRegister = () => {
     if (!valid) return;
     register.mutate(
@@ -45,7 +55,6 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
         training_session_id: session.training_session_id,
         member_id: form.memberId,
         member_package_id: form.memberPackageId,
-        coach_id: form.coachId,
         price: form.price,
       },
       { onSuccess: resetForm },
@@ -55,7 +64,28 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
   return (
     <DetailSheet open={!!session} onClose={onClose}
       title={session.session_time || 'Sesi'}
-      subtitle={`Slot ${slot.filled}/${slot.capacity}`}>
+      subtitle={`${coachName ? `Coach ${coachName} · ` : ''}Slot ${slot.filled}/${slot.capacity}`}>
+
+      {/* Coach sesi — set/ganti di sini (1 coach per sesi) */}
+      <DetailSection title="Coach Sesi">
+        {editCoach || !session.coach_id ? (
+          <div className="flex gap-2">
+            <select defaultValue={session.coach_id ?? ''} onChange={e => setCoach(e.target.value)}
+              disabled={sessionMutation.isPending}
+              className="flex-1 px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none">
+              <option value="">Pilih coach...</option>
+              {coaches.map(c => <option key={c.coach_id} value={c.coach_id}>{c.full_name}</option>)}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-zen-ink">{coachName}</span>
+            <button onClick={() => setEditCoach(true)} className="flex items-center gap-1.5 text-xs font-bold text-zen-brand">
+              <Pencil size={13} /> Ganti
+            </button>
+          </div>
+        )}
+      </DetailSection>
 
       <DetailSection title={`Peserta (${slot.filled}/${slot.capacity})`}>
         {participants.length === 0
@@ -67,7 +97,7 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{memberMap[p.member_id] ?? '?'}</p>
                     <p className="text-[11px] text-zen-ink/40 truncate">
-                      {(pkgMap[p.package_id] ?? '—')} · {(coachMap[p.coach_id] ?? '—')} · {formatCurrency(p.package_price)}
+                      {(pkgMap[p.package_id] ?? '—')} · {formatCurrency(p.package_price)}
                     </p>
                     <p className="text-[11px] text-zen-ink/40">{p.booking_status === 'attended' ? 'Hadir' : 'Terdaftar'}</p>
                   </div>
@@ -89,7 +119,9 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
           )}
       </DetailSection>
 
-      {!slot.isFull && (
+      {!session.coach_id ? (
+        <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2.5">Tetapkan coach sesi dulu sebelum mendaftarkan peserta.</p>
+      ) : !slot.isFull ? (
         <DetailSection title="Daftarkan Peserta">
           <div className="space-y-2.5">
             <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
@@ -114,12 +146,6 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
                 )
             )}
 
-            <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))}
-              className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none">
-              <option value="">Pilih coach...</option>
-              {coaches.map(c => <option key={c.coach_id} value={c.coach_id}>{c.full_name}</option>)}
-            </select>
-
             {form.memberPackageId && (
               <div className="flex items-center justify-between px-4 py-3 bg-zen-bg rounded-2xl">
                 <span className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Harga Paket</span>
@@ -133,8 +159,9 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
             </button>
           </div>
         </DetailSection>
+      ) : (
+        <p className="text-xs text-red-500 font-bold text-center pt-1">Slot penuh</p>
       )}
-      {slot.isFull && <p className="text-xs text-red-500 font-bold text-center pt-1">Slot penuh</p>}
     </DetailSheet>
   );
 }
