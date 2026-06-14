@@ -10,7 +10,7 @@ import { PremiumBookingPreview } from './PremiumBookingPreview';
 
 // Preview visualisasi per fitur (tampil di tombol "Lihat Preview").
 const FEATURE_PREVIEWS: Partial<Record<FeatureKey, ReactNode>> = {
-  premium_booking: <PremiumBookingPreview />,
+  pro: <PremiumBookingPreview />,
 };
 
 function buyWaLink(wa: string, studio: string, licenseKey: string, label: string) {
