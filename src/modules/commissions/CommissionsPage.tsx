@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useCoachCommissions, useCoaches, useMembers } from '@/hooks';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuthStore } from '@/stores/auth';
-import { Select, BarChartH, TrendBars } from '@/components/ui';
+import { BarChartH, TrendBars } from '@/components/ui';
+import { SmartSelect } from '@/components/ui/SmartSelect';
 import { ListSkeleton } from '@/components/Skeleton';
 import { formatCurrency, formatDate } from '@/utils';
 import { Calendar, Award } from 'lucide-react';
@@ -35,7 +36,7 @@ export default function CommissionsPage() {
 
   const filterCoachId = isAdmin ? coachFilter || undefined : user?.id;
   const { data: commissions = [], isLoading: commissionsLoading } = useCoachCommissions({ coach_id: filterCoachId, startDate, endDate });
-  const { data: coaches = [] } = useCoaches();
+  const { data: coaches = [], isLoading: coachesLoading } = useCoaches();
   const { data: members = [] } = useMembers();
 
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
@@ -95,8 +96,10 @@ export default function CommissionsPage() {
           </div>
         )}
         {isAdmin && (
-          <Select value={coachFilter} onChange={e => setCoachFilter(e.target.value)}
-            options={[{ value: '', label: t('reports.select_coach') }, ...coaches.map(c => ({ value: c.coach_id, label: c.full_name }))]}
+          <SmartSelect value={coachFilter} onChange={v => setCoachFilter(v)}
+            placeholder={t('reports.select_coach')}
+            options={coaches.map(c => ({ value: c.coach_id, label: c.full_name }))}
+            loading={coachesLoading}
             label={t('commissions.coach')} />
         )}
       </div>
