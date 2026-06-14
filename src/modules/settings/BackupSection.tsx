@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
+import { useToastStore } from '@/stores/toast';
 import { supabase } from '@/lib/supabase';
 import { Trash2, AlertTriangle, RefreshCw, ShieldOff, Database, CheckCircle2 } from 'lucide-react';
 
 const TRANSAKSI_TABLES: { key: string; label: string }[] = [
-  { key: 'bookings',          label: 'Booking sesi' },
+  { key: 'bookings',          label: 'Peserta sesi (booking)' },
+  { key: 'training_sessions', label: 'Jadwal sesi' },
   { key: 'product_sales',     label: 'Penjualan produk' },
   { key: 'member_payments',   label: 'Pembayaran paket member' },
   { key: 'coach_commissions', label: 'Komisi pelatih' },
-  { key: 'member_packages',   label: 'Paket aktif member (sisa sesi)' },
+  { key: 'member_packages',   label: 'Paket member (sisa sesi)' },
 ];
 
 const MASTER_TABLES: { key: string; label: string }[] = [
@@ -25,6 +27,7 @@ type ResetPhase = 'idle' | 'deleting' | 'done';
 export function BackupSection() {
   const authStudioId = useAuthStore(s => s.studioId);
   const queryClient  = useQueryClient();
+  const addToast     = useToastStore(s => s.addToast);
 
   const [modalOpen, setModalOpen]   = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -39,15 +42,13 @@ export function BackupSection() {
     setModalOpen(false);
     setPhase('deleting');
 
-    // 1. hapus transaksi dulu (ada FK ke master data)
-    await Promise.all(
-      TRANSAKSI_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
-    );
-
-    // 2. hapus master data
-    await Promise.all(
-      MASTER_TABLES.map(t => supabase.from(t.key).delete().eq('studio_id', authStudioId))
-    );
+    // Hapus semua data studio dalam satu transaksi (urutan FK benar, bypass RLS via RPC).
+    const { error } = await supabase.rpc('reset_studio_data', { p_studio_id: authStudioId });
+    if (error) {
+      setPhase('idle');
+      addToast('Gagal reset data: ' + error.message, 'error');
+      return;
+    }
 
     // hapus semua cache react-query agar data di semua halaman ikut kosong
     queryClient.clear();
