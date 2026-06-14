@@ -60,7 +60,21 @@
       "Skill(run)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(node *)",
-      "Bash(supabase status *)"
+      "Bash(supabase status *)",
+      "Bash(git rm *)",
+      "WebSearch",
+      "Bash(sed -n '1,80p' supabase/migrations/20260609000002_fix_payment_booking_flow.sql)",
+      "Bash(sed -n '1,40p' supabase/migrations/20260608000004_sessions_rls.sql)",
+      "Bash(echo \"dev server PID: $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174)",
+      "Bash(sed -n '/create or replace function register_session_participant/,/language plpgsql/p' supabase/migrations/20260613000002_register_session_participant.sql)",
+      "Bash(sed -n '/export interface TrainingSession/,/^}/p' src/types/index.ts)",
+      "Bash(sed -n '/export function isSupported/,/^}/p;/export function canAutoReconnect/,/^}/p' src/services/btPrinter.ts)",
+      "Bash(lsof -ti:5173)",
+      "Bash(lsof -ti:5174)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "claude-flow"
+  ]
 }

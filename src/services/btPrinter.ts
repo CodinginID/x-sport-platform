@@ -20,6 +20,18 @@ export function isSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
 }
 
+/**
+ * Apakah browser mendukung auto-reconnect tanpa dialog?
+ *
+ * Bergantung pada navigator.bluetooth.getDevices() — API "persistent permissions"
+ * yang masih di belakang flag Chrome (chrome://flags/#enable-web-bluetooth-new-permissions-backend).
+ * Tanpa ini, satu-satunya cara connect adalah requestDevice() yang WAJIB user gesture
+ * + dialog pemilihan (tidak bisa auto). Jadi UI fallback ke mode "satu-tap".
+ */
+export function canAutoReconnect(): boolean {
+  return isSupported() && typeof navigator.bluetooth.getDevices === 'function';
+}
+
 const PREFERRED_SERVICE_UUIDS = new Set(
   PRINTER_SERVICES.map((s) =>
     (typeof s === 'number' ? `0000${s.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb` : s).toLowerCase(),
@@ -69,7 +81,13 @@ async function attach(dev: BluetoothDevice): Promise<void> {
   });
 }
 
-/** Tampilkan device chooser — butuh user gesture. */
+/**
+ * Tampilkan device chooser — butuh user gesture.
+ *
+ * Selalu acceptAllDevices: filter by nama (filters:[{name}]) terlalu beresiko —
+ * banyak printer thermal (mis. RPP02N) tidak broadcast nama yang sama saat scan BLE,
+ * sehingga dialog jadi kosong. Tampilkan semua, user pilih printernya.
+ */
 export async function connect(): Promise<BluetoothDevice> {
   if (!isSupported()) throw new Error('Web Bluetooth tidak didukung di perangkat ini');
   const dev = await navigator.bluetooth.requestDevice({
@@ -88,11 +106,21 @@ export async function connect(): Promise<BluetoothDevice> {
  */
 export type ReconnectResult = 'connected' | 'out_of_range' | 'permission_lost';
 
-export async function reconnect(deviceId?: string): Promise<ReconnectResult> {
-  if (!isSupported() || !deviceId || !navigator.bluetooth.getDevices) return 'permission_lost';
+export async function reconnect(deviceId?: string, deviceName?: string): Promise<ReconnectResult> {
+  // Tanpa getDevices() auto-reconnect mustahil — caller (UI) yang fallback ke mode satu-tap.
+  if (!canAutoReconnect() || !deviceId) return 'permission_lost';
   let known: BluetoothDevice[];
   try { known = await navigator.bluetooth.getDevices(); } catch { return 'permission_lost'; }
-  const dev = known.find((d) => d.id === deviceId);
+
+  // Cari by ID dulu. Kalau tidak ketemu, fallback ke nama — device.id adalah UUID per-origin,
+  // bisa berbeda antar URL (dev vs prod) padahal device fisiknya sama.
+  let dev = known.find((d) => d.id === deviceId);
+  if (!dev && deviceName) {
+    dev = known.find((d) => d.name === deviceName);
+    // Simpan ID baru untuk origin ini agar reconnect berikutnya langsung match by ID
+    if (dev) usePrinterStore.getState().setDevice(dev.id, dev.name ?? deviceName);
+  }
+
   if (!dev) return 'permission_lost';
   try { await attach(dev); return 'connected'; } catch { return 'out_of_range'; }
 }
@@ -113,26 +141,23 @@ export function disconnect(): void {
  *
  * Interval 2s, tapi tidak akan overlap: kalau attempt sebelumnya belum
  * selesai (GATT timeout 3s), tick berikutnya di-skip via isReconnecting flag.
- * Efeknya: printer selalu di-coba ulang segera setelah setiap attempt selesai.
+ *
+ * Loop berjalan DIAM-DIAM sampai berhasil connect atau di-stop via cleanup.
+ * Loop TIDAK pernah declare "permission_lost" — itu hanya valid dari user-initiated
+ * action (tombol Reconnect). Setelah restart Android, getDevices() bisa return []
+ * sementara karena BT stack belum init — bukan berarti izin hilang.
  *
  * Berhenti otomatis saat:
  * - berhasil connect
- * - permission_lost (browser tidak kenal device)
- * - cleanup dipanggil (unmount)
+ * - cleanup dipanggil (unmount / logout)
  */
 const BG_INTERVAL_MS = 2000;
-
-// Berapa kali getDevices() boleh return kosong sebelum dianggap permission benar-benar hilang.
-// getDevices() bisa return [] sementara setelah refresh/restart — bukan berarti izin hilang.
-const PERMISSION_LOST_THRESHOLD = 10;
 
 export function startBackgroundReconnect(
   deviceId: string,
   onConnected: () => void,
-  onPermissionLost: () => void,
 ): () => void {
   stopBackgroundReconnect();
-  let consecutivePermissionLost = 0;
 
   bgTimer = setInterval(async () => {
     if (isConnected() || isReconnecting) return;
@@ -140,20 +165,10 @@ export function startBackgroundReconnect(
     try {
       const result = await reconnect(deviceId);
       if (result === 'connected') {
-        consecutivePermissionLost = 0;
         onConnected();
         stopBackgroundReconnect();
-      } else if (result === 'permission_lost') {
-        consecutivePermissionLost++;
-        // Hanya stop jika konsisten kosong — bukan sekali saja
-        if (consecutivePermissionLost >= PERMISSION_LOST_THRESHOLD) {
-          stopBackgroundReconnect();
-          onPermissionLost();
-        }
-      } else {
-        // 'out_of_range': device ada di getDevices(), GATT gagal — reset counter
-        consecutivePermissionLost = 0;
       }
+      // 'out_of_range' atau 'permission_lost': coba lagi di tick berikutnya — jangan menyerah.
     } finally {
       isReconnecting = false;
     }
@@ -176,7 +191,9 @@ export async function watchForDevice(deviceId: string, onConnected: () => void):
   if (!isSupported() || !navigator.bluetooth.getDevices) return;
   try {
     const known = await navigator.bluetooth.getDevices();
-    const dev = known.find((d) => d.id === deviceId);
+    const { deviceName } = usePrinterStore.getState();
+    let dev = known.find((d) => d.id === deviceId);
+    if (!dev && deviceName) dev = known.find((d) => d.name === deviceName);
     if (!dev) return;
 
     type BtDevExt = BluetoothDevice & {

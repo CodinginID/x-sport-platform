@@ -17,12 +17,12 @@ export interface PrintResult {
 /** Pastikan printer tersambung; coba reconnect bila ada device tersimpan. */
 async function ensureConnected(): Promise<boolean> {
   if (bt.isConnected()) return true;
-  const { deviceId, setStatus } = usePrinterStore.getState();
+  const { deviceId, deviceName, setStatus } = usePrinterStore.getState();
   if (!deviceId) return false;
   setStatus('connecting');
-  const ok = await bt.reconnect(deviceId);
-  setStatus(ok ? 'connected' : 'disconnected');
-  return ok;
+  const result = await bt.reconnect(deviceId, deviceName);
+  setStatus(result === 'connected' ? 'connected' : 'disconnected');
+  return result === 'connected';
 }
 
 export function usePrintReceipt() {

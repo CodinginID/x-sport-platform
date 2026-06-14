@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
+import { usePrinterAutoReconnect } from '@/hooks/usePrinterAutoReconnect';
+import { PrinterConnectBanner } from '@/components/PrinterConnectBanner';
 import { cn } from '@/utils';
 import {
   LayoutDashboard, Users, UserCheck, Package, ShoppingBag,
@@ -16,6 +18,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   useSessionTimeout();
+  usePrinterAutoReconnect();
   const isOwner = user?.role === 'owner';
 
   const allNavItems = [
@@ -80,6 +83,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main id="main-content" role="main" className="lg:ml-[240px] pt-4 lg:pt-8 pb-24 lg:pb-8 px-4 lg:px-6">
+        <PrinterConnectBanner />
         {children}
       </main>
 
