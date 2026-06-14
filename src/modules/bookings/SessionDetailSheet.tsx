@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DetailSheet, DetailSection } from '@/components/DetailSheet';
+import { SmartSelect } from '@/components/ui/SmartSelect';
 import { CheckCircle2, XCircle, UserPlus, Pencil } from 'lucide-react';
 import { useMembers, useCoaches, usePackages, useActiveMemberPackages, useSessionParticipants, useRegisterParticipant, useBookingMutation, useTrainingSessionMutation, slotInfo } from '@/hooks';
 import { formatCurrency } from '@/utils';
@@ -8,8 +9,8 @@ import type { TrainingSession } from '@/types';
 const emptyForm = { memberId: '', memberPackageId: '', price: 0 };
 
 export function SessionDetailSheet({ session, onClose }: { session: TrainingSession | null; onClose: () => void }) {
-  const { data: members = [] } = useMembers();
-  const { data: coaches = [] } = useCoaches();
+  const { data: members = [], isLoading: membersLoading } = useMembers();
+  const { data: coaches = [], isLoading: coachesLoading } = useCoaches();
   const { data: packages = [] } = usePackages();
   const { data: participants = [] } = useSessionParticipants(session?.training_session_id);
   const register = useRegisterParticipant();
@@ -19,7 +20,7 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
   // Form daftar peserta v4: member → paket(member_package). Coach IKUT coach sesi (tidak dipilih di sini).
   const [form, setForm] = useState(emptyForm);
   const [editCoach, setEditCoach] = useState(false);
-  const { data: memberPackages = [] } = useActiveMemberPackages(form.memberId);
+  const { data: memberPackages = [], isLoading: memberPackagesLoading } = useActiveMemberPackages(form.memberId);
 
   // Reset paket terpilih saat ganti member
   useEffect(() => { setForm(f => ({ ...f, memberPackageId: '', price: 0 })); }, [form.memberId]);
@@ -70,12 +71,15 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
       <DetailSection title="Coach Sesi">
         {editCoach || !session.coach_id ? (
           <div className="flex gap-2">
-            <select defaultValue={session.coach_id ?? ''} onChange={e => setCoach(e.target.value)}
+            <SmartSelect
+              className="flex-1"
+              placeholder="Pilih coach..."
+              value={session.coach_id ?? ''}
+              onChange={setCoach}
+              options={coaches.map(c => ({ value: c.coach_id, label: c.full_name }))}
+              loading={coachesLoading}
               disabled={sessionMutation.isPending}
-              className="flex-1 px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none">
-              <option value="">Pilih coach...</option>
-              {coaches.map(c => <option key={c.coach_id} value={c.coach_id}>{c.full_name}</option>)}
-            </select>
+            />
           </div>
         ) : (
           <div className="flex items-center justify-between">
@@ -128,25 +132,34 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
       ) : !slot.isFull ? (
         <DetailSection title="Daftarkan Peserta">
           <div className="space-y-2.5">
-            <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
-              className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none">
-              <option value="">Pilih member...</option>
-              {members.map(m => <option key={m.member_id} value={m.member_id}>{m.full_name}</option>)}
-            </select>
+            <SmartSelect
+              placeholder="Pilih member..."
+              value={form.memberId}
+              onChange={v => setForm(f => ({ ...f, memberId: v }))}
+              options={members.map(m => ({ value: m.member_id, label: m.full_name }))}
+              loading={membersLoading}
+            />
 
             {form.memberId && (
-              memberPackages.length === 0
+              memberPackagesLoading
+                ? (
+                  <SmartSelect
+                    placeholder="Pilih paket..."
+                    value={form.memberPackageId}
+                    onChange={onPickPackage}
+                    options={[]}
+                    loading
+                  />
+                )
+                : memberPackages.length === 0
                 ? <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2.5">Member belum punya paket aktif. Buat pembayaran dulu.</p>
                 : (
-                  <select value={form.memberPackageId} onChange={e => onPickPackage(e.target.value)}
-                    className="w-full px-4 py-3 bg-zen-bg rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-zen-brand/30 appearance-none">
-                    <option value="">Pilih paket...</option>
-                    {memberPackages.map(mp => (
-                      <option key={mp.member_package_id} value={mp.member_package_id}>
-                        {(pkgMap[mp.package_id] ?? mp.package_id)} · sisa {mp.remaining_sessions}
-                      </option>
-                    ))}
-                  </select>
+                  <SmartSelect
+                    placeholder="Pilih paket..."
+                    value={form.memberPackageId}
+                    onChange={onPickPackage}
+                    options={memberPackages.map(mp => ({ value: mp.member_package_id, label: `${pkgMap[mp.package_id] ?? mp.package_id} · sisa ${mp.remaining_sessions}` }))}
+                  />
                 )
             )}
 
