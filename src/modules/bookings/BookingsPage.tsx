@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Calendar, Plus, CalendarX, Sparkles } from 'lucide-react';
 import { ListSkeleton } from '@/components/Skeleton';
+import { formatDate } from '@/utils';
 import { useTrainingSessions, useSessionCounts, useCoaches, slotInfo } from '@/hooks';
 import { FeatureGate } from '@/components/FeatureGate';
 import { CreateSessionModal } from './CreateSessionModal';
@@ -13,11 +14,12 @@ const todayLocal = () => {
 };
 
 export default function BookingsPage() {
-  const [date, setDate] = useState(todayLocal());
+  const [start, setStart] = useState(todayLocal());
+  const [end, setEnd] = useState(todayLocal());
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<TrainingSession | null>(null);
 
-  const { data: sessions = [], isLoading } = useTrainingSessions(date);
+  const { data: sessions = [], isLoading } = useTrainingSessions(start, end);
   const { data: coaches = [] } = useCoaches();
   const counts = useSessionCounts(sessions.map(s => s.training_session_id));
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
@@ -41,7 +43,15 @@ export default function BookingsPage() {
       <div className="flex gap-3 flex-wrap items-center">
         <div className="relative">
           <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          <input type="date" value={start} max={end || undefined} onChange={e => setStart(e.target.value)}
+            aria-label="Dari tanggal"
+            className="pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand" />
+        </div>
+        <span className="text-xs text-zen-ink/40 font-medium">s/d</span>
+        <div className="relative">
+          <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zen-ink/30 pointer-events-none" />
+          <input type="date" value={end} min={start || undefined} onChange={e => setEnd(e.target.value)}
+            aria-label="Sampai tanggal"
             className="pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand" />
         </div>
       </div>
@@ -51,7 +61,7 @@ export default function BookingsPage() {
           {sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
               <CalendarX size={32} className="mb-3" />
-              <p className="text-sm">Belum ada sesi pada tanggal ini</p>
+              <p className="text-sm">Belum ada sesi pada periode ini</p>
             </div>
           ) : (
             <div className="divide-y divide-zen-ink/5">
@@ -60,7 +70,10 @@ export default function BookingsPage() {
                 return (
                   <div key={s.training_session_id} onClick={() => setDetail(s)}
                     className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-zen-bg transition-colors">
-                    <div className="w-14 shrink-0 text-sm font-bold text-zen-ink">{s.session_time || 'Sesi'}</div>
+                    <div className="w-20 shrink-0">
+                      <p className="text-sm font-bold text-zen-ink leading-tight">{s.session_time || 'Sesi'}</p>
+                      <p className="text-[11px] text-zen-ink/40">{formatDate(s.session_date)}</p>
+                    </div>
                     <div className="flex-1 min-w-0 text-xs text-zen-ink/50 truncate">
                       {s.coach_id ? `Coach ${coachMap[s.coach_id] ?? '—'}` : <span className="text-amber-600">Belum ada coach</span>}
                     </div>

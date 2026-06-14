@@ -223,72 +223,43 @@ export default function MemberPaymentPage() {
             onChange={e => setForm({ ...form, member_id: e.target.value, package_id: "" })}
           />
 
-          {/* Step 2: Loading skeleton */}
-          {form.member_id && bookingLoading && (
-            <div className="space-y-3 animate-pulse">
-              <div className="h-14 bg-zen-ink/6 rounded-2xl" />
-              <div className="space-y-1.5">
-                <div className="h-2 bg-zen-ink/8 rounded-full w-16" />
-                <div className="h-11 bg-zen-ink/6 rounded-2xl" />
-              </div>
-            </div>
-          )}
-
-          {/* Step 2a: Booking ditemukan → lanjut ke form bayar */}
-          {form.member_id && !bookingLoading && bookingId && unpaidBookings[0] && (
+          {/* Step 2: Member dipilih → beli paket langsung (model sesi: beli paket dulu, lalu ikut sesi) */}
+          {form.member_id && (
             <>
-              {/* Booking card */}
-              <div className="bg-zen-brand/8 rounded-2xl px-4 py-3.5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-zen-brand/15 flex items-center justify-center shrink-0">
-                  <CalendarCheck size={15} className="text-zen-brand" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-zen-brand">Booking aktif ditemukan</p>
-                  <p className="text-[11px] text-zen-ink/50 mt-0.5 truncate">
-                    {packageMap[unpaidBookings[0].package_id] || '—'} · {formatDate(unpaidBookings[0].booking_date)}
-                    {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-zen-brand shrink-0">{formatCurrency(unpaidBookings[0].package_price ?? amount)}</span>
-              </div>
-
-              {/* Nominal */}
-              <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
-
-              {/* Metode bayar */}
+              {/* Pilih paket */}
               <Select
-                label={t('payments.method')}
-                options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
-                value={form.payment_method}
-                onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
+                label="Paket"
+                options={[{ value: "", label: "Pilih paket..." }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} — ${formatCurrency(p.package_price)}` }))]}
+                value={form.package_id}
+                onChange={e => setForm({ ...form, package_id: e.target.value })}
               />
 
-              {/* Catatan */}
-              <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+              {/* Info booking lama (opsional, kalau kebetulan ada tagihan booking belum dibayar) */}
+              {bookingId && unpaidBookings[0] && (
+                <p className="text-[11px] text-zen-ink/40">
+                  Tertaut booking {formatDate(unpaidBookings[0].booking_date)}
+                  {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
+                </p>
+              )}
+
+              {form.package_id && (
+                <>
+                  <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
+                  <Select
+                    label={t('payments.method')}
+                    options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
+                    value={form.payment_method}
+                    onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
+                  />
+                  <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                </>
+              )}
 
               <div className="flex gap-2 justify-end">
                 <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button onClick={handleSubmit}>{t('common.save')}</Button>
-              </div>
-            </>
-          )}
-
-          {/* Step 2b: Tidak ada booking → blokir, arahkan buat booking dulu */}
-          {form.member_id && !bookingLoading && !bookingId && (
-            <>
-              <div className="bg-amber-50 rounded-2xl px-4 py-4 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <CalendarCheck size={15} className="text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-amber-700">Belum ada booking aktif</p>
-                  <p className="text-[11px] text-amber-600/70 mt-0.5 leading-relaxed">
-                    Member ini belum memiliki booking yang menunggu pembayaran. Buat booking sesi terlebih dahulu, kemudian lakukan pembayaran di sini.
-                  </p>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="secondary" onClick={() => setModalOpen(false)}>Tutup</Button>
+                <Button onClick={handleSubmit} disabled={!form.package_id || mutation.isPending}>
+                  {mutation.isPending ? 'Menyimpan...' : t('common.save')}
+                </Button>
               </div>
             </>
           )}
@@ -297,7 +268,7 @@ export default function MemberPaymentPage() {
           {!form.member_id && (
             <div className="flex flex-col items-center justify-center py-6 text-zen-ink/20 gap-2">
               <CalendarCheck size={28} />
-              <p className="text-xs text-center">Pilih member untuk melihat<br />booking yang perlu dibayar</p>
+              <p className="text-xs text-center">Pilih member lalu pilih paket<br />untuk melakukan pembayaran</p>
             </div>
           )}
 
