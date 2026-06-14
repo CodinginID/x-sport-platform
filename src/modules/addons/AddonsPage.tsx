@@ -7,10 +7,35 @@ import { usePlatformConfig } from '@/hooks/usePlatformConfig';
 import { useAuthStore } from '@/stores/auth';
 import { formatCurrency } from '@/utils';
 import { PremiumBookingPreview } from './PremiumBookingPreview';
+import { DashboardProPreview } from './DashboardProPreview';
+
+const PRO_PREVIEW_TABS = [
+  { key: 'jadwal', label: 'Jadwal', node: <PremiumBookingPreview /> },
+  { key: 'dashboard', label: 'Dashboard', node: <DashboardProPreview /> },
+] as const;
+
+/** Preview multi-tab Paket Pro: Jadwal premium + Dashboard premium. */
+function ProPreviewTabs() {
+  const [tab, setTab] = useState<(typeof PRO_PREVIEW_TABS)[number]['key']>('jadwal');
+  const active = PRO_PREVIEW_TABS.find((t) => t.key === tab) ?? PRO_PREVIEW_TABS[0];
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-1.5">
+        {PRO_PREVIEW_TABS.map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all ${tab === t.key ? 'bg-zen-brand text-white' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div>{active.node}</div>
+    </div>
+  );
+}
 
 // Preview visualisasi per fitur (tampil di tombol "Lihat Preview").
 const FEATURE_PREVIEWS: Partial<Record<FeatureKey, ReactNode>> = {
-  pro: <PremiumBookingPreview />,
+  pro: <ProPreviewTabs />,
 };
 
 function buyWaLink(wa: string, studio: string, licenseKey: string, label: string) {
