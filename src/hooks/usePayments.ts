@@ -125,6 +125,70 @@ export function useMemberPaymentMutation() {
   });
 }
 
+/** Beli paket → buat member_package berstatus 'pending' (belum bayar). */
+export function usePurchasePackage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { member_id: string; package_id: string }) => {
+      const studioId = requireStudioId();
+      const { error } = await supabase.rpc('purchase_package', {
+        p_member_id: vars.member_id,
+        p_package_id: vars.package_id,
+        p_studio_id: studioId,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['memberPackages'] });
+    },
+  });
+}
+
+/** Batalkan paket pending (belum bayar) → hapus. */
+export function useCancelPendingPackage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (member_package_id: string) => {
+      const studioId = requireStudioId();
+      const { error } = await supabase.rpc('cancel_pending_package', {
+        p_member_package_id: member_package_id,
+        p_studio_id: studioId,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['memberPackages'] });
+    },
+  });
+}
+
+/** Bayar paket pending → aktifkan + catat pembayaran. */
+export function usePayPendingPackage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { member_package_id: string; payment_date: string; amount: number; payment_method: string; notes: string }) => {
+      const studioId = requireStudioId();
+      const { error } = await supabase.rpc('pay_member_package', {
+        p_member_package_id: vars.member_package_id,
+        p_payment: {
+          payment_date: vars.payment_date,
+          amount: vars.amount,
+          payment_method: vars.payment_method,
+          notes: vars.notes,
+        },
+        p_studio_id: studioId,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['memberPayments'] });
+      qc.invalidateQueries({ queryKey: ['memberPackages'] });
+      qc.invalidateQueries({ queryKey: ['activeMemberPackages'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 export function useProductSales(filters?: { startDate?: string; endDate?: string }) {
   return useQuery({
     queryKey: ['productSales', filters],

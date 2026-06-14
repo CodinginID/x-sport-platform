@@ -71,7 +71,9 @@
       "Bash(sed -n '/export interface TrainingSession/,/^}/p' src/types/index.ts)",
       "Bash(sed -n '/export function isSupported/,/^}/p;/export function canAutoReconnect/,/^}/p' src/services/btPrinter.ts)",
       "Bash(lsof -ti:5173)",
-      "Bash(lsof -ti:5174)"
+      "Bash(lsof -ti:5174)",
+      "Bash(sed -n '/interface LicenseRow/,/^}/p' src/modules/superadmin/LicensesPage.tsx)",
+      "Bash(sed -n '507,525p' src/modules/superadmin/LicensesPage.tsx)"
     ]
   },
   "enabledMcpjsonServers": [

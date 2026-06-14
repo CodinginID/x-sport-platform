@@ -12,17 +12,22 @@ export function slotInfo(filled: number, capacity: number): SlotInfo {
   return { filled, capacity, isFull: filled >= capacity };
 }
 
-/** Sesi pada satu tanggal (default: semua bila date kosong). */
-export function useTrainingSessions(date?: string) {
+/**
+ * Sesi pada rentang tanggal (periode). `start`/`end` inklusif (format 'YYYY-MM-DD').
+ * Bila keduanya kosong → semua sesi. Diurut tanggal lalu jam.
+ */
+export function useTrainingSessions(start?: string, end?: string) {
   return useQuery({
-    queryKey: ['trainingSessions', date],
+    queryKey: ['trainingSessions', start, end],
     queryFn: async () => {
       const studioId = getStudioId();
       if (!studioId) return [];
       let q = supabase.from('training_sessions').select('*')
         .eq('studio_id', studioId).eq('status', 'scheduled')
+        .order('session_date', { ascending: true })
         .order('session_time', { ascending: true });
-      if (date) q = q.eq('session_date', date);
+      if (start) q = q.gte('session_date', start);
+      if (end) q = q.lte('session_date', end);
       const { data, error } = await q;
       if (error) throw new Error(error.message);
       return (data ?? []) as TrainingSession[];
@@ -79,7 +84,7 @@ export function useTrainingSessionMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data:
-      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity' | 'coach_id'> }
+      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity' | 'coach_id' | 'session_category'> }
       | { action: 'update'; training_session_id: string; coach_id: string | null }
       | { action: 'cancel'; training_session_id: string }
     ) => {

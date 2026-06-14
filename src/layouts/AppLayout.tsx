@@ -8,7 +8,7 @@ import { PrinterConnectBanner } from '@/components/PrinterConnectBanner';
 import { cn } from '@/utils';
 import {
   LayoutDashboard, Users, UserCheck, Package, ShoppingBag,
-  Calendar, CreditCard, PieChart, DollarSign, LogOut, MoreHorizontal, Settings, ShieldCheck,
+  Calendar, CreditCard, PieChart, DollarSign, LogOut, MoreHorizontal, Settings, ShieldCheck, Sparkles,
 } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -30,6 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { label: t('nav.bookings'), icon: Calendar, path: '/bookings', roles: ['owner', 'staff'] },
     { label: t('nav.sales'), icon: CreditCard, path: '/sales', roles: ['owner', 'staff'] },
     { label: t('nav.payments'), icon: CreditCard, path: '/payments', roles: ['owner', 'staff'] },
+    { label: 'Add-on', icon: Sparkles, path: '/addons', roles: ['owner'] },
     { label: t('nav.commissions'), icon: DollarSign, path: '/commissions', roles: ['owner'] },
     { label: t('nav.reports'), icon: PieChart, path: '/reports', roles: ['owner'] },
     { label: t('nav.settings'), icon: Settings, path: '/settings', roles: ['owner', 'staff'] },

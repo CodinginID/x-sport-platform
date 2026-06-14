@@ -1,3 +1,19 @@
+export interface FeatureEntry {
+  status: 'trial' | 'active';
+  trial_ends_at?: string;
+  trial_used?: boolean;
+}
+
+export interface PlatformConfig {
+  id: number;
+  admin_wa: string;
+  bank_name: string;
+  bank_account_number: string;
+  bank_account_holder: string;
+  feature_prices: Record<string, number>;
+  updated_at?: string;
+}
+
 export interface LicenseInfo {
   id: string;
   license_key: string;
@@ -6,6 +22,7 @@ export interface LicenseInfo {
   owner_email: string | null;
   owner_phone: string | null;
   plan: string;
+  features: Record<string, FeatureEntry>;
   storage_quota_mb: number;
   storage_used_mb: number;
   expires_at: string;
@@ -87,7 +104,7 @@ export interface MemberPackage {
   expired_date: string;
   total_sessions: number;
   remaining_sessions: number;
-  status: 'active' | 'expired' | 'depleted';
+  status: 'active' | 'expired' | 'depleted' | 'pending';
   created_at: string;
 }
 
@@ -110,6 +127,7 @@ export interface TrainingSession {
   training_session_id: string;
   session_date: string;
   session_time: string;
+  session_category: 'reguler' | 'pribadi';
   capacity: number;
   coach_id: string | null;
   status: 'scheduled' | 'cancelled';

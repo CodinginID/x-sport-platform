@@ -81,7 +81,6 @@ function PrinterCard() {
   const canAuto = bt.canAutoReconnect();
 
   const handlePairNew = async () => {
-    console.log('[printer] handlePairNew dipanggil; supported=', bt.isSupported());
     setBusy(true);
     setSearching(false); // stop searching UI saat dialog pair dibuka
     try {
@@ -93,7 +92,6 @@ function PrinterCard() {
     } catch (e) {
       setStatus('disconnected');
       const err = e instanceof Error ? e : new Error(String(e));
-      console.warn('[printer] connect gagal:', err.name, err.message);
       // Beri feedback yang jelas — jangan diam saja.
       if (err.name === 'NotFoundError') {
         addToast('Tidak ada printer dipilih / Bluetooth mati. Pastikan Bluetooth Mac aktif lalu coba lagi.', 'warning');

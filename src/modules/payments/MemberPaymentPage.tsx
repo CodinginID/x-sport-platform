@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMembers, usePackages, useMemberPayments, useMemberPaymentMutation } from "@/hooks";
-import { useUnpaidBookings } from "@/hooks/usePayments";
+import { useMembers, usePackages, useMemberPayments, useMemberPackages, usePayPendingPackage } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { Button, Modal, Input, Select } from "@/components/ui";
@@ -41,33 +40,28 @@ export default function MemberPaymentPage() {
   const { data: payments = [], isLoading: paymentsLoading } = useMemberPayments({ startDate, endDate });
   const { data: members = [] } = useMembers();
   const { data: packages = [] } = usePackages();
-  const mutation = useMemberPaymentMutation();
+  const payMutation = usePayPendingPackage();
   const { printPayment } = usePrintReceipt();
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ member_id: "", package_id: "", payment_method: "cash" as "cash" | "transfer" | "qris", notes: "" });
-  const [bookingId, setBookingId] = useState<string | undefined>(undefined);
+  const [form, setForm] = useState({ member_id: "", member_package_id: "", payment_method: "cash" as "cash" | "transfer" | "qris", notes: "" });
   const [pdfUrl, setPdfUrl] = useState("");
 
-  // Fetch unpaid bookings when member is selected
-  const { data: unpaidBookings = [], isLoading: bookingLoading } = useUnpaidBookings(form.member_id);
+  // Paket PENDING (belum bayar) milik member terpilih — pembayaran TIDAK pilih paket dari katalog,
+  // hanya menyelesaikan paket yang sudah dibeli member.
+  const { data: memberPkgs = [], isLoading: pkgsLoading } = useMemberPackages(form.member_id);
+  const pendingPkgs = memberPkgs.filter(mp => mp.status === 'pending');
 
-  // Auto-fill package dari booking terbaru yang belum dibayar
-  useEffect(() => {
-    if (!form.member_id) { setBookingId(undefined); return; }
-    const latest = unpaidBookings[0];
-    if (latest) {
-      setForm(f => ({ ...f, package_id: latest.package_id }));
-      setBookingId(latest.booking_id);
-    } else {
-      setForm(f => ({ ...f, package_id: "" }));
-      setBookingId(undefined);
-    }
-  }, [form.member_id, unpaidBookings]);
-
-  const selectedPkg = packages.find(p => p.package_id === form.package_id);
-  const amount = selectedPkg?.package_price ?? 0;
+  const packageMapPrice = Object.fromEntries(packages.map(p => [p.package_id, p.package_price]));
+  const selectedMp = pendingPkgs.find(mp => mp.member_package_id === form.member_package_id);
+  const amount = selectedMp ? (packageMapPrice[selectedMp.package_id] ?? 0) : 0;
   const totalIncome = payments.reduce((s, p) => s + p.amount, 0);
+
+  // Auto-pilih paket pending bila hanya ada satu (tanpa pilih manual).
+  useEffect(() => {
+    if (pendingPkgs.length === 1) setForm(f => (f.member_package_id ? f : { ...f, member_package_id: pendingPkgs[0].member_package_id }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPkgs.length, form.member_id]);
 
   const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
   const packageMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
@@ -106,19 +100,26 @@ export default function MemberPaymentPage() {
   };
 
   const handleSubmit = async () => {
+    if (!selectedMp) return;
     try {
-      const saved = await mutation.mutateAsync({
+      await payMutation.mutateAsync({
+        member_package_id: selectedMp.member_package_id,
         payment_date: today,
-        member_id: form.member_id,
-        package_id: form.package_id,
         amount,
         payment_method: form.payment_method,
         notes: form.notes,
-        booking_id: bookingId,
       });
+      const saved = {
+        payment_id: crypto.randomUUID(),
+        payment_date: today,
+        member_id: form.member_id,
+        package_id: selectedMp.package_id,
+        amount,
+        payment_method: form.payment_method,
+        notes: form.notes,
+      };
       setModalOpen(false);
-      setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
-      setBookingId(undefined);
+      setForm({ member_id: "", member_package_id: "", payment_method: "cash", notes: "" });
       let note = '';
       if (usePrinterStore.getState().autoPrint && (await printReceipt(saved))) note = ' & struk dicetak';
       addToast(`Pembayaran berhasil disimpan${note}`, 'success');
@@ -220,84 +221,80 @@ export default function MemberPaymentPage() {
             label="Member"
             options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]}
             value={form.member_id}
-            onChange={e => setForm({ ...form, member_id: e.target.value, package_id: "" })}
+            onChange={e => setForm({ ...form, member_id: e.target.value, member_package_id: "" })}
           />
 
-          {/* Step 2: Loading skeleton */}
-          {form.member_id && bookingLoading && (
-            <div className="space-y-3 animate-pulse">
-              <div className="h-14 bg-zen-ink/6 rounded-2xl" />
-              <div className="space-y-1.5">
-                <div className="h-2 bg-zen-ink/8 rounded-full w-16" />
-                <div className="h-11 bg-zen-ink/6 rounded-2xl" />
-              </div>
-            </div>
-          )}
-
-          {/* Step 2a: Booking ditemukan → lanjut ke form bayar */}
-          {form.member_id && !bookingLoading && bookingId && unpaidBookings[0] && (
-            <>
-              {/* Booking card */}
-              <div className="bg-zen-brand/8 rounded-2xl px-4 py-3.5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-zen-brand/15 flex items-center justify-center shrink-0">
-                  <CalendarCheck size={15} className="text-zen-brand" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-zen-brand">Booking aktif ditemukan</p>
-                  <p className="text-[11px] text-zen-ink/50 mt-0.5 truncate">
-                    {packageMap[unpaidBookings[0].package_id] || '—'} · {formatDate(unpaidBookings[0].booking_date)}
-                    {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-zen-brand shrink-0">{formatCurrency(unpaidBookings[0].package_price ?? amount)}</span>
-              </div>
-
-              {/* Nominal */}
-              <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
-
-              {/* Metode bayar */}
-              <Select
-                label={t('payments.method')}
-                options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
-                value={form.payment_method}
-                onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
-              />
-
-              {/* Catatan */}
-              <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button onClick={handleSubmit}>{t('common.save')}</Button>
-              </div>
-            </>
-          )}
-
-          {/* Step 2b: Tidak ada booking → blokir, arahkan buat booking dulu */}
-          {form.member_id && !bookingLoading && !bookingId && (
-            <>
+          {/* Step 2: Pilih paket PENDING milik member (sudah dibeli, belum dibayar) */}
+          {form.member_id && (
+            pkgsLoading ? (
+              <div className="h-14 bg-zen-ink/6 rounded-2xl animate-pulse" />
+            ) : pendingPkgs.length === 0 ? (
               <div className="bg-amber-50 rounded-2xl px-4 py-4 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <CalendarCheck size={15} className="text-amber-500" />
-                </div>
+                <CalendarCheck size={15} className="text-amber-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-bold text-amber-700">Belum ada booking aktif</p>
+                  <p className="text-xs font-bold text-amber-700">Tidak ada paket menunggu pembayaran</p>
                   <p className="text-[11px] text-amber-600/70 mt-0.5 leading-relaxed">
-                    Member ini belum memiliki booking yang menunggu pembayaran. Buat booking sesi terlebih dahulu, kemudian lakukan pembayaran di sini.
+                    Member ini belum membeli paket. Buka menu Member → "Beli Paket" terlebih dahulu.
                   </p>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <Button variant="secondary" onClick={() => setModalOpen(false)}>Tutup</Button>
-              </div>
-            </>
+            ) : (
+              <>
+                {/* Paket pending — kartu, auto-terpilih bila satu, klik untuk pilih bila banyak */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2">Paket Menunggu Pembayaran</p>
+                  <div className="space-y-2">
+                    {pendingPkgs.map(mp => {
+                      const sel = form.member_package_id === mp.member_package_id;
+                      return (
+                        <button key={mp.member_package_id} type="button"
+                          onClick={() => setForm({ ...form, member_package_id: mp.member_package_id })}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all ${sel ? 'bg-zen-brand/8 border-zen-brand' : 'bg-zen-bg border-transparent hover:border-zen-brand/30'}`}>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${sel ? 'bg-zen-brand text-white' : 'bg-zen-brand/10 text-zen-brand'}`}>
+                            <Receipt size={15} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold truncate">{packageMap[mp.package_id] ?? '—'}</p>
+                            <p className="text-[11px] text-zen-ink/40">{mp.total_sessions} sesi</p>
+                          </div>
+                          <span className="text-sm font-bold text-zen-brand shrink-0">{formatCurrency(packageMapPrice[mp.package_id] ?? 0)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {selectedMp && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between px-4 py-3 bg-zen-brand rounded-2xl text-white">
+                      <span className="text-[10px] uppercase tracking-widest font-bold text-white/70">Total Bayar</span>
+                      <span className="text-lg font-bold">{formatCurrency(amount)}</span>
+                    </div>
+                    <Select
+                      label={t('payments.method')}
+                      options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
+                      value={form.payment_method}
+                      onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
+                    />
+                    <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                  </div>
+                )}
+
+                <div className="flex gap-2 justify-end">
+                  <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
+                  <Button onClick={handleSubmit} disabled={!selectedMp || payMutation.isPending}>
+                    {payMutation.isPending ? 'Menyimpan...' : t('common.save')}
+                  </Button>
+                </div>
+              </>
+            )
           )}
 
           {/* Placeholder saat belum pilih member */}
           {!form.member_id && (
             <div className="flex flex-col items-center justify-center py-6 text-zen-ink/20 gap-2">
               <CalendarCheck size={28} />
-              <p className="text-xs text-center">Pilih member untuk melihat<br />booking yang perlu dibayar</p>
+              <p className="text-xs text-center">Pilih member untuk melihat<br />paket yang menunggu pembayaran</p>
             </div>
           )}
 

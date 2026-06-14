@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/utils/zodResolver';
-import { useMembers, useMemberMutation, useSearchPaginate } from '@/hooks';
+import { useMembers, useMemberMutation, useSearchPaginate, useMemberPackages, usePackages, usePurchasePackage } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
+import { useToastStore } from '@/stores/toast';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { Button, Input, Select, Modal, TableSkeleton, QueryError, SearchBar } from '@/components/ui';
 import type { Member } from '@/types';
-import { formatDate } from '@/utils';
+import { formatDate, formatCurrency } from '@/utils';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Plus, ChevronRight, UserRound } from 'lucide-react';
+import { Plus, ChevronRight, UserRound, Package } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 
 function initials(name: string) {
@@ -21,9 +22,35 @@ export default function MembersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: members = [], isLoading, isError, refetch } = useMembers();
+  const { data: allPackages = [] } = useMemberPackages();
+  const { data: catalog = [] } = usePackages();
+  const purchase = usePurchasePackage();
+  const addToast = useToastStore(s => s.addToast);
   const mutation = useMemberMutation();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [buyFor, setBuyFor] = useState<Member | null>(null);
+  const [buyPkgId, setBuyPkgId] = useState('');
+
+  // Ringkasan status paket per member: aktif (jumlah sisa sesi), pending, atau belum punya.
+  const pkgStatus = (memberId: string): { label: string; cls: string } => {
+    const mps = allPackages.filter(p => p.member_id === memberId);
+    const active = mps.filter(p => p.status === 'active');
+    if (active.length) {
+      const sisa = active.reduce((s, p) => s + p.remaining_sessions, 0);
+      return { label: `Aktif · ${sisa} sesi`, cls: 'bg-green-100 text-green-700' };
+    }
+    if (mps.some(p => p.status === 'pending')) return { label: 'Belum bayar', cls: 'bg-amber-100 text-amber-700' };
+    return { label: 'Belum punya paket', cls: 'bg-zen-ink/8 text-zen-ink/50' };
+  };
+
+  const doBuy = () => {
+    if (!buyFor || !buyPkgId) return;
+    purchase.mutate({ member_id: buyFor.member_id, package_id: buyPkgId }, {
+      onSuccess: () => { addToast('Paket ditambahkan — lanjut ke Pembayaran untuk settle', 'success'); setBuyFor(null); setBuyPkgId(''); },
+      onError: (e) => addToast(e instanceof Error ? e.message : 'Gagal beli paket', 'error'),
+    });
+  };
   const { register, handleSubmit, reset, formState: { errors } } = useForm<MemberFormData>({ resolver: zodResolver(memberSchema) });
 
   const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
@@ -100,11 +127,18 @@ export default function MembersPage() {
                     <p className="text-xs text-zen-ink/40 truncate">{m.phone_number || m.email || '—'}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline ${m.status_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                      {m.status_active ? t('members.active') : t('members.inactive')}
-                    </span>
+                    {(() => { const st = pkgStatus(m.member_id); return (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline ${st.cls}`}>{st.label}</span>
+                    ); })()}
                     <span className="text-[10px] text-zen-ink/30 hidden md:inline">{formatDate(m.join_date)}</span>
                     <div className="flex gap-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); setBuyFor(m); setBuyPkgId(''); }}
+                        className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/40 hover:text-zen-brand transition-colors"
+                        title="Beli paket"
+                      >
+                        <Package size={14} />
+                      </button>
                       <button
                         onClick={e => { e.stopPropagation(); openEdit(m); }}
                         className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-brand/10 flex items-center justify-center text-zen-ink/40 hover:text-zen-brand transition-colors text-xs font-bold"
@@ -130,6 +164,27 @@ export default function MembersPage() {
           )}
         </div>
       )}
+
+      {/* Beli Paket modal */}
+      <Modal open={!!buyFor} onClose={() => { setBuyFor(null); setBuyPkgId(''); }} title={`Beli Paket — ${buyFor?.full_name ?? ''}`}>
+        <div className="space-y-4">
+          <Select
+            label="Paket"
+            options={[{ value: '', label: 'Pilih paket...' }, ...catalog.map(p => ({ value: p.package_id, label: `${p.package_name} (${p.package_category === 'pribadi' ? 'Private' : 'Reguler'}) — ${formatCurrency(p.package_price)}` }))]}
+            value={buyPkgId}
+            onChange={e => setBuyPkgId(e.target.value)}
+          />
+          <p className="text-[11px] text-zen-ink/40 leading-relaxed">
+            Paket akan berstatus <b>belum bayar</b>. Lanjut ke menu Pembayaran untuk menyelesaikan, lalu member bisa ikut sesi.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => { setBuyFor(null); setBuyPkgId(''); }}>{t('common.cancel')}</Button>
+            <Button onClick={doBuy} disabled={!buyPkgId || purchase.isPending}>
+              {purchase.isPending ? 'Memproses...' : 'Beli Paket'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 

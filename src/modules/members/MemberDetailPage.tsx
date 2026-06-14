@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMember, useBookings, useMemberPayments, useMemberPackages } from '@/hooks';
+import { useMember, useBookings, useMemberPayments, useMemberPackages, usePackages, useCancelPendingPackage } from '@/hooks';
 import { formatDate, formatCurrency } from '@/utils';
 import type { Booking, MemberPayment, MemberPackage } from '@/types';
 import { ArrowLeft, Phone, Mail, MapPin, Calendar, CreditCard, Award } from 'lucide-react';
@@ -33,9 +33,19 @@ export default function MemberDetailPage() {
   const { data: bookings = [] } = useBookings({ member_id });
   const { data: payments = [] } = useMemberPayments({ member_id });
   const { data: packages = [] } = useMemberPackages(member_id);
+  const { data: catalog = [] } = usePackages();
+  const cancelPending = useCancelPendingPackage();
   const [tab, setTab] = useState<Tab>('booking');
 
   if (!member) return null;
+
+  const pkgName = (pid: string) => catalog.find(c => c.package_id === pid)?.package_name ?? 'Paket';
+  const MP_STATUS: Record<string, { label: string; cls: string }> = {
+    active: { label: 'Aktif', cls: 'bg-green-100 text-green-700' },
+    pending: { label: 'Belum bayar', cls: 'bg-amber-100 text-amber-700' },
+    depleted: { label: 'Habis', cls: 'bg-zen-ink/8 text-zen-ink/50' },
+    expired: { label: 'Kadaluarsa', cls: 'bg-red-100 text-red-600' },
+  };
 
   const attended = bookings.filter(b => b.booking_status === 'attended');
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
@@ -166,19 +176,29 @@ export default function MemberDetailPage() {
                 <div key={p.member_package_id} className="px-5 py-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold">Paket</p>
+                      <p className="text-sm font-bold">{pkgName(p.package_id)}</p>
                       <p className="text-xs text-zen-ink/40">Exp: {formatDate(p.expired_date)}</p>
                     </div>
-                    <div className="text-right">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                        {p.remaining_sessions}/{p.total_sessions} sesi
+                    <div className="text-right space-y-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${(MP_STATUS[p.status] ?? MP_STATUS.depleted).cls}`}>
+                        {(MP_STATUS[p.status] ?? MP_STATUS.depleted).label}
                       </span>
+                      <p className="text-xs font-bold text-zen-ink/60">{p.remaining_sessions}/{p.total_sessions} sesi</p>
                     </div>
                   </div>
                   <div className="h-1.5 bg-zen-ink/5 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all ${pct > 50 ? 'bg-green-400' : pct > 20 ? 'bg-amber-400' : 'bg-red-400'}`}
                       style={{ width: `${pct}%` }} />
                   </div>
+                  {p.status === 'pending' && (
+                    <button
+                      onClick={() => cancelPending.mutate(p.member_package_id)}
+                      disabled={cancelPending.isPending}
+                      className="text-[11px] font-bold text-red-500 hover:text-red-600 disabled:opacity-50"
+                    >
+                      Batalkan paket belum bayar
+                    </button>
+                  )}
                 </div>
               );
             })
