@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMember, useBookings, useMemberPayments, useMemberPackages, usePackages } from '@/hooks';
+import { useMember, useBookings, useMemberPayments, useMemberPackages, usePackages, useCancelPendingPackage } from '@/hooks';
 import { formatDate, formatCurrency } from '@/utils';
 import type { Booking, MemberPayment, MemberPackage } from '@/types';
 import { ArrowLeft, Phone, Mail, MapPin, Calendar, CreditCard, Award } from 'lucide-react';
@@ -34,6 +34,7 @@ export default function MemberDetailPage() {
   const { data: payments = [] } = useMemberPayments({ member_id });
   const { data: packages = [] } = useMemberPackages(member_id);
   const { data: catalog = [] } = usePackages();
+  const cancelPending = useCancelPendingPackage();
   const [tab, setTab] = useState<Tab>('booking');
 
   if (!member) return null;
@@ -189,6 +190,15 @@ export default function MemberDetailPage() {
                     <div className={`h-full rounded-full transition-all ${pct > 50 ? 'bg-green-400' : pct > 20 ? 'bg-amber-400' : 'bg-red-400'}`}
                       style={{ width: `${pct}%` }} />
                   </div>
+                  {p.status === 'pending' && (
+                    <button
+                      onClick={() => cancelPending.mutate(p.member_package_id)}
+                      disabled={cancelPending.isPending}
+                      className="text-[11px] font-bold text-red-500 hover:text-red-600 disabled:opacity-50"
+                    >
+                      Batalkan paket belum bayar
+                    </button>
+                  )}
                 </div>
               );
             })

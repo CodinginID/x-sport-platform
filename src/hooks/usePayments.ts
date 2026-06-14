@@ -144,6 +144,24 @@ export function usePurchasePackage() {
   });
 }
 
+/** Batalkan paket pending (belum bayar) → hapus. */
+export function useCancelPendingPackage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (member_package_id: string) => {
+      const studioId = requireStudioId();
+      const { error } = await supabase.rpc('cancel_pending_package', {
+        p_member_package_id: member_package_id,
+        p_studio_id: studioId,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['memberPackages'] });
+    },
+  });
+}
+
 /** Bayar paket pending → aktifkan + catat pembayaran. */
 export function usePayPendingPackage() {
   const qc = useQueryClient();
