@@ -3,6 +3,7 @@ import { useMembers, usePackages, useMemberPayments, useMemberPackages, usePayPe
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { Button, Modal, Input, Select } from "@/components/ui";
+import { SmartSelect } from "@/components/ui/SmartSelect";
 import { ListSkeleton } from "@/components/Skeleton";
 import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
@@ -38,7 +39,7 @@ export default function MemberPaymentPage() {
   const [endDate, setEndDate] = useState(today);
 
   const { data: payments = [], isLoading: paymentsLoading } = useMemberPayments({ startDate, endDate });
-  const { data: members = [] } = useMembers();
+  const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: packages = [] } = usePackages();
   const payMutation = usePayPendingPackage();
   const { printPayment } = usePrintReceipt();
@@ -217,11 +218,13 @@ export default function MemberPaymentPage() {
         <div className="space-y-4">
 
           {/* Step 1: Pilih member */}
-          <Select
+          <SmartSelect
             label="Member"
-            options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]}
+            placeholder={t('payments.select_member')}
+            options={members.map(m => ({ value: m.member_id, label: m.full_name }))}
             value={form.member_id}
-            onChange={e => setForm({ ...form, member_id: e.target.value, member_package_id: "" })}
+            loading={membersLoading}
+            onChange={v => setForm({ ...form, member_id: v, member_package_id: "" })}
           />
 
           {/* Step 2: Pilih paket PENDING milik member (sudah dibeli, belum dibayar) */}
