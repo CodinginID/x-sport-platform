@@ -18,4 +18,7 @@ describe('featureState', () => {
   it('trial_expired bila sudah lewat', () => {
     expect(featureState({ premium_booking: { status: 'trial', trial_ends_at: '2026-06-13T00:00:00Z' } }, 'premium_booking', NOW).state).toBe('trial_expired');
   });
+  it('sudah pernah trial (dicabut) → trial_expired, bukan locked (harus bayar)', () => {
+    expect(featureState({ premium_booking: { status: 'trial', trial_ends_at: '2000-01-01T00:00:00Z', trial_used: true } }, 'premium_booking', NOW).state).toBe('trial_expired');
+  });
 });

@@ -600,7 +600,11 @@ export default function LicensesPage() {
     await fetchAll();
   };
   const handleActivateFeature = (lic: LicenseRow, key: string) => writeFeature(lic, key, { status: 'active' });
-  const handleRevokeFeature = (lic: LicenseRow, key: string) => writeFeature(lic, key, null);
+  // Cabut: bukan hapus entry — simpan jejak trial_used agar studio tidak bisa trial gratis lagi (harus bayar).
+  const handleRevokeFeature = (lic: LicenseRow, key: string) => {
+    const prev = lic.features?.[key];
+    writeFeature(lic, key, { status: 'trial', trial_ends_at: '2000-01-01T00:00:00Z', trial_used: prev?.trial_used ?? true });
+  };
 
   const handleApprove = (lic: LicenseRow) => {
     setConfirm({
