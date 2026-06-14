@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMembers, usePackages, useMemberPayments, useMemberPackages, usePayPendingPackage } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
@@ -56,6 +56,12 @@ export default function MemberPaymentPage() {
   const selectedMp = pendingPkgs.find(mp => mp.member_package_id === form.member_package_id);
   const amount = selectedMp ? (packageMapPrice[selectedMp.package_id] ?? 0) : 0;
   const totalIncome = payments.reduce((s, p) => s + p.amount, 0);
+
+  // Auto-pilih paket pending bila hanya ada satu (tanpa pilih manual).
+  useEffect(() => {
+    if (pendingPkgs.length === 1) setForm(f => (f.member_package_id ? f : { ...f, member_package_id: pendingPkgs[0].member_package_id }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPkgs.length, form.member_id]);
 
   const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
   const packageMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
@@ -234,19 +240,36 @@ export default function MemberPaymentPage() {
               </div>
             ) : (
               <>
-                <Select
-                  label="Paket Belum Dibayar"
-                  options={[{ value: "", label: "Pilih paket..." }, ...pendingPkgs.map(mp => ({
-                    value: mp.member_package_id,
-                    label: `${packageMap[mp.package_id] ?? '—'} — ${formatCurrency(packageMapPrice[mp.package_id] ?? 0)}`,
-                  }))]}
-                  value={form.member_package_id}
-                  onChange={e => setForm({ ...form, member_package_id: e.target.value })}
-                />
+                {/* Paket pending — kartu, auto-terpilih bila satu, klik untuk pilih bila banyak */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2">Paket Menunggu Pembayaran</p>
+                  <div className="space-y-2">
+                    {pendingPkgs.map(mp => {
+                      const sel = form.member_package_id === mp.member_package_id;
+                      return (
+                        <button key={mp.member_package_id} type="button"
+                          onClick={() => setForm({ ...form, member_package_id: mp.member_package_id })}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all ${sel ? 'bg-zen-brand/8 border-zen-brand' : 'bg-zen-bg border-transparent hover:border-zen-brand/30'}`}>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${sel ? 'bg-zen-brand text-white' : 'bg-zen-brand/10 text-zen-brand'}`}>
+                            <Receipt size={15} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold truncate">{packageMap[mp.package_id] ?? '—'}</p>
+                            <p className="text-[11px] text-zen-ink/40">{mp.total_sessions} sesi</p>
+                          </div>
+                          <span className="text-sm font-bold text-zen-brand shrink-0">{formatCurrency(packageMapPrice[mp.package_id] ?? 0)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {selectedMp && (
-                  <>
-                    <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between px-4 py-3 bg-zen-brand rounded-2xl text-white">
+                      <span className="text-[10px] uppercase tracking-widest font-bold text-white/70">Total Bayar</span>
+                      <span className="text-lg font-bold">{formatCurrency(amount)}</span>
+                    </div>
                     <Select
                       label={t('payments.method')}
                       options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
@@ -254,7 +277,7 @@ export default function MemberPaymentPage() {
                       onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
                     />
                     <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
-                  </>
+                  </div>
                 )}
 
                 <div className="flex gap-2 justify-end">

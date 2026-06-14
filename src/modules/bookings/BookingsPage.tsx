@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Calendar, Plus, CalendarX, Sparkles } from 'lucide-react';
 import { ListSkeleton } from '@/components/Skeleton';
-import { formatDate } from '@/utils';
-import { useTrainingSessions, useSessionCounts, useCoaches, slotInfo } from '@/hooks';
+import { useTrainingSessions, useSessionCounts, useCoaches } from '@/hooks';
 import { FeatureGate } from '@/components/FeatureGate';
 import { CreateSessionModal } from './CreateSessionModal';
 import { SessionDetailSheet } from './SessionDetailSheet';
+import { ScheduleDefault, SchedulePremium } from './ScheduleViews';
 import type { TrainingSession } from '@/types';
 
 const todayLocal = () => {
@@ -66,41 +66,18 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      {isLoading ? <ListSkeleton rows={5} /> : (
-        <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-          {sessions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 text-zen-ink/30">
-              <CalendarX size={32} className="mb-3" />
-              <p className="text-sm">Belum ada sesi pada periode ini</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-zen-ink/5">
-              {sessions.map(s => {
-                const slot = slotInfo(counts[s.training_session_id] ?? 0, s.capacity);
-                return (
-                  <div key={s.training_session_id} onClick={() => setDetail(s)}
-                    className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-zen-bg transition-colors">
-                    <div className="w-20 shrink-0">
-                      <p className="text-sm font-bold text-zen-ink leading-tight">{s.session_time || 'Sesi'}</p>
-                      <p className="text-[11px] text-zen-ink/40">{formatDate(s.session_date)}</p>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ${s.session_category === 'pribadi' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {s.session_category === 'pribadi' ? 'Private' : 'Reguler'}
-                      </span>
-                      <p className="text-xs text-zen-ink/50 truncate mt-1">
-                        {s.coach_id ? `Coach ${coachMap[s.coach_id] ?? '—'}` : <span className="text-amber-600">Belum ada coach</span>}
-                      </p>
-                    </div>
-                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${slot.isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                      {slot.isFull ? 'PENUH' : `${slot.filled}/${slot.capacity}`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {isLoading ? <ListSkeleton rows={5} /> : sessions.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-zen-ink/5 flex flex-col items-center justify-center py-14 text-zen-ink/30">
+          <CalendarX size={32} className="mb-3" />
+          <p className="text-sm">Belum ada sesi pada periode ini</p>
         </div>
+      ) : (
+        <FeatureGate
+          feature="premium_booking"
+          fallback={<ScheduleDefault sessions={sessions} counts={counts} coachMap={coachMap} onOpen={setDetail} />}
+        >
+          <SchedulePremium sessions={sessions} counts={counts} coachMap={coachMap} onOpen={setDetail} />
+        </FeatureGate>
       )}
 
       <CreateSessionModal open={createOpen} onClose={() => setCreateOpen(false)} />
