@@ -1,3 +1,9 @@
+export interface FeatureEntry {
+  status: 'trial' | 'active';
+  trial_ends_at?: string;
+  trial_used?: boolean;
+}
+
 export interface LicenseInfo {
   id: string;
   license_key: string;
@@ -6,7 +12,7 @@ export interface LicenseInfo {
   owner_email: string | null;
   owner_phone: string | null;
   plan: string;
-  features: string[];
+  features: Record<string, FeatureEntry>;
   storage_quota_mb: number;
   storage_used_mb: number;
   expires_at: string;

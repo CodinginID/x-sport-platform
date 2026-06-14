@@ -24,6 +24,7 @@ const BookingsPage    = lazyWithReload(() => import('@/modules/bookings/Bookings
 const ProductSalesPage= lazyWithReload(() => import('@/modules/payments/ProductSalesPage'));
 const MemberPaymentPage=lazyWithReload(() => import('@/modules/payments/MemberPaymentPage'));
 const CommissionsPage = lazyWithReload(() => import('@/modules/commissions/CommissionsPage'));
+const AddonsPage      = lazyWithReload(() => import('@/modules/addons/AddonsPage'));
 const ReportsPage     = lazyWithReload(() => import('@/modules/reports/ReportsPage'));
 const SettingsPage    = lazyWithReload(() => import('@/modules/settings/SettingsPage'));
 const SuperAdminPage  = lazyWithReload(() => import('@/modules/superadmin/SuperAdminPage'));
@@ -138,6 +139,7 @@ export default function App() {
           <Route element={<OwnerGuard />}>
             <Route path="/commissions" element={<CommissionsPage />} />
             <Route path="/reports"     element={<ReportsPage />} />
+            <Route path="/addons"      element={<AddonsPage />} />
           </Route>
 
           {/* Superadmin-only */}

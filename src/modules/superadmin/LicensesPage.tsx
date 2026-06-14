@@ -10,6 +10,8 @@ import {
   Users, Eye, EyeOff, Info, Sparkles,
 } from 'lucide-react';
 import { FEATURES, FEATURE_KEYS } from '@/config/features';
+import { featureState } from '@/lib/featureState';
+import type { FeatureEntry } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +29,7 @@ interface License {
   disabled_at: string | null;
   storage_quota_mb: number;
   storage_used_mb: number;
-  features?: string[];
+  features?: Record<string, FeatureEntry>;
 }
 
 // 3 distinct states for a license:
@@ -221,7 +223,7 @@ function SessionDrawer({ license, sessions, onClose }: {
 
 // ─── License Row (table row) ──────────────────────────────────────────────────
 
-function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onResetActivation, onCopyKey, onShowSessions, onToggleFeature, isProcessing, copiedId }: {
+function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onResetActivation, onCopyKey, onShowSessions, onActivateFeature, onRevokeFeature, isProcessing, copiedId }: {
   row: LicenseRow;
   onApprove: () => void;
   onReject: () => void;
@@ -231,7 +233,8 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForc
   onResetActivation: () => void;
   onCopyKey: () => void;
   onShowSessions: () => void;
-  onToggleFeature: (key: string, on: boolean) => void;
+  onActivateFeature: (key: string) => void;
+  onRevokeFeature: (key: string) => void;
   isProcessing: boolean;
   copiedId: string | null;
 }) {
@@ -451,20 +454,35 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForc
             </p>
             <div className="space-y-2">
               {FEATURE_KEYS.map((key) => {
-                const on = Array.isArray(row.features) && row.features.includes(key);
+                const { state, trialDaysLeft } = featureState(row.features, key, new Date().toISOString());
+                const stateLabel = state === 'active' ? 'Aktif'
+                  : state === 'trial' ? `Trial — sisa ${trialDaysLeft} hari`
+                  : state === 'trial_expired' ? 'Trial habis'
+                  : 'Terkunci';
+                const stateColor = state === 'active' ? 'text-green-600'
+                  : state === 'trial' ? 'text-zen-brand'
+                  : state === 'trial_expired' ? 'text-amber-600'
+                  : 'text-zen-ink/40';
                 return (
                   <div key={key} className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-zen-ink truncate">{FEATURES[key].label}</p>
-                      <p className="text-[11px] text-zen-ink/40 truncate">{FEATURES[key].description}</p>
+                      <p className={`text-[11px] font-bold ${stateColor}`}>{stateLabel}</p>
                     </div>
-                    <button
-                      onClick={() => onToggleFeature(key, !on)}
-                      className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${on ? 'bg-zen-brand' : 'bg-zen-ink/15'}`}
-                      title={on ? 'Nonaktifkan' : 'Aktifkan'}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {state !== 'active' && (
+                        <button onClick={() => onActivateFeature(key)}
+                          className="px-3 py-1.5 rounded-xl bg-green-500 text-white text-[11px] font-bold hover:bg-green-600">
+                          Aktifkan
+                        </button>
+                      )}
+                      {(state === 'active' || state === 'trial') && (
+                        <button onClick={() => onRevokeFeature(key)}
+                          className="px-3 py-1.5 rounded-xl bg-red-50 text-red-500 text-[11px] font-bold hover:bg-red-100">
+                          Cabut
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -573,13 +591,16 @@ export default function LicensesPage() {
     return true;
   });
 
-  const handleToggleFeature = async (lic: LicenseRow, key: string, on: boolean) => {
-    const current = Array.isArray(lic.features) ? lic.features : [];
-    const next = on ? Array.from(new Set([...current, key])) : current.filter(f => f !== key);
-    const { error: updErr } = await supabase.from('licenses').update({ features: next }).eq('id', lic.id);
+  const writeFeature = async (lic: LicenseRow, key: string, entry: FeatureEntry | null) => {
+    const cur: Record<string, FeatureEntry> = (lic.features && typeof lic.features === 'object') ? { ...lic.features } : {};
+    if (entry === null) delete cur[key];
+    else cur[key] = entry;
+    const { error: updErr } = await supabase.from('licenses').update({ features: cur }).eq('id', lic.id);
     if (updErr) { setError('Gagal ubah fitur: ' + updErr.message); return; }
     await fetchAll();
   };
+  const handleActivateFeature = (lic: LicenseRow, key: string) => writeFeature(lic, key, { status: 'active' });
+  const handleRevokeFeature = (lic: LicenseRow, key: string) => writeFeature(lic, key, null);
 
   const handleApprove = (lic: LicenseRow) => {
     setConfirm({
@@ -840,7 +861,8 @@ export default function LicensesPage() {
               onResetActivation={() => handleResetActivation(row)}
               onCopyKey={() => handleCopyKey(row)}
               onShowSessions={() => setSessionDrawer(row)}
-              onToggleFeature={(key, on) => handleToggleFeature(row, key, on)}
+              onActivateFeature={(key) => handleActivateFeature(row, key)}
+              onRevokeFeature={(key) => handleRevokeFeature(row, key)}
               isProcessing={actionLoading === row.id}
               copiedId={copiedId}
             />

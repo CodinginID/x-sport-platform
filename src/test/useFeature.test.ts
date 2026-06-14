@@ -3,35 +3,34 @@ import { renderHook } from '@testing-library/react';
 import { useFeature } from '@/hooks/useFeature';
 import { useAuthStore } from '@/stores/auth';
 
-function setAuth(partial: Record<string, unknown>) {
-  useAuthStore.setState(partial as never);
-}
+function setAuth(p: Record<string, unknown>) { useAuthStore.setState(p as never); }
+const future = '2999-01-01T00:00:00Z';
+const past = '2000-01-01T00:00:00Z';
 
 describe('useFeature', () => {
-  beforeEach(() => {
-    setAuth({ user: { role: 'owner' }, licenseInfo: null });
-  });
+  beforeEach(() => setAuth({ user: { role: 'owner' }, licenseInfo: null }));
 
   it('false bila tidak ada licenseInfo', () => {
-    const { result } = renderHook(() => useFeature('premium_booking'));
-    expect(result.current).toBe(false);
+    expect(renderHook(() => useFeature('premium_booking')).result.current).toBe(false);
   });
-
-  it('false bila fitur tidak ada di features', () => {
-    setAuth({ user: { role: 'owner' }, licenseInfo: { features: [] } });
-    const { result } = renderHook(() => useFeature('premium_booking'));
-    expect(result.current).toBe(false);
+  it('false bila locked', () => {
+    setAuth({ user: { role: 'owner' }, licenseInfo: { features: {} } });
+    expect(renderHook(() => useFeature('premium_booking')).result.current).toBe(false);
   });
-
-  it('true bila fitur ada di features', () => {
-    setAuth({ user: { role: 'owner' }, licenseInfo: { features: ['premium_booking'] } });
-    const { result } = renderHook(() => useFeature('premium_booking'));
-    expect(result.current).toBe(true);
+  it('true bila active', () => {
+    setAuth({ user: { role: 'owner' }, licenseInfo: { features: { premium_booking: { status: 'active' } } } });
+    expect(renderHook(() => useFeature('premium_booking')).result.current).toBe(true);
   });
-
-  it('superadmin selalu true (preview)', () => {
+  it('true bila trial berjalan', () => {
+    setAuth({ user: { role: 'owner' }, licenseInfo: { features: { premium_booking: { status: 'trial', trial_ends_at: future } } } });
+    expect(renderHook(() => useFeature('premium_booking')).result.current).toBe(true);
+  });
+  it('false bila trial habis', () => {
+    setAuth({ user: { role: 'owner' }, licenseInfo: { features: { premium_booking: { status: 'trial', trial_ends_at: past } } } });
+    expect(renderHook(() => useFeature('premium_booking')).result.current).toBe(false);
+  });
+  it('superadmin selalu true', () => {
     setAuth({ user: { role: 'superadmin' }, licenseInfo: null });
-    const { result } = renderHook(() => useFeature('premium_booking'));
-    expect(result.current).toBe(true);
+    expect(renderHook(() => useFeature('premium_booking')).result.current).toBe(true);
   });
 });
