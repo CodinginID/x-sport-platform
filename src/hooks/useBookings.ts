@@ -84,6 +84,7 @@ export function useBookingMutation() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['bookings'] });
       qc.invalidateQueries({ queryKey: ['memberPackages'] });
+      qc.invalidateQueries({ queryKey: ['activeMemberPackages'] });
       qc.invalidateQueries({ queryKey: ['unpaidBookings'] });
       qc.invalidateQueries({ queryKey: ['coachCommissions'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });

@@ -101,17 +101,21 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
                     </p>
                     <p className="text-[11px] text-zen-ink/40">{p.booking_status === 'attended' ? 'Hadir' : 'Terdaftar'}</p>
                   </div>
-                  {p.booking_status === 'booked' && (
+                  {p.booking_status === 'booked' ? (
                     <>
                       <button onClick={() => bookingMutation.mutate({ action: 'attend', booking: { booking_id: p.booking_id } })}
-                        className="w-8 h-8 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center" title="Hadir">
-                        <CheckCircle2 size={15} />
+                        disabled={bookingMutation.isPending}
+                        className="flex items-center gap-1.5 px-3 h-8 rounded-xl bg-green-500 text-white text-xs font-bold hover:bg-green-600 disabled:opacity-50" title="Tandai hadir (kurangi sisa sesi)">
+                        <CheckCircle2 size={14} /> Hadir
                       </button>
                       <button onClick={() => bookingMutation.mutate({ action: 'cancel', booking: { booking_id: p.booking_id } })}
-                        className="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center" title="Batalkan">
+                        disabled={bookingMutation.isPending}
+                        className="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center disabled:opacity-50" title="Batalkan">
                         <XCircle size={15} />
                       </button>
                     </>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-green-600"><CheckCircle2 size={13} /> Hadir</span>
                   )}
                 </div>
               ))}
