@@ -1,5 +1,5 @@
 import { db } from '@/database/db';
-import type { Member, Coach, Product, Package, PackageCoach, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
+import type { Member, Coach, Product, Package, MemberPackage, Booking, ProductSale, MemberPayment, CoachCommission } from '@/types';
 import { format, subDays, addDays } from 'date-fns';
 
 export async function seedDatabase() {
@@ -34,8 +34,8 @@ export async function seedDatabase() {
   ];
 
   const coaches: Coach[] = [
-    { coach_id: coachId1, full_name: 'Rizky Firmansyah', phone_number: '081511223344', email: 'rizky@studio.com', active_status: true, notes: 'Specialist badminton', created_at: now, updated_at: now },
-    { coach_id: coachId2, full_name: 'Dewi Lestari', phone_number: '081655667788', email: 'dewi@studio.com', active_status: true, notes: 'Yoga & pilates', created_at: now, updated_at: now },
+    { coach_id: coachId1, full_name: 'Rizky Firmansyah', phone_number: '081511223344', email: 'rizky@studio.com', active_status: true, commission_regular_pct: 15, commission_private_pct: 20, notes: 'Specialist badminton', created_at: now, updated_at: now },
+    { coach_id: coachId2, full_name: 'Dewi Lestari', phone_number: '081655667788', email: 'dewi@studio.com', active_status: true, commission_regular_pct: 10, commission_private_pct: 20, notes: 'Yoga & pilates', created_at: now, updated_at: now },
   ];
 
   const products: Product[] = [
@@ -45,16 +45,9 @@ export async function seedDatabase() {
   ];
 
   const packages: Package[] = [
-    { package_id: packageId1, package_name: 'Paket 10 Sesi Badminton', package_type: 'session', session_count: 10, valid_days: 30, package_price: 500000, description: '10 sesi latihan badminton', active_status: true, created_at: now, updated_at: now },
-    { package_id: packageId2, package_name: 'Paket Bulanan Gym', package_type: 'duration', session_count: null, valid_days: 30, package_price: 350000, description: 'Akses gym 30 hari', active_status: true, created_at: now, updated_at: now },
-    { package_id: packageId3, package_name: 'Paket 5 Sesi Yoga', package_type: 'session', session_count: 5, valid_days: 14, package_price: 300000, description: '5 sesi yoga privat', active_status: true, created_at: now, updated_at: now },
-  ];
-
-  const packageCoaches: PackageCoach[] = [
-    { package_coach_id: crypto.randomUUID(), package_id: packageId1, coach_id: coachId1, commission_percentage: 15, created_at: now },
-    { package_coach_id: crypto.randomUUID(), package_id: packageId3, coach_id: coachId2, commission_percentage: 20, created_at: now },
-    { package_coach_id: crypto.randomUUID(), package_id: packageId2, coach_id: coachId1, commission_percentage: 10, created_at: now },
-    { package_coach_id: crypto.randomUUID(), package_id: packageId2, coach_id: coachId2, commission_percentage: 10, created_at: now },
+    { package_id: packageId1, package_name: 'Paket 10 Sesi Badminton', package_category: 'reguler', session_count: 10, valid_days: 30, package_price: 500000, description: '10 sesi latihan badminton', active_status: true, created_at: now, updated_at: now },
+    { package_id: packageId2, package_name: 'Paket Bulanan Gym', package_category: 'reguler', session_count: 12, valid_days: 30, package_price: 350000, description: 'Akses gym 30 hari', active_status: true, created_at: now, updated_at: now },
+    { package_id: packageId3, package_name: 'Paket 5 Sesi Yoga Privat', package_category: 'pribadi', session_count: 5, valid_days: 14, package_price: 300000, description: '5 sesi yoga privat', active_status: true, created_at: now, updated_at: now },
   ];
 
   const memberPackages: MemberPackage[] = [
@@ -63,9 +56,9 @@ export async function seedDatabase() {
   ];
 
   const bookings: Booking[] = [
-    { booking_id: bookingId1, booking_date: today, booking_time: '08:00', member_id: memberId1, coach_id: coachId1, package_id: packageId1, member_package_id: memberPackageId1, package_price: 500000, booking_status: 'booked', created_at: now, updated_at: now },
-    { booking_id: bookingId2, booking_date: format(subDays(new Date(), 2), 'yyyy-MM-dd'), booking_time: '10:00', member_id: memberId2, coach_id: coachId2, package_id: packageId3, member_package_id: memberPackageId2, package_price: 300000, booking_status: 'completed', created_at: now, updated_at: now },
-    { booking_id: bookingId3, booking_date: format(subDays(new Date(), 1), 'yyyy-MM-dd'), booking_time: '14:00', member_id: memberId1, coach_id: coachId1, package_id: packageId1, member_package_id: memberPackageId1, package_price: 500000, booking_status: 'cancelled', created_at: now, updated_at: now },
+    { booking_id: bookingId1, booking_date: today, booking_time: '08:00', member_id: memberId1, coach_id: coachId1, package_id: packageId1, member_package_id: memberPackageId1, training_session_id: null, package_price: 500000, booking_status: 'booked', created_at: now, updated_at: now },
+    { booking_id: bookingId2, booking_date: format(subDays(new Date(), 2), 'yyyy-MM-dd'), booking_time: '10:00', member_id: memberId2, coach_id: coachId2, package_id: packageId3, member_package_id: memberPackageId2, training_session_id: null, package_price: 300000, booking_status: 'completed', created_at: now, updated_at: now },
+    { booking_id: bookingId3, booking_date: format(subDays(new Date(), 1), 'yyyy-MM-dd'), booking_time: '14:00', member_id: memberId1, coach_id: coachId1, package_id: packageId1, member_package_id: memberPackageId1, training_session_id: null, package_price: 500000, booking_status: 'cancelled', created_at: now, updated_at: now },
   ];
 
   const productSales: ProductSale[] = [{
@@ -96,12 +89,11 @@ export async function seedDatabase() {
     { commission_id: crypto.randomUUID(), coach_id: coachId2, booking_id: bookingId2, member_id: memberId2, package_price: 300000, commission_percentage: 15, commission_amount: 45000, date: format(subDays(new Date(), 2), 'yyyy-MM-dd'), created_at: now },
   ];
 
-  await db.transaction('rw', [db.members, db.coaches, db.products, db.packages, db.packageCoaches, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
+  await db.transaction('rw', [db.members, db.coaches, db.products, db.packages, db.memberPackages, db.bookings, db.productSales, db.memberPayments, db.coachCommissions], async () => {
     await db.members.bulkPut(members);
     await db.coaches.bulkPut(coaches);
     await db.products.bulkPut(products);
     await db.packages.bulkPut(packages);
-    await db.packageCoaches.bulkPut(packageCoaches);
     await db.memberPackages.bulkPut(memberPackages);
     await db.bookings.bulkPut(bookings);
     await db.productSales.bulkPut(productSales);

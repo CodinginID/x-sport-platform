@@ -14,6 +14,9 @@ export const coachSchema = z.object({
   full_name: z.string().min(1, 'Nama wajib diisi'),
   phone_number: z.string().min(1, 'No. telepon wajib diisi').regex(/^[0-9+\-\s()]+$/, 'Format telepon tidak valid'),
   email: z.string().email('Format email tidak valid').or(z.literal('')),
+  // Komisi per kategori paket (persen). 0–100.
+  commission_regular_pct: z.coerce.number().min(0, 'Minimal 0').max(100, 'Maksimal 100'),
+  commission_private_pct: z.coerce.number().min(0, 'Minimal 0').max(100, 'Maksimal 100'),
   notes: z.string(),
 });
 
@@ -28,7 +31,7 @@ export const productSchema = z.object({
 
 export const packageSchema = z.object({
   package_name: z.string().min(1, 'Nama paket wajib diisi'),
-  package_type: z.enum(['session', 'duration']),
+  package_category: z.enum(['reguler', 'pribadi']),
   session_count: z.coerce.number().nullable(),
   valid_days: z.coerce.number().min(1, 'Minimal 1 hari'),
   package_price: z.coerce.number().min(1, 'Harga harus > 0'),

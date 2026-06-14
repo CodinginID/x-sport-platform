@@ -33,7 +33,7 @@ export function usePackageMutation() {
           package_id: generateId(),
           studio_id: studioId,
           package_name: data.pkg.package_name || '',
-          package_type: data.pkg.package_type || 'session',
+          package_category: data.pkg.package_category || 'reguler',
           session_count: data.pkg.session_count ?? null,
           valid_days: data.pkg.valid_days ?? 30,
           package_price: data.pkg.package_price ?? 0,

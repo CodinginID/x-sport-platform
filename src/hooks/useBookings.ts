@@ -54,6 +54,7 @@ export function useBookingMutation() {
           coach_id: data.booking.coach_id || '',
           package_id: data.booking.package_id || '',
           member_package_id: activePkg?.member_package_id ?? null,
+          training_session_id: data.booking.training_session_id ?? null,
           package_price: data.booking.package_price ?? 0,
           booking_status: 'booked',
           created_at: now,
@@ -83,9 +84,13 @@ export function useBookingMutation() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['bookings'] });
       qc.invalidateQueries({ queryKey: ['memberPackages'] });
+      qc.invalidateQueries({ queryKey: ['activeMemberPackages'] });
       qc.invalidateQueries({ queryKey: ['unpaidBookings'] });
       qc.invalidateQueries({ queryKey: ['coachCommissions'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
+      // Refresh tampilan sesi latihan (peserta + badge slot) saat hadir/batal dari sheet sesi
+      qc.invalidateQueries({ queryKey: ['sessionParticipants'] });
+      qc.invalidateQueries({ queryKey: ['sessionCounts'] });
       const msg = vars.action === 'create' ? 'Booking berhasil dibuat' : vars.action === 'attend' ? 'Check-in berhasil' : 'Booking dibatalkan';
       useToastStore.getState().addToast(msg, vars.action === 'cancel' ? 'warning' : 'success');
     },
