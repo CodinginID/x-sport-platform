@@ -104,7 +104,7 @@ export interface MemberPackage {
   expired_date: string;
   total_sessions: number;
   remaining_sessions: number;
-  status: 'active' | 'expired' | 'depleted';
+  status: 'active' | 'expired' | 'depleted' | 'pending';
   created_at: string;
 }
 
@@ -127,6 +127,7 @@ export interface TrainingSession {
   training_session_id: string;
   session_date: string;
   session_time: string;
+  session_category: 'reguler' | 'pribadi';
   capacity: number;
   coach_id: string | null;
   status: 'scheduled' | 'cancelled';

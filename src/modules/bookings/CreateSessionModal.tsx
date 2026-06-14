@@ -7,7 +7,7 @@ const todayLocal = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const emptyForm = () => ({ session_date: todayLocal(), session_time: '', capacity: 1, coach_id: '' });
+const emptyForm = () => ({ session_date: todayLocal(), session_time: '', capacity: 1, coach_id: '', session_category: 'reguler' as 'reguler' | 'pribadi' });
 
 export function CreateSessionModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const mutation = useTrainingSessionMutation();
@@ -28,6 +28,19 @@ export function CreateSessionModal({ open, onClose }: { open: boolean; onClose: 
   return (
     <Modal open={open} onClose={onClose} title="Buat Sesi">
       <div className="space-y-5">
+        {/* Tipe sesi */}
+        <div>
+          <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">Tipe Sesi</label>
+          <div className="flex gap-2">
+            {(['reguler', 'pribadi'] as const).map(cat => (
+              <button key={cat} type="button" onClick={() => setForm({ ...form, session_category: cat })}
+                className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-all ${form.session_category === cat ? 'bg-zen-brand text-white' : 'bg-zen-bg text-zen-ink/40 hover:text-zen-ink'}`}>
+                {cat === 'reguler' ? 'Reguler' : 'Private'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1.5 block">Tanggal</label>

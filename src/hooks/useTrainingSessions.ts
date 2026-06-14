@@ -84,7 +84,7 @@ export function useTrainingSessionMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data:
-      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity' | 'coach_id'> }
+      | { action: 'create'; session: Pick<TrainingSession, 'session_date' | 'session_time' | 'capacity' | 'coach_id' | 'session_category'> }
       | { action: 'update'; training_session_id: string; coach_id: string | null }
       | { action: 'cancel'; training_session_id: string }
     ) => {

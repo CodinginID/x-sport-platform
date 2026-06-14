@@ -16,10 +16,12 @@ const todayLocal = () => {
 export default function BookingsPage() {
   const [start, setStart] = useState(todayLocal());
   const [end, setEnd] = useState(todayLocal());
+  const [catFilter, setCatFilter] = useState<'' | 'reguler' | 'pribadi'>('');
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<TrainingSession | null>(null);
 
-  const { data: sessions = [], isLoading } = useTrainingSessions(start, end);
+  const { data: allSessions = [], isLoading } = useTrainingSessions(start, end);
+  const sessions = catFilter ? allSessions.filter(s => s.session_category === catFilter) : allSessions;
   const { data: coaches = [] } = useCoaches();
   const counts = useSessionCounts(sessions.map(s => s.training_session_id));
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
@@ -54,6 +56,14 @@ export default function BookingsPage() {
             aria-label="Sampai tanggal"
             className="pl-9 pr-3 py-2.5 text-sm bg-white border border-zen-ink/10 rounded-2xl focus:outline-none focus:border-zen-brand" />
         </div>
+        <div className="flex gap-1.5">
+          {([['', 'Semua'], ['reguler', 'Reguler'], ['pribadi', 'Private']] as const).map(([val, label]) => (
+            <button key={val} onClick={() => setCatFilter(val)}
+              className={`px-3 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all ${catFilter === val ? 'bg-zen-brand text-white' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? <ListSkeleton rows={5} /> : (
@@ -74,8 +84,13 @@ export default function BookingsPage() {
                       <p className="text-sm font-bold text-zen-ink leading-tight">{s.session_time || 'Sesi'}</p>
                       <p className="text-[11px] text-zen-ink/40">{formatDate(s.session_date)}</p>
                     </div>
-                    <div className="flex-1 min-w-0 text-xs text-zen-ink/50 truncate">
-                      {s.coach_id ? `Coach ${coachMap[s.coach_id] ?? '—'}` : <span className="text-amber-600">Belum ada coach</span>}
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ${s.session_category === 'pribadi' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {s.session_category === 'pribadi' ? 'Private' : 'Reguler'}
+                      </span>
+                      <p className="text-xs text-zen-ink/50 truncate mt-1">
+                        {s.coach_id ? `Coach ${coachMap[s.coach_id] ?? '—'}` : <span className="text-amber-600">Belum ada coach</span>}
+                      </p>
                     </div>
                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${slot.isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
                       {slot.isFull ? 'PENUH' : `${slot.filled}/${slot.capacity}`}

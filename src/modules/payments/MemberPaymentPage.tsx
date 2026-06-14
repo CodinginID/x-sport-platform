@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
-import { useMembers, usePackages, useMemberPayments, useMemberPaymentMutation } from "@/hooks";
-import { useUnpaidBookings } from "@/hooks/usePayments";
+import { useState } from "react";
+import { useMembers, usePackages, useMemberPayments, useMemberPackages, usePayPendingPackage } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
 import { Button, Modal, Input, Select } from "@/components/ui";
@@ -41,32 +40,21 @@ export default function MemberPaymentPage() {
   const { data: payments = [], isLoading: paymentsLoading } = useMemberPayments({ startDate, endDate });
   const { data: members = [] } = useMembers();
   const { data: packages = [] } = usePackages();
-  const mutation = useMemberPaymentMutation();
+  const payMutation = usePayPendingPackage();
   const { printPayment } = usePrintReceipt();
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ member_id: "", package_id: "", payment_method: "cash" as "cash" | "transfer" | "qris", notes: "" });
-  const [bookingId, setBookingId] = useState<string | undefined>(undefined);
+  const [form, setForm] = useState({ member_id: "", member_package_id: "", payment_method: "cash" as "cash" | "transfer" | "qris", notes: "" });
   const [pdfUrl, setPdfUrl] = useState("");
 
-  // Fetch unpaid bookings when member is selected
-  const { data: unpaidBookings = [], isLoading: bookingLoading } = useUnpaidBookings(form.member_id);
+  // Paket PENDING (belum bayar) milik member terpilih — pembayaran TIDAK pilih paket dari katalog,
+  // hanya menyelesaikan paket yang sudah dibeli member.
+  const { data: memberPkgs = [], isLoading: pkgsLoading } = useMemberPackages(form.member_id);
+  const pendingPkgs = memberPkgs.filter(mp => mp.status === 'pending');
 
-  // Auto-fill package dari booking terbaru yang belum dibayar
-  useEffect(() => {
-    if (!form.member_id) { setBookingId(undefined); return; }
-    const latest = unpaidBookings[0];
-    if (latest) {
-      setForm(f => ({ ...f, package_id: latest.package_id }));
-      setBookingId(latest.booking_id);
-    } else {
-      setForm(f => ({ ...f, package_id: "" }));
-      setBookingId(undefined);
-    }
-  }, [form.member_id, unpaidBookings]);
-
-  const selectedPkg = packages.find(p => p.package_id === form.package_id);
-  const amount = selectedPkg?.package_price ?? 0;
+  const packageMapPrice = Object.fromEntries(packages.map(p => [p.package_id, p.package_price]));
+  const selectedMp = pendingPkgs.find(mp => mp.member_package_id === form.member_package_id);
+  const amount = selectedMp ? (packageMapPrice[selectedMp.package_id] ?? 0) : 0;
   const totalIncome = payments.reduce((s, p) => s + p.amount, 0);
 
   const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
@@ -106,19 +94,26 @@ export default function MemberPaymentPage() {
   };
 
   const handleSubmit = async () => {
+    if (!selectedMp) return;
     try {
-      const saved = await mutation.mutateAsync({
+      await payMutation.mutateAsync({
+        member_package_id: selectedMp.member_package_id,
         payment_date: today,
-        member_id: form.member_id,
-        package_id: form.package_id,
         amount,
         payment_method: form.payment_method,
         notes: form.notes,
-        booking_id: bookingId,
       });
+      const saved = {
+        payment_id: crypto.randomUUID(),
+        payment_date: today,
+        member_id: form.member_id,
+        package_id: selectedMp.package_id,
+        amount,
+        payment_method: form.payment_method,
+        notes: form.notes,
+      };
       setModalOpen(false);
-      setForm({ member_id: "", package_id: "", payment_method: "cash", notes: "" });
-      setBookingId(undefined);
+      setForm({ member_id: "", member_package_id: "", payment_method: "cash", notes: "" });
       let note = '';
       if (usePrinterStore.getState().autoPrint && (await printReceipt(saved))) note = ' & struk dicetak';
       addToast(`Pembayaran berhasil disimpan${note}`, 'success');
@@ -220,55 +215,63 @@ export default function MemberPaymentPage() {
             label="Member"
             options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]}
             value={form.member_id}
-            onChange={e => setForm({ ...form, member_id: e.target.value, package_id: "" })}
+            onChange={e => setForm({ ...form, member_id: e.target.value, member_package_id: "" })}
           />
 
-          {/* Step 2: Member dipilih → beli paket langsung (model sesi: beli paket dulu, lalu ikut sesi) */}
+          {/* Step 2: Pilih paket PENDING milik member (sudah dibeli, belum dibayar) */}
           {form.member_id && (
-            <>
-              {/* Pilih paket */}
-              <Select
-                label="Paket"
-                options={[{ value: "", label: "Pilih paket..." }, ...packages.map(p => ({ value: p.package_id, label: `${p.package_name} — ${formatCurrency(p.package_price)}` }))]}
-                value={form.package_id}
-                onChange={e => setForm({ ...form, package_id: e.target.value })}
-              />
-
-              {/* Info booking lama (opsional, kalau kebetulan ada tagihan booking belum dibayar) */}
-              {bookingId && unpaidBookings[0] && (
-                <p className="text-[11px] text-zen-ink/40">
-                  Tertaut booking {formatDate(unpaidBookings[0].booking_date)}
-                  {unpaidBookings[0].booking_time ? ` · ${unpaidBookings[0].booking_time.slice(0, 5)}` : ''}
-                </p>
-              )}
-
-              {form.package_id && (
-                <>
-                  <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
-                  <Select
-                    label={t('payments.method')}
-                    options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
-                    value={form.payment_method}
-                    onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
-                  />
-                  <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
-                </>
-              )}
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button onClick={handleSubmit} disabled={!form.package_id || mutation.isPending}>
-                  {mutation.isPending ? 'Menyimpan...' : t('common.save')}
-                </Button>
+            pkgsLoading ? (
+              <div className="h-14 bg-zen-ink/6 rounded-2xl animate-pulse" />
+            ) : pendingPkgs.length === 0 ? (
+              <div className="bg-amber-50 rounded-2xl px-4 py-4 flex items-start gap-3">
+                <CalendarCheck size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-amber-700">Tidak ada paket menunggu pembayaran</p>
+                  <p className="text-[11px] text-amber-600/70 mt-0.5 leading-relaxed">
+                    Member ini belum membeli paket. Buka menu Member → "Beli Paket" terlebih dahulu.
+                  </p>
+                </div>
               </div>
-            </>
+            ) : (
+              <>
+                <Select
+                  label="Paket Belum Dibayar"
+                  options={[{ value: "", label: "Pilih paket..." }, ...pendingPkgs.map(mp => ({
+                    value: mp.member_package_id,
+                    label: `${packageMap[mp.package_id] ?? '—'} — ${formatCurrency(packageMapPrice[mp.package_id] ?? 0)}`,
+                  }))]}
+                  value={form.member_package_id}
+                  onChange={e => setForm({ ...form, member_package_id: e.target.value })}
+                />
+
+                {selectedMp && (
+                  <>
+                    <Input label={t('payments.amount')} value={formatCurrency(amount)} disabled />
+                    <Select
+                      label={t('payments.method')}
+                      options={[{ value: "cash", label: "Cash" }, { value: "transfer", label: "Transfer" }, { value: "qris", label: "QRIS" }]}
+                      value={form.payment_method}
+                      onChange={e => setForm({ ...form, payment_method: e.target.value as any })}
+                    />
+                    <Input label={t('notes')} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                  </>
+                )}
+
+                <div className="flex gap-2 justify-end">
+                  <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
+                  <Button onClick={handleSubmit} disabled={!selectedMp || payMutation.isPending}>
+                    {payMutation.isPending ? 'Menyimpan...' : t('common.save')}
+                  </Button>
+                </div>
+              </>
+            )
           )}
 
           {/* Placeholder saat belum pilih member */}
           {!form.member_id && (
             <div className="flex flex-col items-center justify-center py-6 text-zen-ink/20 gap-2">
               <CalendarCheck size={28} />
-              <p className="text-xs text-center">Pilih member lalu pilih paket<br />untuk melakukan pembayaran</p>
+              <p className="text-xs text-center">Pilih member untuk melihat<br />paket yang menunggu pembayaran</p>
             </div>
           )}
 
