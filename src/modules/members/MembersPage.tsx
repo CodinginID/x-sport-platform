@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { Button, Input, Select, Modal, TableSkeleton, QueryError, SearchBar } from '@/components/ui';
+import { SmartSelect } from '@/components/ui/SmartSelect';
 import type { Member } from '@/types';
 import { formatDate, formatCurrency } from '@/utils';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
@@ -23,7 +24,7 @@ export default function MembersPage() {
   const navigate = useNavigate();
   const { data: members = [], isLoading, isError, refetch } = useMembers();
   const { data: allPackages = [] } = useMemberPackages();
-  const { data: catalog = [] } = usePackages();
+  const { data: catalog = [], isLoading: catalogLoading } = usePackages();
   const purchase = usePurchasePackage();
   const addToast = useToastStore(s => s.addToast);
   const mutation = useMemberMutation();
@@ -168,11 +169,13 @@ export default function MembersPage() {
       {/* Beli Paket modal */}
       <Modal open={!!buyFor} onClose={() => { setBuyFor(null); setBuyPkgId(''); }} title={`Beli Paket — ${buyFor?.full_name ?? ''}`}>
         <div className="space-y-4">
-          <Select
+          <SmartSelect
             label="Paket"
-            options={[{ value: '', label: 'Pilih paket...' }, ...catalog.map(p => ({ value: p.package_id, label: `${p.package_name} (${p.package_category === 'pribadi' ? 'Private' : 'Reguler'}) — ${formatCurrency(p.package_price)}` }))]}
+            placeholder="Pilih paket..."
+            options={catalog.map(p => ({ value: p.package_id, label: `${p.package_name} (${p.package_category === 'pribadi' ? 'Private' : 'Reguler'}) — ${formatCurrency(p.package_price)}` }))}
             value={buyPkgId}
-            onChange={e => setBuyPkgId(e.target.value)}
+            loading={catalogLoading}
+            onChange={v => setBuyPkgId(v)}
           />
           <p className="text-[11px] text-zen-ink/40 leading-relaxed">
             Paket akan berstatus <b>belum bayar</b>. Lanjut ke menu Pembayaran untuk menyelesaikan, lalu member bisa ikut sesi.
