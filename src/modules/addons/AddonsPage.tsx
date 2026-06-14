@@ -1,21 +1,26 @@
 import { useState } from 'react';
 import { Sparkles, Check, Clock, MessageCircle, X } from 'lucide-react';
-import { FEATURES, FEATURE_KEYS, ADMIN_WA, type FeatureKey } from '@/config/features';
+import { FEATURES, FEATURE_KEYS, type FeatureKey } from '@/config/features';
 import { featureState } from '@/lib/featureState';
 import { useFeatureTrial } from '@/hooks/useFeatureTrial';
+import { usePlatformConfig } from '@/hooks/usePlatformConfig';
 import { useAuthStore } from '@/stores/auth';
 import { formatCurrency } from '@/utils';
 
-function buyWaLink(studio: string, licenseKey: string, label: string) {
+function buyWaLink(wa: string, studio: string, licenseKey: string, label: string) {
   const text = `Halo Admin, saya dari studio "${studio}" (lisensi ${licenseKey}) ingin membeli add-on: ${label}.`;
-  return `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(text)}`;
+  return `https://wa.me/${wa}?text=${encodeURIComponent(text)}`;
 }
 
 export default function AddonsPage() {
   const licenseInfo = useAuthStore((s) => s.licenseInfo);
   const { startTrial, pending } = useFeatureTrial();
+  const { data: config } = usePlatformConfig();
   const [buyKey, setBuyKey] = useState<FeatureKey | null>(null);
   const nowISO = new Date().toISOString();
+
+  const priceOf = (key: FeatureKey): number | null => config?.feature_prices?.[key] ?? null;
+  const fmtPrice = (key: FeatureKey) => { const p = priceOf(key); return p == null ? '—' : formatCurrency(p); };
 
   return (
     <div className="space-y-5">
@@ -34,7 +39,7 @@ export default function AddonsPage() {
                 <p className="text-base font-bold text-zen-ink">{f.label}</p>
                 <p className="text-xs text-zen-ink/50 mt-0.5 leading-relaxed">{f.description}</p>
               </div>
-              <p className="text-lg font-bold text-zen-brand">{formatCurrency(f.price)}</p>
+              <p className="text-lg font-bold text-zen-brand">{fmtPrice(key)}</p>
 
               {state === 'active' && (
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-600">
@@ -74,17 +79,35 @@ export default function AddonsPage() {
               <p className="text-base font-bold">Beli {FEATURES[buyKey].label}</p>
               <button onClick={() => setBuyKey(null)}><X size={18} className="text-zen-ink/40" /></button>
             </div>
-            <p className="text-2xl font-bold text-zen-brand">{formatCurrency(FEATURES[buyKey].price)}</p>
+            <p className="text-2xl font-bold text-zen-brand">{fmtPrice(buyKey)}</p>
+
+            {/* Info rekening */}
+            {config?.bank_name ? (
+              <div className="bg-zen-bg rounded-2xl px-4 py-3 text-sm">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1">Transfer ke</p>
+                <p className="font-bold text-zen-ink">{config.bank_name} · {config.bank_account_number}</p>
+                <p className="text-zen-ink/50 text-xs">a.n. {config.bank_account_holder}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-zen-ink/50">Hubungi admin untuk info pembayaran.</p>
+            )}
             <p className="text-xs text-zen-ink/50 leading-relaxed">
-              Transfer ke rekening admin, lalu konfirmasi bukti bayar via WhatsApp. Fitur diaktifkan setelah pembayaran diverifikasi.
+              Transfer sesuai nominal, lalu konfirmasi bukti bayar via WhatsApp. Fitur diaktifkan setelah pembayaran diverifikasi.
             </p>
-            <a
-              href={buyWaLink(licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', FEATURES[buyKey].label)}
-              target="_blank" rel="noreferrer"
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-green-500 text-white text-sm font-bold"
-            >
-              <MessageCircle size={16} /> Konfirmasi via WhatsApp
-            </a>
+
+            {config?.admin_wa ? (
+              <a
+                href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', FEATURES[buyKey].label)}
+                target="_blank" rel="noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-green-500 text-white text-sm font-bold"
+              >
+                <MessageCircle size={16} /> Konfirmasi via WhatsApp
+              </a>
+            ) : (
+              <button disabled className="w-full py-3.5 rounded-2xl bg-zen-ink/10 text-zen-ink/40 text-sm font-bold">
+                Nomor admin belum diatur
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -4,6 +4,16 @@ export interface FeatureEntry {
   trial_used?: boolean;
 }
 
+export interface PlatformConfig {
+  id: number;
+  admin_wa: string;
+  bank_name: string;
+  bank_account_number: string;
+  bank_account_holder: string;
+  feature_prices: Record<string, number>;
+  updated_at?: string;
+}
+
 export interface LicenseInfo {
   id: string;
   license_key: string;
