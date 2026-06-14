@@ -7,8 +7,9 @@ import {
   Clock, AlertTriangle, Mail, Phone, KeyRound, Building2,
   Search, Wifi, WifiOff, Calendar, ChevronDown, ChevronUp,
   CircleDot, HardDrive, Package, ShieldOff, ShieldCheck, LogOut, RotateCcw,
-  Users, Eye, EyeOff, Info,
+  Users, Eye, EyeOff, Info, Sparkles,
 } from 'lucide-react';
+import { FEATURES, FEATURE_KEYS } from '@/config/features';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ interface License {
   disabled_at: string | null;
   storage_quota_mb: number;
   storage_used_mb: number;
+  features?: string[];
 }
 
 // 3 distinct states for a license:
@@ -219,7 +221,7 @@ function SessionDrawer({ license, sessions, onClose }: {
 
 // ─── License Row (table row) ──────────────────────────────────────────────────
 
-function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onResetActivation, onCopyKey, onShowSessions, isProcessing, copiedId }: {
+function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForceLogout, onResetActivation, onCopyKey, onShowSessions, onToggleFeature, isProcessing, copiedId }: {
   row: LicenseRow;
   onApprove: () => void;
   onReject: () => void;
@@ -229,6 +231,7 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForc
   onResetActivation: () => void;
   onCopyKey: () => void;
   onShowSessions: () => void;
+  onToggleFeature: (key: string, on: boolean) => void;
   isProcessing: boolean;
   copiedId: string | null;
 }) {
@@ -440,6 +443,33 @@ function LicenseTableRow({ row, onApprove, onReject, onDisable, onEnable, onForc
               </>
             )}
           </div>
+
+          {/* Add-on / Fitur Premium — toggle per fitur */}
+          <div className="mt-3 border-t border-zen-ink/5 pt-3" onClick={e => e.stopPropagation()}>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2 flex items-center gap-1.5">
+              <Sparkles size={11} /> Add-on / Fitur Premium
+            </p>
+            <div className="space-y-2">
+              {FEATURE_KEYS.map((key) => {
+                const on = Array.isArray(row.features) && row.features.includes(key);
+                return (
+                  <div key={key} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zen-ink truncate">{FEATURES[key].label}</p>
+                      <p className="text-[11px] text-zen-ink/40 truncate">{FEATURES[key].description}</p>
+                    </div>
+                    <button
+                      onClick={() => onToggleFeature(key, !on)}
+                      className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${on ? 'bg-zen-brand' : 'bg-zen-ink/15'}`}
+                      title={on ? 'Nonaktifkan' : 'Aktifkan'}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </>
@@ -486,7 +516,7 @@ export default function LicensesPage() {
     const [licRes, sessRes] = await Promise.all([
       supabase
         .from('licenses')
-        .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, disabled_at, storage_quota_mb, storage_used_mb')
+        .select('id, license_key, studio_name, owner_email, owner_phone, plan, created_at, expires_at, activated_at, is_active, disabled_at, storage_quota_mb, storage_used_mb, features')
         .order('is_active', { ascending: true })
         .order('created_at', { ascending: false }),
       supabase
@@ -542,6 +572,14 @@ export default function LicensesPage() {
     }
     return true;
   });
+
+  const handleToggleFeature = async (lic: LicenseRow, key: string, on: boolean) => {
+    const current = Array.isArray(lic.features) ? lic.features : [];
+    const next = on ? Array.from(new Set([...current, key])) : current.filter(f => f !== key);
+    const { error: updErr } = await supabase.from('licenses').update({ features: next }).eq('id', lic.id);
+    if (updErr) { setError('Gagal ubah fitur: ' + updErr.message); return; }
+    await fetchAll();
+  };
 
   const handleApprove = (lic: LicenseRow) => {
     setConfirm({
@@ -802,6 +840,7 @@ export default function LicensesPage() {
               onResetActivation={() => handleResetActivation(row)}
               onCopyKey={() => handleCopyKey(row)}
               onShowSessions={() => setSessionDrawer(row)}
+              onToggleFeature={(key, on) => handleToggleFeature(row, key, on)}
               isProcessing={actionLoading === row.id}
               copiedId={copiedId}
             />

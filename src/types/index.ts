@@ -6,6 +6,7 @@ export interface LicenseInfo {
   owner_email: string | null;
   owner_phone: string | null;
   plan: string;
+  features: string[];
   storage_quota_mb: number;
   storage_used_mb: number;
   expires_at: string;

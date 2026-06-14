@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Calendar, Plus, CalendarX } from 'lucide-react';
+import { Calendar, Plus, CalendarX, Sparkles } from 'lucide-react';
 import { ListSkeleton } from '@/components/Skeleton';
 import { useTrainingSessions, useSessionCounts, useCoaches, slotInfo } from '@/hooks';
+import { FeatureGate } from '@/components/FeatureGate';
 import { CreateSessionModal } from './CreateSessionModal';
 import { SessionDetailSheet } from './SessionDetailSheet';
 import type { TrainingSession } from '@/types';
@@ -24,7 +25,14 @@ export default function BookingsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Jadwal Sesi</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Jadwal Sesi</h1>
+          <FeatureGate feature="premium_booking">
+            <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-zen-brand/10 text-zen-brand">
+              <Sparkles size={11} /> Premium
+            </span>
+          </FeatureGate>
+        </div>
         <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-zen-brand text-white text-sm font-bold">
           <Plus size={15} /> Buat Sesi
         </button>
