@@ -5,6 +5,12 @@ export const FEATURES = {
     label: 'Tampilan Booking Premium',
     description: 'Cari tanggal & slot sesi kosong dengan lebih mudah.',
     trial_days: 3,
+    details: [
+      'Jadwal sesi tampil sebagai kartu per tanggal yang rapi',
+      'Ringkasan harian: jumlah sesi & berapa yang masih ada slot kosong',
+      'Sesi dengan slot kosong langsung disorot — cari jadwal jadi cepat',
+      'Bedakan sesi penuh vs tersedia secara visual',
+    ],
   },
 } as const;
 

@@ -39,6 +39,17 @@ export default function AddonsPage() {
                 <p className="text-base font-bold text-zen-ink">{f.label}</p>
                 <p className="text-xs text-zen-ink/50 mt-0.5 leading-relaxed">{f.description}</p>
               </div>
+
+              {/* Apa yang didapat */}
+              <ul className="space-y-1.5">
+                {f.details.map((d, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-zen-ink/60">
+                    <Check size={13} className="text-zen-brand shrink-0 mt-0.5" />
+                    <span className="leading-snug">{d}</span>
+                  </li>
+                ))}
+              </ul>
+
               <p className="text-lg font-bold text-zen-brand">{fmtPrice(key)}</p>
 
               {state === 'active' && (
