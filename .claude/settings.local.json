@@ -73,7 +73,10 @@
       "Bash(lsof -ti:5173)",
       "Bash(lsof -ti:5174)",
       "Bash(sed -n '/interface LicenseRow/,/^}/p' src/modules/superadmin/LicensesPage.tsx)",
-      "Bash(sed -n '507,525p' src/modules/superadmin/LicensesPage.tsx)"
+      "Bash(sed -n '507,525p' src/modules/superadmin/LicensesPage.tsx)",
+      "Bash(npm install *)",
+      "Bash(sed -n '/export interface Coach {/,/^}/p' src/types/index.ts)",
+      "Bash(sed -n '/export interface Member {/,/^}/p' src/types/index.ts)"
     ]
   },
   "enabledMcpjsonServers": [
