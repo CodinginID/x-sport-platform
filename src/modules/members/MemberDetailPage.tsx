@@ -5,6 +5,9 @@ import { formatDate, formatCurrency } from '@/utils';
 import type { Booking, MemberPayment, MemberPackage } from '@/types';
 import { ArrowLeft, Phone, Mail, MapPin, Calendar, CreditCard, Award } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useFeature } from '@/hooks/useFeature';
+import { useStudioStore } from '@/stores/studio';
+import { EntityCard } from '@/components/EntityCard';
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -15,14 +18,14 @@ function sessionPct(remaining: number, total: number) {
   return Math.round((remaining / total) * 100);
 }
 
-const TABS = ['booking', 'pembayaran', 'paket', 'kehadiran'] as const;
-type Tab = typeof TABS[number];
+type Tab = 'booking' | 'pembayaran' | 'paket' | 'kehadiran' | 'kartu';
 
 const TAB_LABELS: Record<Tab, string> = {
   booking: 'Booking',
   pembayaran: 'Pembayaran',
   paket: 'Paket',
   kehadiran: 'Kehadiran',
+  kartu: 'Kartu',
 };
 
 export default function MemberDetailPage() {
@@ -35,9 +38,15 @@ export default function MemberDetailPage() {
   const { data: packages = [] } = useMemberPackages(member_id);
   const { data: catalog = [] } = usePackages();
   const cancelPending = useCancelPendingPackage();
+  const isPro = useFeature('pro');
+  const studioName = useStudioStore(s => s.name);
   const [tab, setTab] = useState<Tab>('booking');
 
   if (!member) return null;
+
+  const tabs: Tab[] = isPro
+    ? ['booking', 'pembayaran', 'paket', 'kehadiran', 'kartu']
+    : ['booking', 'pembayaran', 'paket', 'kehadiran'];
 
   const pkgName = (pid: string) => catalog.find(c => c.package_id === pid)?.package_name ?? 'Paket';
   const MP_STATUS: Record<string, { label: string; cls: string }> = {
@@ -132,7 +141,7 @@ export default function MemberDetailPage() {
       <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
         {/* Tab nav */}
         <div className="flex gap-2 p-4 border-b border-zen-ink/5 overflow-x-auto scrollbar-hide">
-          {TABS.map(key => (
+          {tabs.map(key => (
             <button key={key} onClick={() => setTab(key)}
               className={`px-4 py-2.5 rounded-2xl text-[10px] uppercase tracking-widest font-bold whitespace-nowrap transition-all ${tab === key ? 'bg-zen-brand text-white shadow-lg shadow-zen-brand/20' : 'bg-zen-bg text-zen-ink/50 hover:text-zen-ink'}`}>
               {TAB_LABELS[key]}
@@ -215,6 +224,31 @@ export default function MemberDetailPage() {
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">hadir</span>
               </div>
             ))
+          )}
+
+          {tab === 'kartu' && isPro && (
+            <div className="px-5 py-6">
+              <EntityCard
+                variant="member"
+                studioName={studioName}
+                name={member.full_name}
+                subtitle={`ID ${member.member_id.slice(0, 8).toUpperCase()}`}
+                infoRows={[
+                  {
+                    label: 'Paket Aktif',
+                    value: activePackages.length === 0
+                      ? 'Tidak ada'
+                      : `${pkgName(activePackages[0].package_id)} · ${activePackages[0].remaining_sessions}/${activePackages[0].total_sessions} sesi`,
+                  },
+                  { label: 'Tgl Gabung', value: formatDate(member.join_date) },
+                  { label: 'Status', value: member.status_active ? 'Aktif' : 'Nonaktif' },
+                ]}
+                qrValue={member.member_id}
+              />
+              <p className="text-center text-[11px] text-zen-ink/40 mt-4">
+                Tunjukkan QR ini saat check-in di studio.
+              </p>
+            </div>
           )}
         </div>
       </div>
