@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { RefreshCw, X, AlertTriangle, LayoutDashboard, ListChecks, Settings } from 'lucide-react';
+import { RefreshCw, X, AlertTriangle } from 'lucide-react';
 import type { FeatureEntry } from '@/types';
 import {
   getLicenseState, daysUntil, getSessionStatus,
@@ -12,13 +13,10 @@ import SettingsTab from './tabs/SettingsTab';
 
 type Tab = 'dashboard' | 'licenses' | 'settings';
 
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
-  { id: 'licenses',  label: 'Lisensi',   icon: <ListChecks size={14} /> },
-  { id: 'settings',  label: 'Pengaturan',icon: <Settings size={14} /> },
-];
-
 export default function LicensesPage() {
+  // Section dipilih dari URL (sub-menu sidebar), bukan tab dalam halaman.
+  const { pathname } = useLocation();
+  const tab: Tab = pathname.includes('/settings') ? 'settings' : pathname.includes('/list') ? 'licenses' : 'dashboard';
   const [licenses, setLicenses] = useState<License[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,9 +24,8 @@ export default function LicensesPage() {
   const [approvedLicense, setApprovedLicense] = useState<License | null>(null);
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('dashboard');
   const [confirm, setConfirm] = useState<{
-    open: boolean; title: string; message: React.ReactNode; variant: 'danger' | 'warning'; onConfirm: () => void;
+    open: boolean; title: string; message: ReactNode; variant: 'danger' | 'warning'; onConfirm: () => void;
   }>({ open: false, title: '', message: '', variant: 'warning', onConfirm: () => {} });
 
   const fetchAll = useCallback(async () => {
@@ -246,21 +243,7 @@ export default function LicensesPage() {
         </div>
       )}
 
-      {/* ── Tab switcher ── */}
-      <div className="flex gap-1 bg-zen-bg rounded-2xl p-1 max-w-md">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] uppercase tracking-widest font-bold rounded-xl transition-all ${tab === t.id ? 'bg-white text-zen-ink shadow-sm' : 'text-zen-ink/40'}`}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Active tab ── */}
+      {/* ── Section aktif (dipilih dari sub-menu sidebar) ── */}
       {tab === 'dashboard' && <SuperDashboardTab rows={rows} loading={loading} />}
       {tab === 'licenses' && (
         <LicenseListTab

@@ -142,9 +142,12 @@ export default function App() {
             <Route path="/addons"      element={<AddonsPage />} />
           </Route>
 
-          {/* Superadmin-only */}
+          {/* Superadmin-only — sub-menu: dashboard / list / settings */}
           <Route element={<SuperadminGuard />}>
-            <Route path="/licenses" element={<LicensesPage />} />
+            <Route path="/licenses" element={<Navigate to="/licenses/dashboard" replace />} />
+            <Route path="/licenses/dashboard" element={<LicensesPage />} />
+            <Route path="/licenses/list" element={<LicensesPage />} />
+            <Route path="/licenses/settings" element={<LicensesPage />} />
           </Route>
         </Route>
 
