@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/utils/zodResolver';
 import { useMembers, useMemberMutation, useSearchPaginate, useMemberPackages, usePackages, usePurchasePackage } from '@/hooks';
@@ -15,6 +14,7 @@ import { memberSchema, type MemberFormData } from '@/utils/schemas';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Plus, ChevronRight, UserRound, Package } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
+import { MemberDetailSheet } from './MemberDetailSheet';
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -23,7 +23,6 @@ function initials(name: string) {
 export default function MembersPage() {
   const { t } = useTranslation();
   const isPro = useFeature('pro');
-  const navigate = useNavigate();
   const { data: members = [], isLoading, isError, refetch } = useMembers();
   const { data: allPackages = [] } = useMemberPackages();
   const { data: catalog = [], isLoading: catalogLoading } = usePackages();
@@ -34,6 +33,7 @@ export default function MembersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [buyFor, setBuyFor] = useState<Member | null>(null);
   const [buyPkgId, setBuyPkgId] = useState('');
+  const [detailMember, setDetailMember] = useState<Member | null>(null);
 
   // Ringkasan status paket per member: aktif (jumlah sisa sesi), pending, atau belum punya.
   const pkgStatus = (memberId: string): { label: string; cls: string } => {
@@ -144,7 +144,7 @@ export default function MembersPage() {
               {pageItems.map(m => (
                 <div
                   key={m.member_id}
-                  onClick={() => navigate(`/members/${m.member_id}`)}
+                  onClick={() => setDetailMember(m)}
                   className="flex items-center gap-3 px-5 py-4 hover:bg-zen-bg transition-colors cursor-pointer"
                 >
                   <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
@@ -217,6 +217,9 @@ export default function MembersPage() {
       </Modal>
 
       <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
+
+      {/* Detail sheet (view-only) */}
+      <MemberDetailSheet member={detailMember} onClose={() => setDetailMember(null)} />
 
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? `${t('common.edit')} ${t('members.title')}` : t('members.add')} size="lg">
