@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/utils/zodResolver';
 import { useMembers, useMemberMutation, useSearchPaginate, useMemberPackages, usePackages, usePurchasePackage } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
+import { useFeature } from '@/hooks/useFeature';
 import { useToastStore } from '@/stores/toast';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { Button, Input, Select, Modal, TableSkeleton, QueryError, SearchBar } from '@/components/ui';
@@ -21,6 +22,7 @@ function initials(name: string) {
 
 export default function MembersPage() {
   const { t } = useTranslation();
+  const isPro = useFeature('pro');
   const navigate = useNavigate();
   const { data: members = [], isLoading, isError, refetch } = useMembers();
   const { data: allPackages = [] } = useMemberPackages();
@@ -60,6 +62,13 @@ export default function MembersPage() {
   );
 
   const activeCount = members.filter(m => m.status_active).length;
+
+  // Pro insight — segmentasi dari allPackages (useMemberPackages) yang sudah di-fetch.
+  const withActivePkg = new Set(allPackages.filter(p => p.status === 'active').map(p => p.member_id));
+  const segActive = members.filter(m => withActivePkg.has(m.member_id)).length;
+  const segNone = Math.max(0, members.length - segActive);
+  // Paket mau habis: aktif dengan sisa sesi ≤ 2.
+  const expiringSoonCount = allPackages.filter(p => p.status === 'active' && p.remaining_sessions <= 2).length;
 
   const openAdd = () => {
     reset({ full_name: '', phone_number: '', email: '', gender: 'male', birth_date: '', address: '', notes: '' });
@@ -103,6 +112,24 @@ export default function MembersPage() {
 
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder={t('members.search')} />
+
+      {/* Pro: insight segmentasi member */}
+      {isPro && members.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Punya Paket Aktif</p>
+            <p className="text-lg font-bold mt-1 tracking-tight text-green-600">{segActive}</p>
+          </div>
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Belum Ada Paket</p>
+            <p className="text-lg font-bold mt-1 tracking-tight text-zen-ink/60">{segNone}</p>
+          </div>
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Paket Mau Habis</p>
+            <p className="text-lg font-bold mt-1 tracking-tight text-amber-500">{expiringSoonCount}</p>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? <TableSkeleton /> : isError ? <QueryError onRetry={() => refetch()} /> : (
