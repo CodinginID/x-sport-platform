@@ -16,7 +16,6 @@ const RegisterPage    = lazyWithReload(() => import('@/modules/auth/RegisterPage
 const ActivationPage  = lazyWithReload(() => import('@/modules/activation/ActivationPage'));
 const DashboardPage   = lazyWithReload(() => import('@/modules/dashboard/DashboardPage'));
 const MembersPage     = lazyWithReload(() => import('@/modules/members/MembersPage'));
-const MemberDetailPage= lazyWithReload(() => import('@/modules/members/MemberDetailPage'));
 const CoachesPage     = lazyWithReload(() => import('@/modules/coaches/CoachesPage'));
 const ProductsPage    = lazyWithReload(() => import('@/modules/products/ProductsPage'));
 const PackagesPage    = lazyWithReload(() => import('@/modules/packages/PackagesPage'));
@@ -126,7 +125,6 @@ export default function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard"  element={<DashboardPage />} />
           <Route path="/members"    element={<MembersPage />} />
-          <Route path="/members/:id" element={<MemberDetailPage />} />
           <Route path="/coaches"    element={<CoachesPage />} />
           <Route path="/products"   element={<ProductsPage />} />
           <Route path="/packages"   element={<PackagesPage />} />
