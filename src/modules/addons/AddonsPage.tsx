@@ -264,29 +264,26 @@ export default function AddonsPage() {
         })}
       </div>
 
-      {/* Preview Sheet — premium showcase */}
+      {/* Preview Sheet — premium showcase (slide-up) */}
       {previewKey && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
-
-          {/* Sheet */}
-          <div className="relative w-full sm:max-w-3xl sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden">
-            {/* Drag handle (mobile) */}
+          <div className="relative w-full sm:max-w-3xl sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-page-in">
+            {/* Drag handle */}
             <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
 
-            {/* Top bar — gradient */}
-            <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-5 py-4 flex items-center justify-between">
+            {/* Header gradient */}
+            <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-5 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <button onClick={() => setPreviewKey(null)} className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                 </button>
                 <div>
                   <p className="text-[9px] uppercase tracking-widest font-bold text-white/60">Preview</p>
-                  <p className="text-sm font-bold text-white">{FEATURES[previewKey].label}</p>
+                  <p className="text-base font-bold text-white">{FEATURES[previewKey].label}</p>
                 </div>
               </div>
-              <button onClick={() => setPreviewKey(null)} className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={15} className="text-white" /></button>
+              <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
             </div>
 
             {/* Tabs */}
@@ -294,7 +291,7 @@ export default function AddonsPage() {
               <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1">
                 {PRO_PREVIEW_TABS.map((t) => (
                   <button key={t.key} onClick={() => setPreviewTab(t.key)}
-                    className={`shrink-0 px-3.5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                    className={`shrink-0 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
                       getActiveTabKey() === t.key
                         ? 'bg-zen-brand text-white shadow-sm'
                         : 'bg-white border border-zen-ink/10 text-zen-ink/40 hover:text-zen-ink'
@@ -305,13 +302,13 @@ export default function AddonsPage() {
               </div>
             </div>
 
-            {/* Scrollable content */}
+            {/* Content scrollable */}
             <div className="overflow-y-auto flex-1">
               <div className="px-5 pb-32 space-y-5">
                 {/* Visual hero */}
-                <div className="rounded-3xl overflow-hidden shadow-md border border-zen-ink/5">{getPreviewNode()}</div>
+                <div className="rounded-3xl overflow-hidden shadow-lg border border-zen-ink/5">{getPreviewNode()}</div>
 
-                {/* Before → After */}
+                {/* Before → After comparison */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-3xl border border-zen-ink/10 bg-white p-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -343,109 +340,128 @@ export default function AddonsPage() {
               </div>
             </div>
 
-            {/* Bottom CTA */}
+            {/* Sticky bottom CTA */}
             <div className="shrink-0 bg-white border-t border-zen-ink/10 px-5 py-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-bold text-zen-ink">Mau seperti ini?</p>
                 <p className="text-[10px] text-zen-ink/40">{fmtPrice('pro')} · selamanya</p>
               </div>
               <button onClick={() => { setPreviewKey(null); setBuyKey('pro'); }}
-                className="px-5 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold shadow-sm hover:bg-zen-brand/90 active:scale-[0.98] transition-all">
-                Beli {FEATURES[previewKey].label}
+                className="px-6 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold shadow-sm hover:bg-zen-brand/90 active:scale-[0.98] transition-all">
+                Beli Sekarang
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Beli — consistent with DetailSheet language */}
+      {/* Payment Modal — centered premium modal (NOT sheet) */}
       {buyKey && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={() => setBuyKey(null)} />
+          <div className="absolute inset-0 bg-zen-ink/50 backdrop-blur-sm" onClick={() => setBuyKey(null)} />
 
-          {/* Sheet */}
-          <div className="relative w-full sm:max-w-sm sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden">
-            {/* Drag handle (mobile) */}
-            <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
-
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 pt-4 pb-4 shrink-0">
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-bold">Beli {FEATURES[buyKey].label}</p>
-                <p className="text-xs text-zen-ink/40 mt-0.5">Aktivasi manual via WhatsApp</p>
-              </div>
-              <button onClick={() => setBuyKey(null)} className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-ink/10 flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors shrink-0">
-                <X size={15} />
-              </button>
+          {/* Modal */}
+          <div className="relative w-full sm:max-w-md sm:mx-4 bg-white sm:rounded-[32px] max-h-[90dvh] flex flex-col overflow-hidden animate-scale-in shadow-2xl shadow-zen-ink/20">
+            {/* Header gradient */}
+            <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-6 py-6 text-center">
+              <p className="text-[9px] uppercase tracking-widest font-bold text-white/60 mb-1">Pembayaran</p>
+              <p className="text-xl font-bold text-white">{FEATURES[buyKey].label}</p>
+              <p className="text-3xl font-bold text-white mt-2">{fmtPrice(buyKey)}</p>
             </div>
 
-            {/* Scrollable body */}
-            <div className="overflow-y-auto px-5 pb-6 space-y-4 flex-1">
-              {/* Invoice */}
-              <div className="bg-zen-bg rounded-2xl px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40">Nomor Invoice</p>
-                  <p className="text-sm font-mono font-bold text-zen-ink">{invoice}</p>
+            {/* Close button */}
+            <button onClick={() => setBuyKey(null)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
+
+            {/* Scrollable content */}
+            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+              {/* Invoice card */}
+              <div className="bg-gradient-to-br from-zen-bg to-white rounded-3xl border border-zen-ink/5 p-5">
+                <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2">Nomor Invoice</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-lg font-mono font-bold text-zen-ink tracking-wider">{invoice}</p>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(invoice); addToast('Invoice disalin', 'success'); }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold hover:bg-zen-brand/20 transition-colors"
+                  >
+                    <Sparkles size={11} /> Salin
+                  </button>
                 </div>
-                <button
-                  onClick={() => { navigator.clipboard?.writeText(invoice); addToast('Invoice disalin', 'success'); }}
-                  className="text-[10px] font-bold text-zen-brand hover:underline"
-                >
-                  Salin
-                </button>
               </div>
 
-              {/* Price */}
-              <p className="text-2xl font-bold text-zen-brand">{fmtPrice(buyKey)}</p>
-
-              {/* Langkah */}
+              {/* Payment steps */}
               <div>
-                <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30 mb-2">Langkah pembelian</p>
-                <div className="bg-zen-bg rounded-2xl px-4 py-3 space-y-2">
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-zen-brand text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
-                    <p className="text-xs text-zen-ink/70 leading-snug">Transfer <strong>{fmtPrice(buyKey)}</strong> ke rekening di bawah</p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-zen-brand text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
-                    <p className="text-xs text-zen-ink/70 leading-snug">Klik tombol "Konfirmasi via WhatsApp" & kirim bukti transfer</p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-zen-brand text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
-                    <p className="text-xs text-zen-ink/70 leading-snug">Fitur aktif dalam <strong>1×24 jam</strong> setelah pembayaran diverifikasi</p>
-                  </div>
+                <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30 mb-3">Cara Pembayaran</p>
+                <div className="space-y-3">
+                  {[
+                    { step: 1, text: `Transfer tepat ${fmtPrice(buyKey)} ke rekening di bawah` },
+                    { step: 2, text: 'Screenshot bukti transfer dari aplikasi bank' },
+                    { step: 3, text: 'Klik tombol WhatsApp & kirim bukti transfer' },
+                    { step: 4, text: 'Fitur aktif dalam 1×24 jam setelah verifikasi' },
+                  ].map(({ step, text }) => (
+                    <div key={step} className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-full bg-zen-brand text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-zen-brand/30">
+                        {step}
+                      </div>
+                      <p className="text-sm text-zen-ink/70 leading-snug pt-0.5">{text}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Rekening */}
+              {/* Bank details */}
               {config?.bank_name ? (
-                <div>
-                  <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30 mb-2">Transfer ke</p>
-                  <div className="bg-zen-bg rounded-2xl px-4 py-3">
-                    <p className="font-bold text-zen-ink">{config.bank_name} · {config.bank_account_number}</p>
+                <div className="bg-gradient-to-br from-zen-brand/5 to-green-50 rounded-3xl border border-zen-brand/10 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-xl bg-zen-brand/10 flex items-center justify-center">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zen-brand"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+                    </div>
+                    <p className="text-[9px] uppercase tracking-widest font-bold text-zen-brand">Rekening Tujuan</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-base font-bold text-zen-ink">{config.bank_name}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-lg font-mono font-bold text-zen-ink tracking-wider">{config.bank_account_number}</p>
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(config.bank_account_number); addToast('No. rekening disalin', 'success'); }}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold hover:bg-zen-brand/20 transition-colors"
+                      >
+                        <Sparkles size={11} /> Salin
+                      </button>
+                    </div>
                     <p className="text-xs text-zen-ink/50">a.n. {config.bank_account_holder}</p>
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-zen-ink/40">Hubungi admin untuk info rekening pembayaran.</p>
+                <p className="text-sm text-zen-ink/40 text-center py-4">Hubungi admin untuk info rekening pembayaran.</p>
               )}
 
-              {/* CTA */}
-              {config?.admin_wa ? (
+              {/* Warning */}
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2.5">
+                <Eye size={12} className="text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-700/80 leading-snug">Sertakan nomor invoice saat konfirmasi agar kami bisa mencocokkan pembayaran Anda.</p>
+              </div>
+            </div>
+
+            {/* Sticky bottom CTA */}
+            {config?.admin_wa ? (
+              <div className="shrink-0 bg-white border-t border-zen-ink/10 px-6 py-5">
                 <a
                   href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', FEATURES[buyKey].label, invoice, priceOf(buyKey) ?? 0)}
                   target="_blank" rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 active:scale-[0.98] transition-all"
+                  className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 active:scale-[0.98] transition-all shadow-lg shadow-green-500/20"
                 >
-                  <MessageCircle size={16} /> Konfirmasi via WhatsApp
+                  <MessageCircle size={18} /> Konfirmasi via WhatsApp
                 </a>
-              ) : (
-                <button disabled className="w-full py-3.5 rounded-2xl bg-zen-ink/10 text-zen-ink/40 text-sm font-bold">
+                <p className="text-[9px] text-center text-zen-ink/30 mt-2">Buka WhatsApp → kirim bukti transfer → tunggu aktivasi</p>
+              </div>
+            ) : (
+              <div className="shrink-0 px-6 py-5">
+                <button disabled className="w-full py-4 rounded-2xl bg-zen-ink/10 text-zen-ink/40 text-sm font-bold">
                   Nomor admin belum diatur
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
