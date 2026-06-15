@@ -6,6 +6,7 @@ import { Modal, Button, Input, QueryError, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
 import { Pagination } from "@/components/Pagination";
 import { CoachDetailSheet } from "./CoachDetailSheet";
+import { useFeature } from "@/hooks/useFeature";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Plus, Dumbbell } from "lucide-react";
@@ -30,7 +31,15 @@ export default function CoachesPage() {
     (c, q) => c.full_name.toLowerCase().includes(q) || (c.phone_number ?? '').includes(q) || (c.email ?? '').toLowerCase().includes(q),
   );
 
+  const isPro = useFeature('pro');
   const activeCount = coaches.filter(c => c.active_status).length;
+
+  const avgRegular = coaches.length
+    ? Math.round(coaches.reduce((s, c) => s + (c.commission_regular_pct ?? 0), 0) / coaches.length)
+    : 0;
+  const avgPrivate = coaches.length
+    ? Math.round(coaches.reduce((s, c) => s + (c.commission_private_pct ?? 0), 0) / coaches.length)
+    : 0;
 
   const openCreate = () => { setEditing(null); setForm(defaultForm); setOpen(true); };
   const openEdit = (coach: Coach) => {
@@ -80,6 +89,24 @@ export default function CoachesPage() {
 
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder="Cari coach..." />
+
+      {/* Pro insight */}
+      {isPro && coaches.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{activeCount}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Coach Aktif</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{avgRegular}%</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Komisi Reguler</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{avgPrivate}%</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Komisi Pribadi</p>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? <ListSkeleton rows={5} /> : isError ? <QueryError onRetry={() => refetch()} /> : (

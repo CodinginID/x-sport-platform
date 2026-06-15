@@ -5,6 +5,7 @@ import { Button, Modal, Input, Select, NumericInput, SearchBar } from "@/compone
 import { ListSkeleton } from "@/components/Skeleton";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { Pagination } from "@/components/Pagination";
+import { useFeature } from "@/hooks/useFeature";
 import { Package } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Plus, Boxes, Calendar, Hash } from "lucide-react";
@@ -18,6 +19,13 @@ export default function PackagesPage() {
   const { t } = useTranslation();
   const { data: packages = [], isLoading: pkgLoading } = usePackages();
   const mutation = usePackageMutation();
+  const isPro = useFeature('pro');
+
+  const regularCount = packages.filter(p => p.package_category === 'reguler').length;
+  const privateCount = packages.filter(p => p.package_category === 'pribadi').length;
+  const avgPrice = packages.length
+    ? Math.round(packages.reduce((s, p) => s + p.package_price, 0) / packages.length)
+    : 0;
 
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Package | null>(null);
@@ -70,6 +78,24 @@ export default function PackagesPage() {
 
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder="Cari paket..." />
+
+      {/* Pro insight */}
+      {isPro && packages.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{packages.length}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Total Paket</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{regularCount}<span className="text-zen-ink/30"> / </span>{privateCount}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Reguler / Pribadi</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-sm font-black text-zen-brand mt-1">{formatCurrency(avgPrice)}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Harga Rata-rata</p>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {pkgLoading ? <ListSkeleton rows={4} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
