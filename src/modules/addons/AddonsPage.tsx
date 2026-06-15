@@ -355,23 +355,23 @@ export default function AddonsPage() {
         </div>
       )}
 
-      {/* Payment Modal — centered premium modal (NOT sheet) */}
+      {/* Payment Modal — slide-up on mobile, centered on desktop */}
       {buyKey && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-zen-ink/50 backdrop-blur-sm" onClick={() => setBuyKey(null)} />
 
           {/* Modal */}
-          <div className="relative w-full sm:max-w-md sm:mx-4 bg-white sm:rounded-[32px] max-h-[90dvh] flex flex-col overflow-hidden animate-scale-in shadow-2xl shadow-zen-ink/20">
+          <div className="relative w-full sm:max-w-md sm:mx-4 bg-white sm:rounded-[32px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-scale-in shadow-2xl shadow-zen-ink/20">
+            {/* Drag handle (mobile) */}
+            <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+
             {/* Header gradient */}
             <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-6 py-6 text-center">
               <p className="text-[9px] uppercase tracking-widest font-bold text-white/60 mb-1">Pembayaran</p>
               <p className="text-xl font-bold text-white">{FEATURES[buyKey].label}</p>
               <p className="text-3xl font-bold text-white mt-2">{fmtPrice(buyKey)}</p>
             </div>
-
-            {/* Close button */}
-            <button onClick={() => setBuyKey(null)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
 
             {/* Scrollable content */}
             <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
