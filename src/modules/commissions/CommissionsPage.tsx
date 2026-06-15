@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCoachCommissions, useCoaches, useMembers } from '@/hooks';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuthStore } from '@/stores/auth';
+import { useFeature } from '@/hooks/useFeature';
 import { BarChartH, TrendBars } from '@/components/ui';
 import { SmartSelect } from '@/components/ui/SmartSelect';
 import { ListSkeleton } from '@/components/Skeleton';
@@ -28,6 +29,7 @@ export default function CommissionsPage() {
   const { t } = useTranslation();
   const user = useAuthStore(s => s.user);
   const isAdmin = user?.role === 'owner';
+  const isPro = useFeature('pro');
 
   const [coachFilter, setCoachFilter] = useState('');
   const [preset, setPreset] = useState<Preset>('month');
@@ -53,6 +55,11 @@ export default function CommissionsPage() {
     for (const c of commissions) byDate[c.date] = (byDate[c.date] || 0) + c.commission_amount;
     return Object.keys(byDate).sort().map(d => ({ label: `${d.slice(8, 10)}/${d.slice(5, 7)}`, value: byDate[d] }));
   })();
+
+  // Pro insight — agregasi dari commissions yang sudah di-fetch.
+  const topCoach = coachChartData.length ? coachChartData.reduce((a, b) => (b.value > a.value ? b : a)) : null;
+  const avgPerTx = commissions.length ? totalKomisi / commissions.length : 0;
+  const busiestDay = trendData.length ? trendData.reduce((a, b) => (b.value > a.value ? b : a)) : null;
 
   const handlePreset = (p: Preset) => {
     setPreset(p);
@@ -103,6 +110,26 @@ export default function CommissionsPage() {
             label={t('commissions.coach')} />
         )}
       </div>
+
+      {/* Pro: ringkasan insight komisi */}
+      {isPro && commissions.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Pelatih Teratas</p>
+            <p className="text-sm font-bold mt-1 truncate">{topCoach?.label ?? '—'}</p>
+            <p className="text-xs text-zen-brand font-bold">{topCoach ? formatCurrency(topCoach.value) : '—'}</p>
+          </div>
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Rata-rata / Transaksi</p>
+            <p className="text-sm font-bold mt-1 tracking-tight">{formatCurrency(avgPerTx)}</p>
+          </div>
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Hari Terramai</p>
+            <p className="text-sm font-bold mt-1">{busiestDay?.label ?? '—'}</p>
+            <p className="text-xs text-zen-brand font-bold">{busiestDay ? formatCurrency(busiestDay.value) : '—'}</p>
+          </div>
+        </div>
+      )}
 
       {/* Komisi per pelatih — bar chart */}
       {isAdmin && coachChartData.length > 0 && (
