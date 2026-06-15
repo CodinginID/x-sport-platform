@@ -30,7 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { label: t('nav.bookings'), icon: Calendar, path: '/bookings', roles: ['owner', 'staff'] },
     { label: t('nav.sales'), icon: CreditCard, path: '/sales', roles: ['owner', 'staff'] },
     { label: t('nav.payments'), icon: CreditCard, path: '/payments', roles: ['owner', 'staff'] },
-    { label: 'Add-on', icon: Sparkles, path: '/addons', roles: ['owner'] },
+    { label: 'Add-ons', icon: Sparkles, path: '/addons', roles: ['owner'] },
     { label: t('nav.commissions'), icon: DollarSign, path: '/commissions', roles: ['owner'] },
     { label: t('nav.reports'), icon: PieChart, path: '/reports', roles: ['owner'] },
     { label: t('nav.settings'), icon: Settings, path: '/settings', roles: ['owner', 'staff'] },

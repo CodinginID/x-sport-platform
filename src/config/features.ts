@@ -2,7 +2,7 @@
 // Harga, WA admin, & rekening dikonfigurasi superadmin (tabel platform_config), bukan di sini.
 export const FEATURES = {
   pro: {
-    label: 'Paket Pro',
+    label: 'Pro',
     description: 'Buka semua tampilan premium: dashboard grafik, jadwal cantik, laporan, dan UI yang lebih mulus.',
     trial_days: 3,
     details: [

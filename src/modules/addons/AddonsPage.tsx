@@ -1,20 +1,31 @@
-import { useState, type ReactNode } from 'react';
-import { Sparkles, Check, Clock, MessageCircle, X, Eye } from 'lucide-react';
+import { useState, useEffect, type ReactNode } from 'react';
+import { Sparkles, Check, Clock, MessageCircle, X, Eye, RefreshCw } from 'lucide-react';
 import { FEATURES, FEATURE_KEYS, type FeatureKey } from '@/config/features';
 import { featureState } from '@/lib/featureState';
 import { useFeatureTrial } from '@/hooks/useFeatureTrial';
 import { usePlatformConfig } from '@/hooks/usePlatformConfig';
+import { validateLicense } from '@/services/license';
 import { useAuthStore } from '@/stores/auth';
+import { useToastStore } from '@/stores/toast';
 import { formatCurrency } from '@/utils';
 import { PremiumBookingPreview } from './PremiumBookingPreview';
 import { DashboardProPreview } from './DashboardProPreview';
 
+// Tiap tab preview disertai caption "apa yang dijual" agar calon pembeli paham nilainya.
 const PRO_PREVIEW_TABS = [
-  { key: 'jadwal', label: 'Jadwal', node: <PremiumBookingPreview /> },
-  { key: 'dashboard', label: 'Dashboard', node: <DashboardProPreview /> },
+  {
+    key: 'jadwal', label: 'Jadwal',
+    caption: 'Cari slot kosong sekejap: kartu per tanggal, heatmap okupansi, filter "hanya yang ada slot".',
+    node: <PremiumBookingPreview />,
+  },
+  {
+    key: 'dashboard', label: 'Dashboard',
+    caption: 'Pantau bisnis dalam grafik: tren pendapatan & kehadiran, jam tersibuk, okupansi, paket/coach terlaris.',
+    node: <DashboardProPreview />,
+  },
 ] as const;
 
-/** Preview multi-tab Paket Pro: Jadwal premium + Dashboard premium. */
+/** Preview multi-tab Pro: Jadwal premium + Dashboard premium, dengan anotasi tiap tab. */
 function ProPreviewTabs() {
   const [tab, setTab] = useState<(typeof PRO_PREVIEW_TABS)[number]['key']>('jadwal');
   const active = PRO_PREVIEW_TABS.find((t) => t.key === tab) ?? PRO_PREVIEW_TABS[0];
@@ -28,7 +39,12 @@ function ProPreviewTabs() {
           </button>
         ))}
       </div>
-      <div>{active.node}</div>
+      {/* Anotasi: jelaskan manfaat tab ini */}
+      <div className="flex items-start gap-2 bg-zen-brand/5 rounded-2xl px-4 py-3">
+        <Sparkles size={14} className="text-zen-brand shrink-0 mt-0.5" />
+        <p className="text-xs text-zen-ink/70 leading-relaxed">{active.caption}</p>
+      </div>
+      <div className="rounded-2xl overflow-hidden">{active.node}</div>
     </div>
   );
 }
@@ -47,18 +63,43 @@ export default function AddonsPage() {
   const licenseInfo = useAuthStore((s) => s.licenseInfo);
   const { startTrial, pending } = useFeatureTrial();
   const { data: config } = usePlatformConfig();
+  const addToast = useToastStore((s) => s.addToast);
   const [buyKey, setBuyKey] = useState<FeatureKey | null>(null);
   const [previewKey, setPreviewKey] = useState<FeatureKey | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const nowISO = new Date().toISOString();
+
+  // Sinkronkan entitlement: superadmin bisa mengaktifkan fitur dari sisinya, jadi
+  // re-validate lisensi saat halaman dibuka (+ tombol Perbarui) agar owner langsung lihat.
+  const refreshEntitlement = async (notify = false) => {
+    const { licenseInfo: li, updateLicenseInfo } = useAuthStore.getState();
+    if (!li?.license_key) return;
+    setRefreshing(true);
+    try {
+      const fresh = await validateLicense(li.license_key);
+      if (fresh.ok && fresh.data) await updateLicenseInfo(fresh.data);
+      if (notify) addToast('Status add-on diperbarui', 'success');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  useEffect(() => { refreshEntitlement(false); /* on mount */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const priceOf = (key: FeatureKey): number | null => config?.feature_prices?.[key] ?? null;
   const fmtPrice = (key: FeatureKey) => { const p = priceOf(key); return p == null ? '—' : formatCurrency(p); };
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <Sparkles size={22} className="text-zen-brand" />
-        <h1 className="text-2xl font-bold">Add-on Premium</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Sparkles size={22} className="text-zen-brand" />
+          <h1 className="text-2xl font-bold">Add-ons Feature</h1>
+        </div>
+        <button onClick={() => refreshEntitlement(true)} disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-zen-ink/10 text-xs font-bold text-zen-ink/60 hover:text-zen-brand hover:border-zen-brand/30 transition-colors disabled:opacity-50">
+          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> Perbarui status
+        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -133,7 +174,7 @@ export default function AddonsPage() {
               <button onClick={() => setPreviewKey(null)}><X size={18} className="text-zen-ink/40" /></button>
             </div>
             <div className="p-4">
-              <p className="text-[11px] text-zen-ink/40 mb-3">Contoh tampilan dengan data dummy — beginilah jadwal Anda akan terlihat dengan fitur ini.</p>
+              <p className="text-[11px] text-zen-ink/40 mb-3">Contoh tampilan dengan data dummy — beginilah aplikasi Anda akan terlihat dengan fitur ini.</p>
               {FEATURE_PREVIEWS[previewKey]}
             </div>
           </div>

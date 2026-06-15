@@ -33,7 +33,7 @@ export default function BookingsPage() {
           <h1 className="text-2xl font-bold">Jadwal Sesi</h1>
           <FeatureGate feature="pro">
             <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-zen-brand/10 text-zen-brand">
-              <Sparkles size={11} /> Premium
+              <Sparkles size={11} /> Pro
             </span>
           </FeatureGate>
         </div>
