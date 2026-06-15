@@ -54,12 +54,13 @@ const PRO_PREVIEW_TABS = [
   },
 ] as const;
 
-/** Preview multi-tab Pro dengan Before → After per tab. */
+/** Preview multi-tab Pro: visual utama, sebelum/sesudah di bawah sebagai konteks. */
 function ProPreviewTabs() {
   const [tab, setTab] = useState<(typeof PRO_PREVIEW_TABS)[number]['key']>('jadwal');
   const active = PRO_PREVIEW_TABS.find((t) => t.key === tab) ?? PRO_PREVIEW_TABS[0];
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Tabs — sticky di atas agar mudah diakses */}
       <div className="flex gap-1.5 flex-wrap">
         {PRO_PREVIEW_TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -68,21 +69,33 @@ function ProPreviewTabs() {
           </button>
         ))}
       </div>
-      {/* Before → After */}
+
+      {/* Visual preview — YANG UTAMA, tampil duluan */}
+      <div className="rounded-2xl overflow-hidden border border-zen-ink/10 bg-white">{active.node}</div>
+
+      {/* Sebelum → Sesudah — konteks di bawah visual */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl border border-zen-ink/10 p-4">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/30 mb-2">Sebelum (Gratis)</p>
-          <p className="text-xs text-zen-ink/50 leading-relaxed">{active.beforeDesc}</p>
+        <div className="rounded-2xl border border-zen-ink/10 bg-white p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="w-2 h-2 rounded-full bg-zen-ink/20" />
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Sebelum (Gratis)</p>
+          </div>
+          <p className="text-xs text-zen-ink/60 leading-relaxed">{active.beforeDesc}</p>
         </div>
-        <div className="bg-zen-brand/5 rounded-2xl border border-zen-brand/20 p-4">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand mb-2">Sesudah (Pro)</p>
+        <div className="rounded-2xl border border-zen-brand/20 bg-zen-brand/5 p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="w-2 h-2 rounded-full bg-zen-brand" />
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand">Sesudah (Pro)</p>
+          </div>
           <p className="text-xs text-zen-ink/70 leading-relaxed">{active.caption}</p>
         </div>
       </div>
-      <div className="flex items-center justify-center py-1">
-        <ArrowRight size={16} className="text-zen-brand/40" />
+
+      {/* Bridge: arrow + insight */}
+      <div className="flex items-center gap-2 text-[11px] text-zen-ink/40 justify-center">
+        <ArrowRight size={14} className="text-zen-brand/50" />
+        <span>Dari "{active.beforeDesc.split(',')[0]}" → jadi insight yang bisa ditindaklanjuti</span>
       </div>
-      <div className="rounded-2xl overflow-hidden border border-zen-ink/10">{active.node}</div>
     </div>
   );
 }
@@ -250,19 +263,41 @@ export default function AddonsPage() {
       {previewKey && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={() => setPreviewKey(null)}>
           <div className="bg-zen-bg w-full sm:max-w-2xl sm:mx-4 sm:rounded-[28px] rounded-t-[28px] max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white/90 backdrop-blur px-5 py-4 flex items-center justify-between border-b border-zen-ink/5">
-              <div>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand">Preview</p>
-                <p className="text-base font-bold">{FEATURES[previewKey].label}</p>
+            {/* Header */}
+            <div className="sticky top-0 bg-white/90 backdrop-blur px-5 py-4 flex items-center justify-between border-b border-zen-ink/5 z-10">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zen-brand/10 border border-zen-brand/20">
+                  <Sparkles size={13} className="text-zen-brand" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zen-brand">Preview Pro</span>
+                </span>
+                <p className="text-sm font-bold text-zen-ink/60">{FEATURES[previewKey].label}</p>
               </div>
-              <button onClick={() => setPreviewKey(null)}><X size={18} className="text-zen-ink/40" /></button>
+              <button onClick={() => setPreviewKey(null)} className="w-8 h-8 rounded-full hover:bg-zen-ink/5 flex items-center justify-center transition-colors"><X size={18} className="text-zen-ink/40" /></button>
             </div>
-            <div className="p-4 space-y-2">
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                <Eye size={13} className="text-amber-600 shrink-0" />
-                <p className="text-[11px] text-amber-700 font-medium">Ini contoh tampilan dengan data dummy — bukan data studio Anda.</p>
+
+            {/* Dummy data warning — prominent */}
+            <div className="px-5 pt-4">
+              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200/60 rounded-2xl px-4 py-3">
+                <Eye size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-amber-700">Ini hanya preview</p>
+                  <p className="text-[11px] text-amber-600/80 leading-snug">Data yang tampil adalah contoh — bukan data studio Anda. Setelah aktif, grafik akan diisi dari data nyata.</p>
+                </div>
               </div>
-              {FEATURE_PREVIEWS[previewKey]}
+            </div>
+
+            {/* Preview content */}
+            <div className="p-5">{FEATURE_PREVIEWS[previewKey]}</div>
+
+            {/* Footer CTA */}
+            <div className="sticky bottom-0 bg-white/90 backdrop-blur border-t border-zen-ink/5 px-5 py-4 flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-zen-ink">Tertarik?</p>
+              <div className="flex gap-2">
+                <button onClick={() => { setPreviewKey(null); setBuyKey('pro'); }}
+                  className="px-5 py-2.5 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 transition-colors">
+                  Beli {FEATURES[previewKey].label}
+                </button>
+              </div>
             </div>
           </div>
         </div>
