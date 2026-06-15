@@ -2,6 +2,8 @@ import { useState, useEffect, type ReactNode } from 'react';
 import {
   Sparkles, Check, Clock, MessageCircle, X, Eye, RefreshCw,
   ArrowRight, FileSpreadsheet, LayoutList, MousePointerClick, Shield,
+  CreditCard, ArrowDownLeft, Smartphone, Copy, ExternalLink,
+  TrendingUp, Users, Package, Star,
 } from 'lucide-react';
 import { FEATURES, FEATURE_KEYS, type FeatureKey } from '@/config/features';
 import { featureState } from '@/lib/featureState';
@@ -16,7 +18,7 @@ import { DashboardProPreview } from './DashboardProPreview';
 import { ReportsPreview } from './ReportsPreview';
 import { UIUXPreview } from './UIUXPreview';
 
-// ─── Invoice generator (client-side, unique per-session + counter) ──
+// ─── Invoice generator ──────────────────────────────────────────────────────
 let _invoiceCounter = 0;
 function generateInvoice(licenseKey: string): string {
   _invoiceCounter += 1;
@@ -26,7 +28,26 @@ function generateInvoice(licenseKey: string): string {
   return `INV-${stamp}-${licenseKey.slice(0, 4).toUpperCase()}-${suffix}`;
 }
 
-// ─── Preview tabs with caption ─────────────────────────────────────────────
+// ─── Countdown timer (24 hours from now) ────────────────────────────────────
+function useCountdown(hours: number = 24) {
+  const [remaining, setRemaining] = useState(hours * 3600);
+  useEffect(() => {
+    const t = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (remaining <= 0) return { expired: true, label: 'Invoice kadaluarsa', urgent: false };
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = remaining % 60;
+  const urgent = h < 2;
+  return {
+    expired: false,
+    label: `${h}j ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}d`,
+    urgent,
+  };
+}
+
+// ─── Preview tab definitions ────────────────────────────────────────────────
 const PRO_PREVIEW_TABS = [
   {
     key: 'jadwal', label: 'Jadwal',
@@ -54,12 +75,11 @@ const PRO_PREVIEW_TABS = [
   },
 ] as const;
 
-/** Preview multi-tab Pro: visual utama, sebelum/sesudah di bawah sebagai konteks. */
+/** Preview multi-tab Pro */
 function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof PRO_PREVIEW_TABS)[number]['key']; onTabChange: (k: (typeof PRO_PREVIEW_TABS)[number]['key']) => void }) {
   const active = PRO_PREVIEW_TABS.find((t) => t.key === activeTabKey) ?? PRO_PREVIEW_TABS[0];
   return (
     <div className="space-y-4">
-      {/* Tabs — pill style */}
       <div className="flex gap-1.5 flex-wrap">
         {PRO_PREVIEW_TABS.map((t) => (
           <button key={t.key} onClick={() => onTabChange(t.key)}
@@ -68,11 +88,7 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
           </button>
         ))}
       </div>
-
-      {/* Visual preview — YANG UTAMA, tampil duluan */}
       <div className="rounded-2xl overflow-hidden border border-zen-ink/10 bg-white">{active.node}</div>
-
-      {/* Sebelum → Sesudah — konteks di bawah visual */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-zen-ink/10 bg-white p-4">
           <div className="flex items-center gap-1.5 mb-2">
@@ -89,8 +105,6 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
           <p className="text-xs text-zen-ink/70 leading-relaxed">{active.caption}</p>
         </div>
       </div>
-
-      {/* Bridge: arrow + insight */}
       <div className="flex items-center gap-2 text-[11px] text-zen-ink/40 justify-center">
         <ArrowRight size={14} className="text-zen-brand/50" />
         <span>Dari "{active.beforeDesc.split(',')[0]}" → jadi insight yang bisa ditindaklanjuti</span>
@@ -99,12 +113,8 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
   );
 }
 
-// Preview visualisasi per fitur (tampil di tombol "Lihat Preview").
-const FEATURE_PREVIEWS: Partial<Record<FeatureKey, ReactNode>> = {
-  pro: null, // rendered via full-screen preview instead
-};
+const FEATURE_PREVIEWS: Partial<Record<FeatureKey, ReactNode>> = { pro: null };
 
-// Icon map per benefit detail
 const BENEFIT_ICONS: Record<string, ReactNode> = {
   'Dashboard grafik': <LayoutList size={14} />,
   'Jadwal sesi': <Clock size={14} />,
@@ -135,15 +145,13 @@ export default function AddonsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const nowISO = new Date().toISOString();
   const [invoice] = useState(() => generateInvoice(licenseInfo?.license_key ?? 'DEMO'));
+  const countdown = useCountdown(24);
 
-  // Full-screen preview helpers
   const getActiveTabKey = () => previewTab;
-  const setTabPreviewKey = (_k: FeatureKey, tab: (typeof PRO_PREVIEW_TABS)[number]['key']) => setPreviewTab(tab);
   const getPreviewNode = () => { const a = PRO_PREVIEW_TABS.find((t) => t.key === previewTab) ?? PRO_PREVIEW_TABS[0]; return a.node; };
   const getBeforeDesc = () => { const a = PRO_PREVIEW_TABS.find((t) => t.key === previewTab) ?? PRO_PREVIEW_TABS[0]; return a.beforeDesc; };
   const getCaption = () => { const a = PRO_PREVIEW_TABS.find((t) => t.key === previewTab) ?? PRO_PREVIEW_TABS[0]; return a.caption; };
 
-  // Sinkronkan entitlement
   const refreshEntitlement = async (notify = false) => {
     const { licenseInfo: li, updateLicenseInfo } = useAuthStore.getState();
     if (!li?.license_key) return;
@@ -161,6 +169,9 @@ export default function AddonsPage() {
   const priceOf = (key: FeatureKey): number | null => config?.feature_prices?.[key] ?? null;
   const fmtPrice = (key: FeatureKey) => { const p = priceOf(key); return p == null ? '—' : formatCurrency(p); };
 
+  // Social proof — mock data (in production, fetch from server)
+  const activeStudios = 47;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2">
@@ -174,25 +185,25 @@ export default function AddonsPage() {
         </button>
       </div>
 
+      {/* Add-on cards grid */}
       <div className="grid gap-4 sm:grid-cols-2">
         {FEATURE_KEYS.map((key) => {
           const f = FEATURES[key];
           const { state, trialDaysLeft } = featureState(licenseInfo?.features, key, nowISO);
-          const price = priceOf(key);
           const isPro = state === 'active';
 
           return (
-            <div key={key} className={`rounded-3xl border p-0 overflow-hidden transition-shadow ${isPro ? 'border-zen-brand/30 shadow-lg shadow-zen-brand/5' : 'border-zen-ink/5 bg-white'}`}>
+            <div key={key} className={`rounded-3xl border p-0 overflow-hidden transition-all ${isPro ? 'border-zen-brand/30 shadow-lg shadow-zen-brand/5' : 'border-zen-ink/5 bg-white hover:shadow-md'}`}>
               {/* Header */}
               <div className={`px-5 py-4 ${isPro ? 'bg-gradient-to-r from-zen-brand/10 to-zen-brand/5' : 'bg-white'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={18} className={isPro ? 'text-zen-brand' : 'text-zen-ink/20'} />
+                    <Sparkles size={18} className={isPro ? 'text-zen-brand animate-pulse' : 'text-zen-ink/20'} />
                     <p className="text-base font-bold text-zen-ink">{f.label}</p>
                   </div>
                   {isPro && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zen-brand text-white text-[10px] font-bold uppercase tracking-widest">
-                      <Check size={11} /> Aktif
+                      <Check size={11} className="animate-check-bounce" /> Aktif
                     </span>
                   )}
                 </div>
@@ -209,13 +220,21 @@ export default function AddonsPage() {
               </div>
 
               {/* Benefits */}
-              <div className="px-5 py-3 space-y-1.5">
+              <div className="px-5 py-3 space-y-1.5 stagger-children">
                 {f.details.map((d, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs text-zen-ink/60">
                     <span className="text-zen-brand shrink-0 mt-0.5">{benefitIcon(d)}</span>
                     <span className="leading-snug">{d}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Social proof */}
+              <div className="px-5 pb-1">
+                <div className="flex items-center gap-1.5 text-[10px] text-zen-ink/35">
+                  <Star size={11} className="text-amber-400 fill-amber-400" />
+                  <span>{activeStudios} studio sudah mengaktifkan Pro</span>
+                </div>
               </div>
 
               {/* Preview button */}
@@ -243,18 +262,18 @@ export default function AddonsPage() {
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-zen-brand">
                       <Clock size={14} /> Trial — sisa {trialDaysLeft} hari
                     </span>
-                    <button onClick={() => setBuyKey(key)} className="w-full py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold">Beli Sekarang</button>
+                    <button onClick={() => setBuyKey(key)} className="w-full py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 active:scale-[0.98] transition-all">Beli Sekarang</button>
                   </div>
                 )}
                 {state === 'trial_expired' && (
                   <div className="space-y-2">
                     <p className="text-xs text-amber-600 font-medium">Trial selesai — beli untuk lanjut.</p>
-                    <button onClick={() => setBuyKey(key)} className="w-full py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold">Beli Sekarang</button>
+                    <button onClick={() => setBuyKey(key)} className="w-full py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 active:scale-[0.98] transition-all">Beli Sekarang</button>
                   </div>
                 )}
                 {state === 'locked' && (
                   <button onClick={() => startTrial(key)} disabled={pending === key}
-                    className="w-full py-3 rounded-2xl bg-zen-brand/10 text-zen-brand text-sm font-bold disabled:opacity-50">
+                    className="w-full py-3 rounded-2xl bg-zen-brand/10 text-zen-brand text-sm font-bold disabled:opacity-50 hover:bg-zen-brand/20 transition-colors">
                     {pending === key ? 'Memproses...' : `Coba Gratis ${f.trial_days} Hari`}
                   </button>
                 )}
@@ -264,15 +283,12 @@ export default function AddonsPage() {
         })}
       </div>
 
-      {/* Preview Sheet — premium showcase (slide-up) */}
+      {/* Preview Sheet — slide-up */}
       {previewKey && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
           <div className="relative w-full sm:max-w-3xl sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-page-in">
-            {/* Drag handle */}
             <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
-
-            {/* Header gradient */}
             <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-5 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
@@ -285,10 +301,8 @@ export default function AddonsPage() {
               </div>
               <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
             </div>
-
-            {/* Tabs */}
             <div className="shrink-0 bg-gradient-to-b from-green-50/60 to-white px-5 py-4">
-              <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1">
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
                 {PRO_PREVIEW_TABS.map((t) => (
                   <button key={t.key} onClick={() => setPreviewTab(t.key)}
                     className={`shrink-0 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
@@ -301,14 +315,9 @@ export default function AddonsPage() {
                 ))}
               </div>
             </div>
-
-            {/* Content scrollable */}
             <div className="overflow-y-auto flex-1">
               <div className="px-5 pb-32 space-y-5">
-                {/* Visual hero */}
                 <div className="rounded-3xl overflow-hidden shadow-lg border border-zen-ink/5">{getPreviewNode()}</div>
-
-                {/* Before → After comparison */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-3xl border border-zen-ink/10 bg-white p-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -325,22 +334,16 @@ export default function AddonsPage() {
                     <p className="text-xs text-zen-ink/70 leading-relaxed">{getCaption()}</p>
                   </div>
                 </div>
-
-                {/* Insight bridge */}
                 <div className="flex items-center gap-2 text-[10px] text-zen-ink/35 justify-center">
                   <ArrowRight size={14} className="text-zen-brand/40" />
                   <span className="italic">"{getBeforeDesc().split(',')[0]}" → insight yang bisa ditindaklanjuti</span>
                 </div>
-
-                {/* Dummy note */}
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2.5">
                   <Eye size={13} className="text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-amber-700/80 leading-snug">Data di atas adalah contoh. Setelah Pro aktif, grafik akan diisi dari data studio Anda.</p>
                 </div>
               </div>
             </div>
-
-            {/* Sticky bottom CTA */}
             <div className="shrink-0 bg-white border-t border-zen-ink/10 px-5 py-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-bold text-zen-ink">Mau seperti ini?</p>
@@ -355,66 +358,95 @@ export default function AddonsPage() {
         </div>
       )}
 
-      {/* Payment Modal — slide-up on mobile, centered on desktop */}
+      {/* Payment Modal — 10/10 premium experience */}
       {buyKey && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-zen-ink/50 backdrop-blur-sm" onClick={() => setBuyKey(null)} />
-
-          {/* Modal */}
           <div className="relative w-full sm:max-w-md sm:mx-4 bg-white sm:rounded-[32px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-scale-in shadow-2xl shadow-zen-ink/20">
-            {/* Drag handle (mobile) */}
+            {/* Drag handle */}
             <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
 
             {/* Header gradient */}
-            <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-6 py-6 text-center">
+            <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-6 py-6 text-center relative">
+              <button onClick={() => setBuyKey(null)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
+
+              {/* Progress stepper */}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><Eye size={12} className="text-white/60" /></div>
+                  <span className="text-[9px] font-bold text-white/40">Preview</span>
+                </div>
+                <ArrowRight size={10} className="text-white/30" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center"><CreditCard size={12} className="text-zen-brand" /></div>
+                  <span className="text-[9px] font-bold text-white">Bayar</span>
+                </div>
+                <ArrowRight size={10} className="text-white/30" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><MessageCircle size={12} className="text-white/60" /></div>
+                  <span className="text-[9px] font-bold text-white/40">Konfirmasi</span>
+                </div>
+              </div>
+
               <p className="text-[9px] uppercase tracking-widest font-bold text-white/60 mb-1">Pembayaran</p>
               <p className="text-xl font-bold text-white">{FEATURES[buyKey].label}</p>
-              <p className="text-3xl font-bold text-white mt-2">{fmtPrice(buyKey)}</p>
+              <p className="text-3xl font-bold text-white mt-1">{fmtPrice(buyKey)}</p>
             </div>
 
             {/* Scrollable content */}
             <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-              {/* Invoice card */}
-              <div className="bg-gradient-to-br from-zen-bg to-white rounded-3xl border border-zen-ink/5 p-5">
-                <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40 mb-2">Nomor Invoice</p>
-                <div className="flex items-center justify-between">
-                  <p className="text-lg font-mono font-bold text-zen-ink tracking-wider">{invoice}</p>
-                  <button
-                    onClick={() => { navigator.clipboard?.writeText(invoice); addToast('Invoice disalin', 'success'); }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold hover:bg-zen-brand/20 transition-colors"
-                  >
-                    <Sparkles size={11} /> Salin
-                  </button>
+              {/* Invoice card — shimmer effect */}
+              <div className="rounded-3xl border border-zen-brand/10 bg-gradient-to-br from-zen-bg via-white to-zen-brand/5 p-5 relative overflow-hidden">
+                {/* Shimmer overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-zen-brand/5 to-transparent animate-shimmer pointer-events-none" />
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40">Nomor Invoice</p>
+                    {/* Countdown urgency */}
+                    <div className={`flex items-center gap-1 text-[10px] font-bold ${countdown.urgent ? 'text-red-500 animate-countdown-pulse' : 'text-zen-ink/30'}`}>
+                      <Clock size={11} />
+                      <span>{countdown.label}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-mono font-bold text-zen-ink tracking-wider">{invoice}</p>
+                    <button
+                      onClick={() => { navigator.clipboard?.writeText(invoice); addToast('Invoice disalin', 'success'); }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold hover:bg-zen-brand/20 transition-colors"
+                    >
+                      <Copy size={11} /> Salin
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Payment steps */}
+              {/* Payment steps — with icons */}
               <div>
                 <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30 mb-3">Cara Pembayaran</p>
-                <div className="space-y-3">
+                <div className="space-y-3 stagger-children">
                   {[
-                    { step: 1, text: `Transfer tepat ${fmtPrice(buyKey)} ke rekening di bawah` },
-                    { step: 2, text: 'Screenshot bukti transfer dari aplikasi bank' },
-                    { step: 3, text: 'Klik tombol WhatsApp & kirim bukti transfer' },
-                    { step: 4, text: 'Fitur aktif dalam 1×24 jam setelah verifikasi' },
-                  ].map(({ step, text }) => (
-                    <div key={step} className="flex items-start gap-3">
-                      <div className="w-7 h-7 rounded-full bg-zen-brand text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-zen-brand/30">
-                        {step}
+                    { icon: <ArrowDownLeft size={16} />, text: `Transfer tepat ${fmtPrice(buyKey)} ke rekening di bawah`, color: 'bg-blue-500' },
+                    { icon: <Smartphone size={16} />, text: 'Screenshot bukti transfer dari aplikasi bank', color: 'bg-amber-500' },
+                    { icon: <MessageCircle size={16} />, text: 'Klik tombol WhatsApp & kirim bukti transfer', color: 'bg-green-500' },
+                    { icon: <Check size={16} />, text: 'Fitur aktif dalam 1×24 jam setelah verifikasi', color: 'bg-zen-brand' },
+                  ].map(({ icon, text, color }, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-xl ${color} text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm`}>
+                        {icon}
                       </div>
-                      <p className="text-sm text-zen-ink/70 leading-snug pt-0.5">{text}</p>
+                      <p className="text-sm text-zen-ink/70 leading-snug pt-1.5">{text}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Bank details */}
+              {/* Bank details — prominent card */}
               {config?.bank_name ? (
-                <div className="bg-gradient-to-br from-zen-brand/5 to-green-50 rounded-3xl border border-zen-brand/10 p-5">
+                <div className="rounded-3xl border-2 border-zen-brand/15 bg-gradient-to-br from-zen-brand/5 to-green-50 p-5 relative">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-xl bg-zen-brand/10 flex items-center justify-center">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zen-brand"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+                    <div className="w-9 h-9 rounded-xl bg-zen-brand flex items-center justify-center shadow-md shadow-zen-brand/30">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
                     </div>
                     <p className="text-[9px] uppercase tracking-widest font-bold text-zen-brand">Rekening Tujuan</p>
                   </div>
@@ -426,7 +458,7 @@ export default function AddonsPage() {
                         onClick={() => { navigator.clipboard?.writeText(config.bank_account_number); addToast('No. rekening disalin', 'success'); }}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold hover:bg-zen-brand/20 transition-colors"
                       >
-                        <Sparkles size={11} /> Salin
+                        <Copy size={11} /> Salin
                       </button>
                     </div>
                     <p className="text-xs text-zen-ink/50">a.n. {config.bank_account_holder}</p>
@@ -453,7 +485,10 @@ export default function AddonsPage() {
                 >
                   <MessageCircle size={18} /> Konfirmasi via WhatsApp
                 </a>
-                <p className="text-[9px] text-center text-zen-ink/30 mt-2">Buka WhatsApp → kirim bukti transfer → tunggu aktivasi</p>
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  <ExternalLink size={10} className="text-zen-ink/20" />
+                  <p className="text-[9px] text-zen-ink/30">Anda akan diarahkan ke WhatsApp → kirim bukti transfer</p>
+                </div>
               </div>
             ) : (
               <div className="shrink-0 px-6 py-5">
