@@ -75,39 +75,95 @@ const PRO_PREVIEW_TABS = [
   },
 ] as const;
 
-/** Preview multi-tab Pro */
+/** Preview multi-tab Pro — visual mockups, bukan text description */
 function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof PRO_PREVIEW_TABS)[number]['key']; onTabChange: (k: (typeof PRO_PREVIEW_TABS)[number]['key']) => void }) {
   const active = PRO_PREVIEW_TABS.find((t) => t.key === activeTabKey) ?? PRO_PREVIEW_TABS[0];
   return (
     <div className="space-y-4">
+      {/* Tabs — with icons */}
       <div className="flex gap-1.5 flex-wrap">
-        {PRO_PREVIEW_TABS.map((t) => (
+        {[
+          { key: 'jadwal', label: 'Jadwal', icon: <Clock size={12} /> },
+          { key: 'dashboard', label: 'Dashboard', icon: <TrendingUp size={12} /> },
+          { key: 'laporan', label: 'Laporan', icon: <FileSpreadsheet size={12} /> },
+          { key: 'uiux', label: 'UI/UX', icon: <MousePointerClick size={12} /> },
+        ].map((t) => (
           <button key={t.key} onClick={() => onTabChange(t.key)}
-            className={`px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all ${activeTabKey === t.key ? 'bg-zen-brand text-white' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
-            {t.label}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all ${activeTabKey === t.key ? 'bg-zen-brand text-white shadow-sm' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
-      <div className="rounded-2xl overflow-hidden border border-zen-ink/10 bg-white">{active.node}</div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-zen-ink/10 bg-white p-4">
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="w-2 h-2 rounded-full bg-zen-ink/20" />
-            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Sebelum (Gratis)</p>
+
+      {/* Main visual — the hero */}
+      <div className="rounded-3xl overflow-hidden border border-zen-ink/10 bg-white shadow-lg">{active.node}</div>
+
+      {/* Visual comparison — BEFORE vs AFTER with mini mockups */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* BEFORE mockup */}
+        <div className="rounded-3xl border border-zen-ink/10 bg-white overflow-hidden">
+          <div className="px-4 py-2.5 bg-zen-ink/5 border-b border-zen-ink/5 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-zen-ink/15" />
+            <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30">Tanpa Pro</p>
           </div>
-          <p className="text-xs text-zen-ink/60 leading-relaxed">{active.beforeDesc}</p>
+          <div className="p-4">
+            {/* Mini mockup: flat list */}
+            <div className="space-y-2">
+              {[
+                { time: '08:00', label: 'Reguler · Coach Budi', status: 'full' },
+                { time: '10:00', label: 'Private · Coach Sinta', status: 'full' },
+                { time: '16:00', label: 'Reguler · Coach Budi', status: 'full' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 py-2 border-b border-zen-ink/5 last:border-0">
+                  <span className="text-[10px] font-mono font-bold text-zen-ink/30 w-10">{item.time}</span>
+                  <span className="text-[10px] text-zen-ink/30 flex-1 truncate">{item.label}</span>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100/60 text-red-400">Penuh</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[9px] text-zen-ink/25 mt-3 text-center italic">{active.beforeDesc.split('.')[0]}.</p>
+          </div>
         </div>
-        <div className="rounded-2xl border border-zen-brand/20 bg-zen-brand/5 p-4">
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="w-2 h-2 rounded-full bg-zen-brand" />
-            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand">Sesudah (Pro)</p>
+
+        {/* AFTER mockup — with gradient border + glow */}
+        <div className="rounded-3xl border-2 border-zen-brand/25 bg-gradient-to-b from-zen-brand/5 to-white overflow-hidden relative">
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-zen-brand/5 animate-pulse pointer-events-none rounded-3xl" />
+
+          <div className="relative px-4 py-2.5 bg-zen-brand/10 border-b border-zen-brand/10 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-zen-brand animate-pulse" />
+            <p className="text-[9px] uppercase tracking-widest font-bold text-zen-brand">Dengan Pro</p>
           </div>
-          <p className="text-xs text-zen-ink/70 leading-relaxed">{active.caption}</p>
+          <div className="p-4">
+            {/* Mini mockup: premium cards */}
+            <div className="space-y-2">
+              {[
+                { time: '08:00', coach: 'Coach Budi', slots: 3, total: 8 },
+                { time: '10:00', coach: 'Coach Sinta', slots: 0, total: 1 },
+                { time: '16:00', coach: 'Coach Budi', slots: 8, total: 8 },
+              ].map((item, i) => (
+                <div key={i} className={`flex items-center gap-2 py-2 rounded-xl px-2 ${item.slots > 0 ? 'bg-green-50/80 border border-green-100' : 'bg-red-50/50 border border-red-100'}`}>
+                  <span className="text-[10px] font-mono font-bold text-zen-ink w-10">{item.time}</span>
+                  <span className="text-[10px] text-zen-ink/60 flex-1 truncate">{item.coach}</span>
+                  {item.slots > 0 ? (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-500 text-white">✓ {item.slots} slot</span>
+                  ) : (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-500">Penuh</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[9px] text-zen-brand/60 mt-3 text-center italic">{active.caption.split(':')[0]}.</p>
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-zen-ink/40 justify-center">
-        <ArrowRight size={14} className="text-zen-brand/50" />
-        <span>Dari "{active.beforeDesc.split(',')[0]}" → jadi insight yang bisa ditindaklanjuti</span>
+
+      {/* Insight bridge */}
+      <div className="flex items-center gap-2 justify-center py-1">
+        <div className="w-8 h-8 rounded-full bg-zen-brand/10 flex items-center justify-center">
+          <ArrowRight size={14} className="text-zen-brand animate-pulse" />
+        </div>
+        <span className="text-[11px] text-zen-ink/50">Dari tampilan biasa <span className="text-zen-brand font-bold">→</span> insight yang bisa ditindaklanjuti</span>
       </div>
     </div>
   );
