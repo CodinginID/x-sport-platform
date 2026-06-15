@@ -264,160 +264,188 @@ export default function AddonsPage() {
         })}
       </div>
 
-      {/* Full-screen Preview Showcase */}
+      {/* Preview Sheet — premium showcase */}
       {previewKey && (
-        <div className="fixed inset-0 z-[70] flex flex-col bg-white">
-          {/* Top bar — gradient backdrop */}
-          <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-4 sm:px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-white/60">Preview</p>
-                <p className="text-base font-bold text-white">{FEATURES[previewKey].label}</p>
-              </div>
-            </div>
-            <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={18} className="text-white" /></button>
-          </div>
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
 
-          {/* Tabs section */}
-          <div className="shrink-0 bg-gradient-to-b from-green-50 to-white px-4 sm:px-6 py-5">
-            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-              {PRO_PREVIEW_TABS.map((t) => (
-                <button key={t.key} onClick={() => setPreviewTab(t.key)}
-                  className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${
-                    getActiveTabKey() === t.key
-                      ? 'bg-zen-brand text-white shadow-sm'
-                      : 'bg-white border border-zen-ink/10 text-zen-ink/40 hover:text-zen-ink'
-                  }`}>
-                  {t.label}
+          {/* Sheet */}
+          <div className="relative w-full sm:max-w-3xl sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden">
+            {/* Drag handle (mobile) */}
+            <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+
+            {/* Top bar — gradient */}
+            <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPreviewKey(null)} className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Content — scrollable */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-6 pb-32">
-              {/* Visual — the hero */}
-              <div className="rounded-2xl overflow-hidden shadow-lg border border-zen-ink/5">{getPreviewNode()}</div>
-
-              {/* Before → After */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-zen-ink/10 bg-white p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-3 h-3 rounded-full bg-zen-ink/15" />
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Tanpa Pro</p>
-                  </div>
-                  <p className="text-sm text-zen-ink/60 leading-relaxed">{getBeforeDesc()}</p>
-                </div>
-                <div className="rounded-2xl border border-zen-brand/20 bg-gradient-to-b from-zen-brand/5 to-white p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-3 h-3 rounded-full bg-zen-brand animate-pulse" />
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-zen-brand">Dengan Pro</p>
-                  </div>
-                  <p className="text-sm text-zen-ink/70 leading-relaxed">{getCaption()}</p>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold text-white/60">Preview</p>
+                  <p className="text-sm font-bold text-white">{FEATURES[previewKey].label}</p>
                 </div>
               </div>
+              <button onClick={() => setPreviewKey(null)} className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={15} className="text-white" /></button>
+            </div>
 
-              {/* Insight bridge */}
-              <div className="flex items-center gap-3 text-sm text-zen-ink/40 justify-center py-2">
-                <ArrowRight size={16} className="text-zen-brand/40" />
-                <span className="italic">"{getBeforeDesc().split(',')[0]}" → insight yang bisa ditindaklanjuti</span>
-              </div>
-
-              {/* Dummy data note */}
-              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200/60 rounded-2xl px-4 py-3">
-                <Eye size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-amber-700/80 leading-snug">Data di atas adalah contoh. Setelah Pro aktif, grafik akan diisi dari data studio Anda.</p>
+            {/* Tabs */}
+            <div className="shrink-0 bg-gradient-to-b from-green-50/60 to-white px-5 py-4">
+              <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1">
+                {PRO_PREVIEW_TABS.map((t) => (
+                  <button key={t.key} onClick={() => setPreviewTab(t.key)}
+                    className={`shrink-0 px-3.5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                      getActiveTabKey() === t.key
+                        ? 'bg-zen-brand text-white shadow-sm'
+                        : 'bg-white border border-zen-ink/10 text-zen-ink/40 hover:text-zen-ink'
+                    }`}>
+                    {t.label}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
 
-          {/* Bottom CTA bar */}
-          <div className="shrink-0 bg-white border-t border-zen-ink/10 px-4 sm:px-6 py-4 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-            <div>
-              <p className="text-sm font-bold text-zen-ink">Mau seperti ini?</p>
-              <p className="text-[11px] text-zen-ink/40">{fmtPrice('pro')} · selamanya</p>
+            {/* Scrollable content */}
+            <div className="overflow-y-auto flex-1">
+              <div className="px-5 pb-32 space-y-5">
+                {/* Visual hero */}
+                <div className="rounded-3xl overflow-hidden shadow-md border border-zen-ink/5">{getPreviewNode()}</div>
+
+                {/* Before → After */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-3xl border border-zen-ink/10 bg-white p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-zen-ink/15" />
+                      <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40">Tanpa Pro</p>
+                    </div>
+                    <p className="text-xs text-zen-ink/60 leading-relaxed">{getBeforeDesc()}</p>
+                  </div>
+                  <div className="rounded-3xl border border-zen-brand/20 bg-gradient-to-b from-zen-brand/5 to-white p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-zen-brand animate-pulse" />
+                      <p className="text-[9px] uppercase tracking-widest font-bold text-zen-brand">Dengan Pro</p>
+                    </div>
+                    <p className="text-xs text-zen-ink/70 leading-relaxed">{getCaption()}</p>
+                  </div>
+                </div>
+
+                {/* Insight bridge */}
+                <div className="flex items-center gap-2 text-[10px] text-zen-ink/35 justify-center">
+                  <ArrowRight size={14} className="text-zen-brand/40" />
+                  <span className="italic">"{getBeforeDesc().split(',')[0]}" → insight yang bisa ditindaklanjuti</span>
+                </div>
+
+                {/* Dummy note */}
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2.5">
+                  <Eye size={13} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-amber-700/80 leading-snug">Data di atas adalah contoh. Setelah Pro aktif, grafik akan diisi dari data studio Anda.</p>
+                </div>
+              </div>
             </div>
-            <button onClick={() => { setPreviewKey(null); setBuyKey('pro'); }}
-              className="px-6 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold shadow-sm hover:bg-zen-brand/90 active:scale-[0.98] transition-all">
-              Beli {FEATURES[previewKey].label}
-            </button>
+
+            {/* Bottom CTA */}
+            <div className="shrink-0 bg-white border-t border-zen-ink/10 px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-zen-ink">Mau seperti ini?</p>
+                <p className="text-[10px] text-zen-ink/40">{fmtPrice('pro')} · selamanya</p>
+              </div>
+              <button onClick={() => { setPreviewKey(null); setBuyKey('pro'); }}
+                className="px-5 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold shadow-sm hover:bg-zen-brand/90 active:scale-[0.98] transition-all">
+                Beli {FEATURES[previewKey].label}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Modal Beli */}
+      {/* Modal Beli — consistent with DetailSheet language */}
       {buyKey && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center backdrop-blur-sm bg-zen-ink/50" onClick={() => setBuyKey(null)}>
-          <div className="bg-white w-full sm:max-w-sm sm:mx-4 sm:rounded-[28px] rounded-t-[28px] p-6 space-y-5" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <p className="text-base font-bold">Beli {FEATURES[buyKey].label}</p>
-              <button onClick={() => setBuyKey(null)}><X size={18} className="text-zen-ink/40" /></button>
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={() => setBuyKey(null)} />
+
+          {/* Sheet */}
+          <div className="relative w-full sm:max-w-sm sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden">
+            {/* Drag handle (mobile) */}
+            <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 pt-4 pb-4 shrink-0">
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold">Beli {FEATURES[buyKey].label}</p>
+                <p className="text-xs text-zen-ink/40 mt-0.5">Aktivasi manual via WhatsApp</p>
+              </div>
+              <button onClick={() => setBuyKey(null)} className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-zen-ink/10 flex items-center justify-center text-zen-ink/40 hover:text-zen-ink transition-colors shrink-0">
+                <X size={15} />
+              </button>
             </div>
 
-            {/* Invoice */}
-            <div className="bg-zen-bg rounded-2xl px-4 py-3 flex items-center justify-between">
+            {/* Scrollable body */}
+            <div className="overflow-y-auto px-5 pb-6 space-y-4 flex-1">
+              {/* Invoice */}
+              <div className="bg-zen-bg rounded-2xl px-4 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/40">Nomor Invoice</p>
+                  <p className="text-sm font-mono font-bold text-zen-ink">{invoice}</p>
+                </div>
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(invoice); addToast('Invoice disalin', 'success'); }}
+                  className="text-[10px] font-bold text-zen-brand hover:underline"
+                >
+                  Salin
+                </button>
+              </div>
+
+              {/* Price */}
+              <p className="text-2xl font-bold text-zen-brand">{fmtPrice(buyKey)}</p>
+
+              {/* Langkah */}
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Nomor Invoice</p>
-                <p className="text-sm font-mono font-bold text-zen-ink">{invoice}</p>
+                <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30 mb-2">Langkah pembelian</p>
+                <div className="bg-zen-bg rounded-2xl px-4 py-3 space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-zen-brand text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <p className="text-xs text-zen-ink/70 leading-snug">Transfer <strong>{fmtPrice(buyKey)}</strong> ke rekening di bawah</p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-zen-brand text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <p className="text-xs text-zen-ink/70 leading-snug">Klik tombol "Konfirmasi via WhatsApp" & kirim bukti transfer</p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-zen-brand text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <p className="text-xs text-zen-ink/70 leading-snug">Fitur aktif dalam <strong>1×24 jam</strong> setelah pembayaran diverifikasi</p>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => { navigator.clipboard?.writeText(invoice); addToast('Invoice disalin', 'success'); }}
-                className="text-[10px] font-bold text-zen-brand hover:underline"
-              >
-                Salin
-              </button>
+
+              {/* Rekening */}
+              {config?.bank_name ? (
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30 mb-2">Transfer ke</p>
+                  <div className="bg-zen-bg rounded-2xl px-4 py-3">
+                    <p className="font-bold text-zen-ink">{config.bank_name} · {config.bank_account_number}</p>
+                    <p className="text-xs text-zen-ink/50">a.n. {config.bank_account_holder}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-zen-ink/40">Hubungi admin untuk info rekening pembayaran.</p>
+              )}
+
+              {/* CTA */}
+              {config?.admin_wa ? (
+                <a
+                  href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', FEATURES[buyKey].label, invoice, priceOf(buyKey) ?? 0)}
+                  target="_blank" rel="noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 active:scale-[0.98] transition-all"
+                >
+                  <MessageCircle size={16} /> Konfirmasi via WhatsApp
+                </a>
+              ) : (
+                <button disabled className="w-full py-3.5 rounded-2xl bg-zen-ink/10 text-zen-ink/40 text-sm font-bold">
+                  Nomor admin belum diatur
+                </button>
+              )}
             </div>
-
-            {/* Price */}
-            <p className="text-2xl font-bold text-zen-brand">{fmtPrice(buyKey)}</p>
-
-            {/* Langkah pembelian */}
-            <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Langkah pembelian</p>
-              <ol className="space-y-1.5 text-xs text-zen-ink/70">
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
-                  <span>Transfer <strong>{fmtPrice(buyKey)}</strong> ke rekening di bawah</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
-                  <span>Klik tombol "Konfirmasi via WhatsApp" & kirim bukti transfer</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-zen-brand/10 text-zen-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
-                  <span>Fitur aktif dalam <strong>1×24 jam</strong> setelah pembayaran diverifikasi</span>
-                </li>
-              </ol>
-            </div>
-
-            {/* Info rekening */}
-            {config?.bank_name ? (
-              <div className="bg-zen-bg rounded-2xl px-4 py-3 text-sm">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-1">Transfer ke</p>
-                <p className="font-bold text-zen-ink">{config.bank_name} · {config.bank_account_number}</p>
-                <p className="text-zen-ink/50 text-xs">a.n. {config.bank_account_holder}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-zen-ink/50">Hubungi admin untuk info rekening pembayaran.</p>
-            )}
-
-            {config?.admin_wa ? (
-              <a
-                href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', FEATURES[buyKey].label, invoice, priceOf(buyKey) ?? 0)}
-                target="_blank" rel="noreferrer"
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition-colors"
-              >
-                <MessageCircle size={16} /> Konfirmasi via WhatsApp
-              </a>
-            ) : (
-              <button disabled className="w-full py-3.5 rounded-2xl bg-zen-ink/10 text-zen-ink/40 text-sm font-bold">
-                Nomor admin belum diatur
-              </button>
-            )}
           </div>
         </div>
       )}
