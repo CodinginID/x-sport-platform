@@ -7,13 +7,15 @@ import { ListSkeleton } from '@/components/Skeleton';
 import { Pagination } from '@/components/Pagination';
 import { Product } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Plus, Package2, AlertTriangle } from 'lucide-react';
+import { useFeature } from '@/hooks/useFeature';
+import { Plus, Package2, AlertTriangle, Boxes } from 'lucide-react';
 
 type ProductForm = Omit<Product, 'product_id' | 'created_at' | 'updated_at' | 'active_status'>;
 const emptyForm: ProductForm = { product_name: '', category: '', stock: 0, unit: '', selling_price: 0, cost_price: 0 };
 
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const isPro = useFeature('pro');
   const { data: products = [], isLoading, isError, refetch } = useProducts();
   const mutation = useProductMutation();
   const [modalOpen, setModalOpen] = useState(false);
@@ -57,7 +59,10 @@ export default function ProductsPage() {
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
   const [catFilter, setCatFilter] = useState('');
   const catFiltered = catFilter ? products.filter(p => p.category === catFilter) : products;
-  const lowStockCount = products.filter(p => p.stock < 5).length;
+  const lowStockProducts = products.filter(p => p.stock < 5);
+  const lowStockCount = lowStockProducts.length;
+  // Pro insight — nilai inventori = Σ stock × harga jual (dari products yang sudah di-fetch).
+  const inventoryValue = products.reduce((s, p) => s + p.stock * p.selling_price, 0);
 
   const { query, setQuery, pageItems, page, setPage, totalPages, totalFiltered } = useSearchPaginate(
     catFiltered,
@@ -80,6 +85,35 @@ export default function ProductsPage() {
           <span className="flex items-center gap-1.5"><Plus size={15} />{t('products.add')}</span>
         </Button>
       </div>
+
+      {/* Pro: insight inventori */}
+      {isPro && products.length > 0 && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 flex items-center gap-1"><Boxes size={11} /> Nilai Inventori</p>
+              <p className="text-lg font-bold mt-1 tracking-tight">{formatCurrency(inventoryValue)}</p>
+            </div>
+            <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 flex items-center gap-1"><AlertTriangle size={11} /> Stok Menipis</p>
+              <p className="text-lg font-bold mt-1 tracking-tight">{lowStockCount} produk</p>
+            </div>
+          </div>
+          {lowStockCount > 0 && (
+            <div className="bg-amber-50 rounded-3xl p-4 border border-amber-100">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-amber-600 mb-2">Perlu Restock</p>
+              <div className="flex flex-wrap gap-1.5">
+                {lowStockProducts.slice(0, 8).map(p => (
+                  <span key={p.product_id} className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                    {p.product_name} · {p.stock} {p.unit}
+                  </span>
+                ))}
+                {lowStockCount > 8 && <span className="text-[11px] font-bold px-2.5 py-1 text-amber-600/70">+{lowStockCount - 8} lainnya</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder="Cari produk..." />
