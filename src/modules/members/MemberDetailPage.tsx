@@ -18,14 +18,13 @@ function sessionPct(remaining: number, total: number) {
   return Math.round((remaining / total) * 100);
 }
 
-type Tab = 'booking' | 'pembayaran' | 'paket' | 'kehadiran' | 'kartu';
+type Tab = 'booking' | 'pembayaran' | 'paket' | 'kehadiran';
 
 const TAB_LABELS: Record<Tab, string> = {
   booking: 'Booking',
   pembayaran: 'Pembayaran',
   paket: 'Paket',
   kehadiran: 'Kehadiran',
-  kartu: 'Kartu',
 };
 
 export default function MemberDetailPage() {
@@ -44,9 +43,7 @@ export default function MemberDetailPage() {
 
   if (!member) return null;
 
-  const tabs: Tab[] = isPro
-    ? ['booking', 'pembayaran', 'paket', 'kehadiran', 'kartu']
-    : ['booking', 'pembayaran', 'paket', 'kehadiran'];
+  const tabs: Tab[] = ['booking', 'pembayaran', 'paket', 'kehadiran'];
 
   const pkgName = (pid: string) => catalog.find(c => c.package_id === pid)?.package_name ?? 'Paket';
   const MP_STATUS: Record<string, { label: string; cls: string }> = {
@@ -69,22 +66,48 @@ export default function MemberDetailPage() {
         <span className="text-[10px] uppercase tracking-widest font-bold">{t('members.back')}</span>
       </button>
 
+      {/* Kartu hero — khusus Pro */}
+      {isPro && (
+        <div className="flex flex-col items-center">
+          <EntityCard
+            variant="member"
+            studioName={studioName}
+            name={member.full_name}
+            subtitle={`ID ${member.member_id.slice(0, 8).toUpperCase()}`}
+            infoRows={[
+              {
+                label: 'Paket Aktif',
+                value: activePackages.length === 0
+                  ? 'Tidak ada'
+                  : `${pkgName(activePackages[0].package_id)} · ${activePackages[0].remaining_sessions}/${activePackages[0].total_sessions} sesi`,
+              },
+              { label: 'Tgl Gabung', value: formatDate(member.join_date) },
+              { label: 'Status', value: member.status_active ? 'Aktif' : 'Nonaktif' },
+            ]}
+            qrValue={member.member_id}
+          />
+          <p className="text-center text-[11px] text-zen-ink/40 mt-3">Tunjukkan QR ini saat check-in di studio.</p>
+        </div>
+      )}
+
       {/* Profile header */}
       <div className="bg-white rounded-3xl p-6 border border-zen-ink/5">
-        <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-3xl bg-zen-brand/10 text-zen-brand font-bold text-xl flex items-center justify-center shrink-0">
-            {initials(member.full_name)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h1 className="text-xl font-bold">{member.full_name}</h1>
-              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${member.status_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                {member.status_active ? t('members.active') : t('members.inactive')}
-              </span>
+        {!isPro && (
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-16 h-16 rounded-3xl bg-zen-brand/10 text-zen-brand font-bold text-xl flex items-center justify-center shrink-0">
+              {initials(member.full_name)}
             </div>
-            <p className="text-xs text-zen-ink/40">{t('members.join_date')}: {formatDate(member.join_date)}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h1 className="text-xl font-bold">{member.full_name}</h1>
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${member.status_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                  {member.status_active ? t('members.active') : t('members.inactive')}
+                </span>
+              </div>
+              <p className="text-xs text-zen-ink/40">{t('members.join_date')}: {formatDate(member.join_date)}</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Info grid */}
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -226,30 +249,6 @@ export default function MemberDetailPage() {
             ))
           )}
 
-          {tab === 'kartu' && isPro && (
-            <div className="px-5 py-6">
-              <EntityCard
-                variant="member"
-                studioName={studioName}
-                name={member.full_name}
-                subtitle={`ID ${member.member_id.slice(0, 8).toUpperCase()}`}
-                infoRows={[
-                  {
-                    label: 'Paket Aktif',
-                    value: activePackages.length === 0
-                      ? 'Tidak ada'
-                      : `${pkgName(activePackages[0].package_id)} · ${activePackages[0].remaining_sessions}/${activePackages[0].total_sessions} sesi`,
-                  },
-                  { label: 'Tgl Gabung', value: formatDate(member.join_date) },
-                  { label: 'Status', value: member.status_active ? 'Aktif' : 'Nonaktif' },
-                ]}
-                qrValue={member.member_id}
-              />
-              <p className="text-center text-[11px] text-zen-ink/40 mt-4">
-                Tunjukkan QR ini saat check-in di studio.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
