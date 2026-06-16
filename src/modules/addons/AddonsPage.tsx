@@ -423,11 +423,9 @@ export default function AddonsPage() {
 
       {/* Payment Modal — 10/10 premium experience */}
       {buyKey && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-zen-ink/50 backdrop-blur-sm" onClick={() => setBuyKey(null)} />
-          <div className="relative w-full sm:max-w-md sm:mx-4 bg-white sm:rounded-[32px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-scale-in shadow-2xl shadow-zen-ink/20">
-            {/* Drag handle */}
-            <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
+          <div className="relative w-full max-w-md bg-white rounded-[32px] max-h-[90dvh] flex flex-col overflow-hidden animate-scale-in shadow-2xl shadow-zen-ink/20">
 
             {/* Header gradient */}
             <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-6 py-6 text-center relative">
