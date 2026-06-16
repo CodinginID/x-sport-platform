@@ -369,7 +369,7 @@ export default function AddonsPage() {
                 {PRO_PREVIEW_TABS.map((t) => (
                   <button key={t.key} onClick={() => setPreviewTab(t.key)}
                     className={`shrink-0 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
-                      getActiveTabKey() === t.key
+                      previewTab === t.key
                         ? 'bg-zen-brand text-white shadow-sm'
                         : 'bg-white border border-zen-ink/10 text-zen-ink/40 hover:text-zen-ink'
                     }`}>
