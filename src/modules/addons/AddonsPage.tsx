@@ -5,7 +5,8 @@ import {
   CreditCard, ArrowDownLeft, Smartphone, Copy, ExternalLink,
   TrendingUp, Users, Package, Star,
 } from 'lucide-react';
-import { FEATURES, FEATURE_KEYS, type FeatureKey } from '@/config/features';
+import { FEATURES, type FeatureKey } from '@/config/features';
+import { usePublishedFeatures, useFeaturePrice } from '@/hooks/usePublishedFeatures';
 import { featureState } from '@/lib/featureState';
 import { useFeatureTrial } from '@/hooks/useFeatureTrial';
 import { usePlatformConfig } from '@/hooks/usePlatformConfig';
@@ -194,6 +195,7 @@ export default function AddonsPage() {
   const licenseInfo = useAuthStore((s) => s.licenseInfo);
   const { startTrial, pending } = useFeatureTrial();
   const { data: config } = usePlatformConfig();
+  const { features, keys: featureKeys } = usePublishedFeatures();
   const addToast = useToastStore((s) => s.addToast);
   const [buyKey, setBuyKey] = useState<FeatureKey | null>(null);
   const [previewKey, setPreviewKey] = useState<FeatureKey | null>(null);
@@ -202,11 +204,6 @@ export default function AddonsPage() {
   const nowISO = new Date().toISOString();
   const [invoice] = useState(() => generateInvoice(licenseInfo?.license_key ?? 'DEMO'));
   const countdown = useCountdown(24);
-
-  const getActiveTabKey = () => previewTab;
-  const getPreviewNode = () => { const a = PRO_PREVIEW_TABS.find((t) => t.key === previewTab) ?? PRO_PREVIEW_TABS[0]; return a.node; };
-  const getBeforeDesc = () => { const a = PRO_PREVIEW_TABS.find((t) => t.key === previewTab) ?? PRO_PREVIEW_TABS[0]; return a.beforeDesc; };
-  const getCaption = () => { const a = PRO_PREVIEW_TABS.find((t) => t.key === previewTab) ?? PRO_PREVIEW_TABS[0]; return a.caption; };
 
   const refreshEntitlement = async (notify = false) => {
     const { licenseInfo: li, updateLicenseInfo } = useAuthStore.getState();
@@ -222,8 +219,16 @@ export default function AddonsPage() {
   };
   useEffect(() => { refreshEntitlement(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const priceOf = (key: FeatureKey): number | null => config?.feature_prices?.[key] ?? null;
-  const fmtPrice = (key: FeatureKey) => { const p = priceOf(key); return p == null ? '—' : formatCurrency(p); };
+  const fmtPrice = (key: FeatureKey): string => {
+    const catalog = config?.feature_catalog;
+    const price = catalog?.[key]?.price ?? config?.feature_prices?.[key] ?? null;
+    return price == null ? '—' : formatCurrency(price);
+  };
+
+  const priceOf = (key: FeatureKey): number => {
+    const catalog = config?.feature_catalog;
+    return catalog?.[key]?.price ?? config?.feature_prices?.[key] ?? 0;
+  };
 
   // Social proof — mock data (in production, fetch from server)
   const activeStudios = 47;
@@ -241,23 +246,24 @@ export default function AddonsPage() {
         </button>
       </div>
 
-      {/* Add-on cards grid */}
+      {/* Add-on cards grid — dynamic from catalog */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {FEATURE_KEYS.map((key) => {
-          const f = FEATURES[key];
+        {featureKeys.map((key) => {
+          const f = features[key];
+          if (!f) return null;
           const { state, trialDaysLeft } = featureState(licenseInfo?.features, key, nowISO);
-          const isPro = state === 'active';
+          const isActive = state === 'active';
 
           return (
-            <div key={key} className={`rounded-3xl border p-0 overflow-hidden transition-all ${isPro ? 'border-zen-brand/30 shadow-lg shadow-zen-brand/5' : 'border-zen-ink/5 bg-white hover:shadow-md'}`}>
+            <div key={key} className={`rounded-3xl border p-0 overflow-hidden transition-all ${isActive ? 'border-zen-brand/30 shadow-lg shadow-zen-brand/5' : 'border-zen-ink/5 bg-white hover:shadow-md'}`}>
               {/* Header */}
-              <div className={`px-5 py-4 ${isPro ? 'bg-gradient-to-r from-zen-brand/10 to-zen-brand/5' : 'bg-white'}`}>
+              <div className={`px-5 py-4 ${isActive ? 'bg-gradient-to-r from-zen-brand/10 to-zen-brand/5' : 'bg-white'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={18} className={isPro ? 'text-zen-brand animate-pulse' : 'text-zen-ink/20'} />
+                    <Sparkles size={18} className={isActive ? 'text-zen-brand animate-pulse' : 'text-zen-ink/20'} />
                     <p className="text-base font-bold text-zen-ink">{f.label}</p>
                   </div>
-                  {isPro && (
+                  {isActive && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zen-brand text-white text-[10px] font-bold uppercase tracking-widest">
                       <Check size={11} className="animate-check-bounce" /> Aktif
                     </span>
@@ -353,7 +359,7 @@ export default function AddonsPage() {
                 </button>
                 <div>
                   <p className="text-[9px] uppercase tracking-widest font-bold text-white/60">Preview</p>
-                  <p className="text-base font-bold text-white">{FEATURES[previewKey].label}</p>
+                  <p className="text-base font-bold text-white">{features[previewKey].label}</p>
                 </div>
               </div>
               <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
@@ -446,7 +452,7 @@ export default function AddonsPage() {
               </div>
 
               <p className="text-[9px] uppercase tracking-widest font-bold text-white/60 mb-1">Pembayaran</p>
-              <p className="text-xl font-bold text-white">{FEATURES[buyKey].label}</p>
+              <p className="text-xl font-bold text-white">{features[buyKey].label}</p>
               <p className="text-3xl font-bold text-white mt-1">{fmtPrice(buyKey)}</p>
             </div>
 
@@ -536,7 +542,7 @@ export default function AddonsPage() {
             {config?.admin_wa ? (
               <div className="shrink-0 bg-white border-t border-zen-ink/10 px-6 py-5">
                 <a
-                  href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', FEATURES[buyKey].label, invoice, priceOf(buyKey) ?? 0)}
+                  href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', features[buyKey].label, invoice, priceOf(buyKey) ?? 0)}
                   target="_blank" rel="noreferrer"
                   className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 active:scale-[0.98] transition-all shadow-lg shadow-green-500/20"
                 >

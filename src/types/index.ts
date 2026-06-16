@@ -11,7 +11,19 @@ export interface PlatformConfig {
   bank_account_number: string;
   bank_account_holder: string;
   feature_prices: Record<string, number>;
+  feature_catalog?: Record<string, FeatureCatalogEntry>;
   updated_at?: string;
+}
+
+export interface FeatureCatalogEntry {
+  label: string;
+  description: string;
+  trial_days: number;
+  price: number;
+  is_publish: boolean;
+  sort_order: number;
+  details: string[];
+  icon?: string;
 }
 
 export interface LicenseInfo {

@@ -9,6 +9,7 @@ import {
 import { FEATURES, FEATURE_KEYS } from '@/config/features';
 import type { PlatformConfig } from '@/types';
 import { ProAddonsDashboard } from './ProAddonsDashboard';
+import { FeatureCatalogManager } from './FeatureCatalogManager';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -553,6 +554,9 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
             <p className="text-3xl font-bold font-serif text-emerald-500">{activeCount}</p>
           </div>
         </div>
+
+        {/* Pengelola Katalog Fitur */}
+        <FeatureCatalogManager adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
 
         {/* Pengaturan Add-on */}
         <AddonConfigCard adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
