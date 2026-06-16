@@ -342,8 +342,9 @@ export default function AddonsPage() {
       {/* Preview Sheet — slide-up */}
       {previewKey && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-zen-ink/40 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
+          <div className="absolute inset-0 bg-zen-bg/60 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
           <div className="relative w-full sm:max-w-3xl sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-page-in">
+            {/* Drag handle */}
             <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
             <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-5 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">

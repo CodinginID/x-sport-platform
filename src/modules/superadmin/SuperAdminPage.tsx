@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { FEATURES, FEATURE_KEYS } from '@/config/features';
 import type { PlatformConfig } from '@/types';
+import { ProAddonsDashboard } from './ProAddonsDashboard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -316,22 +317,36 @@ interface ConfirmState {
 }
 
 // ─── Pengaturan Add-on (harga per fitur, WA admin, rekening) ──────────────────
-function AddonConfigCard({ adminClient, toast }: { adminClient: AdminClient; toast: ReturnType<typeof useLocalToast> }) {
-  const [cfg, setCfg] = useState<PlatformConfig | null>(null);
+function AddonConfigCard({ adminClient, config, onConfigChange, toast }: {
+  adminClient: AdminClient;
+  config: PlatformConfig | null;
+  onConfigChange: (cfg: PlatformConfig) => void;
+  toast: ReturnType<typeof useLocalToast>;
+}) {
   const [saving, setSaving] = useState(false);
+  const [cfg, setCfg] = useState<PlatformConfig | null>(config);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await adminClient.from('platform_config').select('*').eq('id', 1).maybeSingle();
-      setCfg((data as PlatformConfig) ?? {
-        id: 1, admin_wa: '', bank_name: '', bank_account_number: '', bank_account_holder: '', feature_prices: {},
-      });
-    })();
-  }, [adminClient]);
+    if (!cfg) {
+      (async () => {
+        const { data } = await adminClient.from('platform_config').select('*').eq('id', 1).maybeSingle();
+        const initial = (data as PlatformConfig) ?? {
+          id: 1, admin_wa: '', bank_name: '', bank_account_number: '', bank_account_holder: '', feature_prices: {},
+        };
+        setCfg(initial);
+        onConfigChange(initial);
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminClient, cfg]);
 
   if (!cfg) return null;
 
-  const setField = (k: keyof PlatformConfig, v: string) => setCfg({ ...cfg, [k]: v });
+  const setField = (k: keyof PlatformConfig, v: string) => {
+    const next = { ...cfg, [k]: v };
+    setCfg(next);
+    onConfigChange(next);
+  };
   const setPrice = (key: string, v: number) => setCfg({ ...cfg, feature_prices: { ...cfg.feature_prices, [key]: v } });
 
   const save = async () => {
@@ -399,6 +414,7 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [approvedLicense, setApprovedLicense] = useState<License | null>(null);
+  const [cfg, setCfg] = useState<PlatformConfig | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState>({
     open: false, title: '', message: '', variant: 'danger', onConfirm: () => {},
   });
@@ -539,7 +555,10 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
         </div>
 
         {/* Pengaturan Add-on */}
-        <AddonConfigCard adminClient={adminClient} toast={toast} />
+        <AddonConfigCard adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
+
+        {/* Monitoring Add-on Pro */}
+        <ProAddonsDashboard adminClient={adminClient} config={cfg} toast={toast} />
 
         {/* Table */}
         <div className="glass-card rounded-3xl overflow-hidden">
