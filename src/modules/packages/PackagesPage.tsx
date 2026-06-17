@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { usePackages, usePackageMutation, useSearchPaginate } from "@/hooks";
+import { useAuthStore } from "@/stores/auth";
+import { useConfirmStore } from "@/components/ConfirmDialog";
 import { formatCurrency } from "@/utils";
 import { Button, Modal, Input, Select, NumericInput, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
 import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
 import { Pagination } from "@/components/Pagination";
+import { useFeature } from "@/hooks/useFeature";
 import { Package } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Plus, Boxes, Calendar, Hash } from "lucide-react";
+import { Plus, Boxes, Calendar, Hash, Trash2 } from "lucide-react";
 
 const CATEGORY_LABEL: Record<Package["package_category"], string> = {
   reguler: "Reguler",
@@ -18,6 +21,13 @@ export default function PackagesPage() {
   const { t } = useTranslation();
   const { data: packages = [], isLoading: pkgLoading } = usePackages();
   const mutation = usePackageMutation();
+  const isPro = useFeature('pro');
+
+  const regularCount = packages.filter(p => p.package_category === 'reguler').length;
+  const privateCount = packages.filter(p => p.package_category === 'pribadi').length;
+  const avgPrice = packages.length
+    ? Math.round(packages.reduce((s, p) => s + p.package_price, 0) / packages.length)
+    : 0;
 
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Package | null>(null);
@@ -58,6 +68,17 @@ export default function PackagesPage() {
     mutation.mutate({ action: "update", pkg: { package_id: pkg.package_id, active_status: !pkg.active_status } });
   };
 
+  const isOwner = useAuthStore(s => s.user?.role === 'owner');
+
+  const deletePkg = (pkg: Package) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Paket?',
+      message: `Paket "${pkg.package_name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => mutation.mutate({ action: 'delete', pkg: { package_id: pkg.package_id } }),
+    });
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -70,6 +91,24 @@ export default function PackagesPage() {
 
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder="Cari paket..." />
+
+      {/* Pro insight */}
+      {isPro && packages.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{packages.length}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Total Paket</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{regularCount}<span className="text-zen-ink/30"> / </span>{privateCount}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Reguler / Pribadi</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-sm font-black text-zen-brand mt-1">{formatCurrency(avgPrice)}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Harga Rata-rata</p>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {pkgLoading ? <ListSkeleton rows={4} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
@@ -114,6 +153,15 @@ export default function PackagesPage() {
                     >
                       {pkg.active_status ? 'Off' : 'On'}
                     </button>
+                    {isOwner && (
+                      <button
+                        onClick={() => deletePkg(pkg)}
+                        className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors"
+                        title="Hapus paket"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -169,6 +217,15 @@ export default function PackagesPage() {
             >
               Edit Paket
             </button>
+            {isOwner && (
+              <button
+                onClick={() => { setDetail(null); deletePkg(detail); }}
+                className="w-12 py-3 bg-red-50 text-red-500 hover:bg-red-100 rounded-2xl flex items-center justify-center transition-colors"
+                title="Hapus paket"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </DetailSheet>
       )}

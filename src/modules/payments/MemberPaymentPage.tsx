@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useMembers, usePackages, useMemberPayments, useMemberPackages, usePayPendingPackage } from "@/hooks";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatCurrency, formatDate } from "@/utils";
-import { Button, Modal, Input, Select } from "@/components/ui";
+import { Button, Modal, Input, Select, TrendBars } from "@/components/ui";
+import { useFeature } from "@/hooks/useFeature";
+import { SmartSelect } from "@/components/ui/SmartSelect";
 import { ListSkeleton } from "@/components/Skeleton";
 import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
@@ -30,15 +32,18 @@ const METHOD_BADGE: Record<string, string> = {
   qris: 'bg-purple-100 text-purple-700',
 };
 
+const METHOD_LABEL: Record<string, string> = { cash: 'Cash', transfer: 'Transfer', qris: 'QRIS' };
+
 export default function MemberPaymentPage() {
   const { t } = useTranslation();
+  const isPro = useFeature('pro');
   const today = new Date().toISOString().split("T")[0];
   const [preset, setPreset] = useState<Preset>('month');
   const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
   const [endDate, setEndDate] = useState(today);
 
   const { data: payments = [], isLoading: paymentsLoading } = useMemberPayments({ startDate, endDate });
-  const { data: members = [] } = useMembers();
+  const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: packages = [] } = usePackages();
   const payMutation = usePayPendingPackage();
   const { printPayment } = usePrintReceipt();
@@ -56,6 +61,18 @@ export default function MemberPaymentPage() {
   const selectedMp = pendingPkgs.find(mp => mp.member_package_id === form.member_package_id);
   const amount = selectedMp ? (packageMapPrice[selectedMp.package_id] ?? 0) : 0;
   const totalIncome = payments.reduce((s, p) => s + p.amount, 0);
+
+  // Pro insight — agregasi dari `payments` yang sudah di-fetch (tanpa query baru).
+  const dailyTrend = (() => {
+    const byDate: Record<string, number> = {};
+    for (const p of payments) byDate[p.payment_date] = (byDate[p.payment_date] || 0) + p.amount;
+    return Object.keys(byDate).sort().map(d => ({ label: `${d.slice(8, 10)}/${d.slice(5, 7)}`, value: byDate[d] }));
+  })();
+  const methodTotals = (() => {
+    const acc: Record<string, number> = {};
+    for (const p of payments) acc[p.payment_method] = (acc[p.payment_method] || 0) + p.amount;
+    return acc;
+  })();
 
   // Auto-pilih paket pending bila hanya ada satu (tanpa pilih manual).
   useEffect(() => {
@@ -175,6 +192,24 @@ export default function MemberPaymentPage() {
         )}
       </div>
 
+      {/* Pro: insight penerimaan (tren harian + ringkasan per metode) */}
+      {isPro && payments.length > 0 && (
+        <div className="space-y-3">
+          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Tren Penerimaan Harian</p>
+            <TrendBars data={dailyTrend} formatValue={formatCurrency} />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(['cash', 'transfer', 'qris'] as const).map(m => (
+              <div key={m} className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${METHOD_BADGE[m]}`}>{METHOD_LABEL[m]}</span>
+                <p className="text-base font-bold mt-2 tracking-tight">{formatCurrency(methodTotals[m] || 0)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* List */}
       {paymentsLoading ? <ListSkeleton rows={5} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
         {payments.length === 0 ? (
@@ -217,11 +252,13 @@ export default function MemberPaymentPage() {
         <div className="space-y-4">
 
           {/* Step 1: Pilih member */}
-          <Select
+          <SmartSelect
             label="Member"
-            options={[{ value: "", label: t('payments.select_member') }, ...members.map(m => ({ value: m.member_id, label: m.full_name }))]}
+            placeholder={t('payments.select_member')}
+            options={members.map(m => ({ value: m.member_id, label: m.full_name }))}
             value={form.member_id}
-            onChange={e => setForm({ ...form, member_id: e.target.value, member_package_id: "" })}
+            loading={membersLoading}
+            onChange={v => setForm({ ...form, member_id: v, member_package_id: "" })}
           />
 
           {/* Step 2: Pilih paket PENDING milik member (sudah dibeli, belum dibayar) */}

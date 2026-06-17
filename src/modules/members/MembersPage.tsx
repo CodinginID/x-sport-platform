@@ -1,18 +1,20 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/utils/zodResolver';
 import { useMembers, useMemberMutation, useSearchPaginate, useMemberPackages, usePackages, usePurchasePackage } from '@/hooks';
 import { useAuthStore } from '@/stores/auth';
+import { useFeature } from '@/hooks/useFeature';
 import { useToastStore } from '@/stores/toast';
 import { useConfirmStore } from '@/components/ConfirmDialog';
 import { Button, Input, Select, Modal, TableSkeleton, QueryError, SearchBar } from '@/components/ui';
+import { SmartSelect } from '@/components/ui/SmartSelect';
 import type { Member } from '@/types';
 import { formatDate, formatCurrency } from '@/utils';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Plus, ChevronRight, UserRound, Package } from 'lucide-react';
+import { Plus, ChevronRight, UserRound, Package, Trash2 } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
+import { MemberDetailSheet } from './MemberDetailSheet';
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -20,10 +22,10 @@ function initials(name: string) {
 
 export default function MembersPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const isPro = useFeature('pro');
   const { data: members = [], isLoading, isError, refetch } = useMembers();
   const { data: allPackages = [] } = useMemberPackages();
-  const { data: catalog = [] } = usePackages();
+  const { data: catalog = [], isLoading: catalogLoading } = usePackages();
   const purchase = usePurchasePackage();
   const addToast = useToastStore(s => s.addToast);
   const mutation = useMemberMutation();
@@ -31,6 +33,7 @@ export default function MembersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [buyFor, setBuyFor] = useState<Member | null>(null);
   const [buyPkgId, setBuyPkgId] = useState('');
+  const [detailMember, setDetailMember] = useState<Member | null>(null);
 
   // Ringkasan status paket per member: aktif (jumlah sisa sesi), pending, atau belum punya.
   const pkgStatus = (memberId: string): { label: string; cls: string } => {
@@ -60,6 +63,13 @@ export default function MembersPage() {
 
   const activeCount = members.filter(m => m.status_active).length;
 
+  // Pro insight — segmentasi dari allPackages (useMemberPackages) yang sudah di-fetch.
+  const withActivePkg = new Set(allPackages.filter(p => p.status === 'active').map(p => p.member_id));
+  const segActive = members.filter(m => withActivePkg.has(m.member_id)).length;
+  const segNone = Math.max(0, members.length - segActive);
+  // Paket mau habis: aktif dengan sisa sesi ≤ 2.
+  const expiringSoonCount = allPackages.filter(p => p.status === 'active' && p.remaining_sessions <= 2).length;
+
   const openAdd = () => {
     reset({ full_name: '', phone_number: '', email: '', gender: 'male', birth_date: '', address: '', notes: '' });
     setEditingId(null);
@@ -87,6 +97,15 @@ export default function MembersPage() {
     });
   };
 
+  const deleteMember = (row: Member) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Member Permanen?',
+      message: `Member "${row.full_name}" beserta semua booking dan paket terkait akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => mutation.mutate({ action: 'delete', member: { member_id: row.member_id } }),
+    });
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -103,6 +122,24 @@ export default function MembersPage() {
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder={t('members.search')} />
 
+      {/* Pro: insight segmentasi member */}
+      {isPro && members.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Punya Paket Aktif</p>
+            <p className="text-lg font-bold mt-1 tracking-tight text-green-600">{segActive}</p>
+          </div>
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Belum Ada Paket</p>
+            <p className="text-lg font-bold mt-1 tracking-tight text-zen-ink/60">{segNone}</p>
+          </div>
+          <div className="bg-white rounded-3xl p-4 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Paket Mau Habis</p>
+            <p className="text-lg font-bold mt-1 tracking-tight text-amber-500">{expiringSoonCount}</p>
+          </div>
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? <TableSkeleton /> : isError ? <QueryError onRetry={() => refetch()} /> : (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
@@ -116,7 +153,7 @@ export default function MembersPage() {
               {pageItems.map(m => (
                 <div
                   key={m.member_id}
-                  onClick={() => navigate(`/members/${m.member_id}`)}
+                  onClick={() => setDetailMember(m)}
                   className="flex items-center gap-3 px-5 py-4 hover:bg-zen-bg transition-colors cursor-pointer"
                 >
                   <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
@@ -147,13 +184,22 @@ export default function MembersPage() {
                         ✏
                       </button>
                       {useAuthStore.getState().user?.role === 'owner' && (
-                        <button
-                          onClick={e => { e.stopPropagation(); archive(m); }}
-                          className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-400 transition-colors text-xs"
-                          title={t('members.archive')}
-                        >
-                          🗃
-                        </button>
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); archive(m); }}
+                            className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-amber-50 flex items-center justify-center text-zen-ink/30 hover:text-amber-500 transition-colors text-xs"
+                            title="Arsipkan (sembunyikan)"
+                          >
+                            🗃
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); deleteMember(m); }}
+                            className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors"
+                            title="Hapus permanen"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
                       )}
                     </div>
                     <ChevronRight size={14} className="text-zen-ink/20" />
@@ -168,11 +214,13 @@ export default function MembersPage() {
       {/* Beli Paket modal */}
       <Modal open={!!buyFor} onClose={() => { setBuyFor(null); setBuyPkgId(''); }} title={`Beli Paket — ${buyFor?.full_name ?? ''}`}>
         <div className="space-y-4">
-          <Select
+          <SmartSelect
             label="Paket"
-            options={[{ value: '', label: 'Pilih paket...' }, ...catalog.map(p => ({ value: p.package_id, label: `${p.package_name} (${p.package_category === 'pribadi' ? 'Private' : 'Reguler'}) — ${formatCurrency(p.package_price)}` }))]}
+            placeholder="Pilih paket..."
+            options={catalog.map(p => ({ value: p.package_id, label: `${p.package_name} (${p.package_category === 'pribadi' ? 'Private' : 'Reguler'}) — ${formatCurrency(p.package_price)}` }))}
             value={buyPkgId}
-            onChange={e => setBuyPkgId(e.target.value)}
+            loading={catalogLoading}
+            onChange={v => setBuyPkgId(v)}
           />
           <p className="text-[11px] text-zen-ink/40 leading-relaxed">
             Paket akan berstatus <b>belum bayar</b>. Lanjut ke menu Pembayaran untuk menyelesaikan, lalu member bisa ikut sesi.
@@ -187,6 +235,9 @@ export default function MembersPage() {
       </Modal>
 
       <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
+
+      {/* Detail sheet (view-only) */}
+      <MemberDetailSheet member={detailMember} onClose={() => setDetailMember(null)} />
 
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? `${t('common.edit')} ${t('members.title')}` : t('members.add')} size="lg">

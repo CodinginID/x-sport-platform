@@ -5,10 +5,11 @@ import { useConfirmStore } from "@/components/ConfirmDialog";
 import { Modal, Button, Input, QueryError, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
 import { Pagination } from "@/components/Pagination";
-import { DetailSheet, DetailRow, DetailSection } from "@/components/DetailSheet";
+import { CoachDetailSheet } from "./CoachDetailSheet";
+import { useFeature } from "@/hooks/useFeature";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Plus, Dumbbell, Phone, Mail, FileText } from "lucide-react";
+import { Plus, Dumbbell, Trash2 } from "lucide-react";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -30,7 +31,15 @@ export default function CoachesPage() {
     (c, q) => c.full_name.toLowerCase().includes(q) || (c.phone_number ?? '').includes(q) || (c.email ?? '').toLowerCase().includes(q),
   );
 
+  const isPro = useFeature('pro');
   const activeCount = coaches.filter(c => c.active_status).length;
+
+  const avgRegular = coaches.length
+    ? Math.round(coaches.reduce((s, c) => s + (c.commission_regular_pct ?? 0), 0) / coaches.length)
+    : 0;
+  const avgPrivate = coaches.length
+    ? Math.round(coaches.reduce((s, c) => s + (c.commission_private_pct ?? 0), 0) / coaches.length)
+    : 0;
 
   const openCreate = () => { setEditing(null); setForm(defaultForm); setOpen(true); };
   const openEdit = (coach: Coach) => {
@@ -50,6 +59,15 @@ export default function CoachesPage() {
     if (editing) mutation.mutate({ action: "update", coach: { coach_id: editing.coach_id, ...form } });
     else mutation.mutate({ action: "add", coach: form });
     setOpen(false);
+  };
+
+  const deleteCoach = (coach: Coach) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Coach?',
+      message: `Coach "${coach.full_name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => mutation.mutate({ action: 'delete', coach: { coach_id: coach.coach_id } }),
+    });
   };
 
   const toggleActive = (coach: Coach) => {
@@ -80,6 +98,24 @@ export default function CoachesPage() {
 
       {/* Search */}
       <SearchBar value={query} onChange={setQuery} placeholder="Cari coach..." />
+
+      {/* Pro insight */}
+      {isPro && coaches.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{activeCount}</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Coach Aktif</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{avgRegular}%</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Komisi Reguler</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 text-center border border-zen-ink/5">
+            <p className="text-xl font-black text-zen-brand">{avgPrivate}%</p>
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mt-0.5">Komisi Pribadi</p>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? <ListSkeleton rows={5} /> : isError ? <QueryError onRetry={() => refetch()} /> : (
@@ -116,12 +152,21 @@ export default function CoachesPage() {
                       ✏
                     </button>
                     {useAuthStore.getState().user?.role === 'owner' && (
-                      <button
-                        onClick={() => toggleActive(coach)}
-                        className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-colors ${coach.active_status ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
-                      >
-                        {coach.active_status ? 'Nonaktifkan' : 'Aktifkan'}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => toggleActive(coach)}
+                          className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-colors ${coach.active_status ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                        >
+                          {coach.active_status ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                        <button
+                          onClick={() => deleteCoach(coach)}
+                          className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors"
+                          title="Hapus coach"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -134,56 +179,13 @@ export default function CoachesPage() {
       <Pagination page={page} totalPages={totalPages} totalItems={totalFiltered} onPageChange={setPage} />
 
       {/* Detail Sheet */}
-      {detail && (() => {
-        return (
-          <DetailSheet
-            open={!!detail}
-            onClose={() => setDetail(null)}
-            title={detail.full_name}
-            subtitle={detail.active_status ? 'Aktif' : 'Nonaktif'}
-          >
-            {/* Avatar */}
-            <div className="flex justify-center pt-1 pb-2">
-              <div className="w-16 h-16 rounded-[20px] bg-zen-brand/10 text-zen-brand font-black text-xl flex items-center justify-center">
-                {initials(detail.full_name)}
-              </div>
-            </div>
-
-            <DetailSection title="Informasi">
-              {detail.phone_number && <DetailRow label="Telepon" value={<span className="flex items-center gap-1"><Phone size={11} />{detail.phone_number}</span>} />}
-              {detail.email && <DetailRow label="Email" value={<span className="flex items-center gap-1"><Mail size={11} />{detail.email}</span>} />}
-              <DetailRow label="Status" value={
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${detail.active_status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                  {detail.active_status ? 'Aktif' : 'Nonaktif'}
-                </span>
-              } />
-            </DetailSection>
-
-            <DetailSection title="Komisi">
-              <DetailRow label="Reguler" value={<span className="font-bold text-zen-brand">{detail.commission_regular_pct ?? 0}%</span>} />
-              <DetailRow label="Pribadi" value={<span className="font-bold text-zen-brand">{detail.commission_private_pct ?? 0}%</span>} />
-            </DetailSection>
-
-            {detail.notes && (
-              <DetailSection title="Catatan">
-                <div className="py-2.5 flex gap-2 text-xs text-zen-ink/60">
-                  <FileText size={13} className="shrink-0 mt-0.5" />
-                  <span>{detail.notes}</span>
-                </div>
-              </DetailSection>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => { setDetail(null); openEdit(detail); }}
-                className="flex-1 py-3 bg-zen-brand text-white text-sm font-bold rounded-2xl"
-              >
-                Edit Coach
-              </button>
-            </div>
-          </DetailSheet>
-        );
-      })()}
+      {detail && (
+        <CoachDetailSheet
+          coach={detail}
+          onClose={() => setDetail(null)}
+          onEdit={openEdit}
+        />
+      )}
 
       {/* Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? `${t('common.edit')} Coach` : t('coaches.add')}>

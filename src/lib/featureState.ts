@@ -1,6 +1,6 @@
 import type { FeatureEntry } from '@/types';
 
-export type FeatureStateName = 'locked' | 'trial' | 'trial_expired' | 'active';
+export type FeatureStateName = 'locked' | 'trial' | 'trial_expired' | 'active' | 'pending_payment';
 export interface FeatureStateResult { state: FeatureStateName; trialDaysLeft: number; }
 
 /** Tentukan status fitur dari map entitlement. `nowISO` di-inject agar mudah dites. */
@@ -12,6 +12,7 @@ export function featureState(
   const entry = features?.[key];
   if (!entry) return { state: 'locked', trialDaysLeft: 0 };
   if (entry.status === 'active') return { state: 'active', trialDaysLeft: 0 };
+  if (entry.status === 'pending_payment') return { state: 'pending_payment', trialDaysLeft: 0 };
 
   // Trial masih berjalan?
   const ends = entry.trial_ends_at ? new Date(entry.trial_ends_at).getTime() : 0;

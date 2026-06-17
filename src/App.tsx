@@ -16,7 +16,6 @@ const RegisterPage    = lazyWithReload(() => import('@/modules/auth/RegisterPage
 const ActivationPage  = lazyWithReload(() => import('@/modules/activation/ActivationPage'));
 const DashboardPage   = lazyWithReload(() => import('@/modules/dashboard/DashboardPage'));
 const MembersPage     = lazyWithReload(() => import('@/modules/members/MembersPage'));
-const MemberDetailPage= lazyWithReload(() => import('@/modules/members/MemberDetailPage'));
 const CoachesPage     = lazyWithReload(() => import('@/modules/coaches/CoachesPage'));
 const ProductsPage    = lazyWithReload(() => import('@/modules/products/ProductsPage'));
 const PackagesPage    = lazyWithReload(() => import('@/modules/packages/PackagesPage'));
@@ -29,6 +28,7 @@ const ReportsPage     = lazyWithReload(() => import('@/modules/reports/ReportsPa
 const SettingsPage    = lazyWithReload(() => import('@/modules/settings/SettingsPage'));
 const SuperAdminPage  = lazyWithReload(() => import('@/modules/superadmin/SuperAdminPage'));
 const LicensesPage    = lazyWithReload(() => import('@/modules/superadmin/LicensesPage'));
+const CatalogPage     = lazyWithReload(() => import('@/modules/superadmin/CatalogPage'));
 
 // ── Suspense spinner ─────────────────────────────────────────────────────────
 function PageSpinner() {
@@ -115,7 +115,6 @@ export default function App() {
         <Route path="/"         element={<PublicPage element={<LandingPage />} />} />
         <Route path="/login"    element={<PublicPage element={<LoginPage />} />} />
         <Route path="/register" element={<PublicPage element={<RegisterPage />} />} />
-        <Route path="/superadmin" element={<PublicPage element={<SuperAdminPage />} />} />
 
         {/* Activation — owner-only, no license gate */}
         <Route element={<ActivationLayout />}>
@@ -126,7 +125,6 @@ export default function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard"  element={<DashboardPage />} />
           <Route path="/members"    element={<MembersPage />} />
-          <Route path="/members/:id" element={<MemberDetailPage />} />
           <Route path="/coaches"    element={<CoachesPage />} />
           <Route path="/products"   element={<ProductsPage />} />
           <Route path="/packages"   element={<PackagesPage />} />
@@ -142,9 +140,14 @@ export default function App() {
             <Route path="/addons"      element={<AddonsPage />} />
           </Route>
 
-          {/* Superadmin-only */}
+          {/* Superadmin-only — katalog + sub-menu: dashboard / list / settings */}
           <Route element={<SuperadminGuard />}>
-            <Route path="/licenses" element={<LicensesPage />} />
+            <Route path="/superadmin" element={<SuperAdminPage />} />
+            <Route path="/licenses" element={<Navigate to="/licenses/dashboard" replace />} />
+            <Route path="/licenses/catalog" element={<CatalogPage />} />
+            <Route path="/licenses/dashboard" element={<LicensesPage />} />
+            <Route path="/licenses/list" element={<LicensesPage />} />
+            <Route path="/licenses/settings" element={<LicensesPage />} />
           </Route>
         </Route>
 

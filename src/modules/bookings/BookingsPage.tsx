@@ -31,9 +31,9 @@ export default function BookingsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Jadwal Sesi</h1>
-          <FeatureGate feature="premium_booking">
+          <FeatureGate feature="pro">
             <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-zen-brand/10 text-zen-brand">
-              <Sparkles size={11} /> Premium
+              <Sparkles size={11} /> Pro
             </span>
           </FeatureGate>
         </div>
@@ -73,7 +73,7 @@ export default function BookingsPage() {
         </div>
       ) : (
         <FeatureGate
-          feature="premium_booking"
+          feature="pro"
           fallback={<ScheduleDefault sessions={sessions} counts={counts} coachMap={coachMap} onOpen={setDetail} />}
         >
           <SchedulePremium sessions={sessions} counts={counts} coachMap={coachMap} onOpen={setDetail} />

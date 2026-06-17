@@ -3,8 +3,18 @@ import { useDashboardStats } from '@/hooks';
 import { TableSkeleton, QueryError } from '@/components/ui';
 import { formatCurrency } from '@/utils';
 import { useTranslation } from '@/hooks/useTranslation';
+import { FeatureGate } from '@/components/FeatureGate';
+import { DashboardPro } from './DashboardPro';
 
 export default function DashboardPage() {
+  return (
+    <FeatureGate feature="pro" fallback={<DashboardDefault />}>
+      <DashboardPro />
+    </FeatureGate>
+  );
+}
+
+function DashboardDefault() {
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useDashboardStats();
 

@@ -6,7 +6,8 @@ import { formatCurrency } from "@/utils";
 import { usePrintReceipt } from "@/hooks/usePrintReceipt";
 import { usePrinterStore } from "@/stores/printer";
 import { useToastStore } from "@/stores/toast";
-import { Button, Input, NumericInput } from "@/components/ui";
+import { Button, Input, NumericInput, BarChartH, TrendBars } from "@/components/ui";
+import { useFeature } from "@/hooks/useFeature";
 import { ListSkeleton } from "@/components/Skeleton";
 import { PrintPreview } from "@/components/PrintPreview";
 import { Plus, Minus, Trash2, ShoppingCart, Coins, X, Printer, ShoppingBag, Calendar } from "lucide-react";
@@ -32,6 +33,7 @@ interface CartItem {
 
 export default function ProductSalesPage() {
   const { t } = useTranslation();
+  const isPro = useFeature('pro');
   const today = new Date().toISOString().split("T")[0];
   const [preset, setPreset] = useState<Preset>('month');
   const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
@@ -150,6 +152,18 @@ export default function ProductSalesPage() {
 
   const totalSales = sales.reduce((s, r) => s + r.total, 0);
 
+  // Pro insight — agregasi dari `sales` yang sudah di-fetch (tanpa query baru).
+  const topProducts = (() => {
+    const byProduct: Record<string, number> = {};
+    for (const row of sales) for (const it of (row.items || [])) byProduct[it.product_name] = (byProduct[it.product_name] || 0) + it.quantity;
+    return Object.entries(byProduct).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+  })();
+  const revenueTrend = (() => {
+    const byDate: Record<string, number> = {};
+    for (const row of sales) byDate[row.transaction_date] = (byDate[row.transaction_date] || 0) + row.total;
+    return Object.keys(byDate).sort().map(d => ({ label: `${d.slice(8, 10)}/${d.slice(5, 7)}`, value: byDate[d] }));
+  })();
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -193,6 +207,20 @@ export default function ProductSalesPage() {
           </div>
         )}
       </div>
+
+      {/* Pro: insight penjualan (produk terlaris + tren omzet harian) */}
+      {isPro && sales.length > 0 && (
+        <div className="space-y-3">
+          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Produk Terlaris</p>
+            <BarChartH data={topProducts} formatValue={(v) => `${v} pcs`} />
+          </div>
+          <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40 mb-4">Tren Omzet Harian</p>
+            <TrendBars data={revenueTrend} formatValue={formatCurrency} />
+          </div>
+        </div>
+      )}
 
       {/* Sales list */}
       {salesLoading ? <ListSkeleton rows={5} /> : <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">

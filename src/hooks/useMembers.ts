@@ -40,7 +40,7 @@ export function useMember(id: string) {
 export function useMemberMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { action: 'add' | 'update' | 'archive'; member: Partial<Member> }) => {
+    mutationFn: async (data: { action: 'add' | 'update' | 'archive' | 'delete'; member: Partial<Member> }) => {
       const studioId = requireStudioId();
       const now = new Date().toISOString();
 
@@ -65,6 +65,24 @@ export function useMemberMutation() {
         return member;
       }
 
+      if (data.action === 'delete') {
+        const memberId = data.member.member_id!;
+        // Urutan: hapus semua data terkait dulu sebelum member (CASCADE juga ada di DB, ini defensive)
+        const related: Array<[string, Record<string, string>]> = [
+          ['coach_commissions', { member_id: memberId, studio_id: studioId }],
+          ['member_payments',   { member_id: memberId, studio_id: studioId }],
+          ['bookings',          { member_id: memberId, studio_id: studioId }],
+          ['member_packages',   { member_id: memberId, studio_id: studioId }],
+        ];
+        for (const [table, match] of related) {
+          const { error: e } = await (supabase.from(table as any).delete() as any).match(match);
+          if (e) throw new Error(`Gagal hapus ${table}: ${e.message}`);
+        }
+        const { error } = await supabase.from('members').delete().eq('member_id', memberId).eq('studio_id', studioId);
+        if (error) throw new Error(error.message);
+        return;
+      }
+
       if (data.action === 'archive') {
         const { error } = await supabase.from('members')
           .update({ status_active: false, updated_at: now })
@@ -80,11 +98,20 @@ export function useMemberMutation() {
         .eq('studio_id', studioId);
       if (error) throw new Error(error.message);
     },
+    onMutate: (vars) => {
+      if (vars.action === 'delete') {
+        useToastStore.getState().addToast('Menghapus data member dan riwayatnya...', 'info');
+      }
+    },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['members'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
-      const msg = vars.action === 'add' ? 'Member berhasil ditambahkan' : vars.action === 'archive' ? 'Member berhasil diarsipkan' : 'Member berhasil diperbarui';
-      useToastStore.getState().addToast(msg, 'success');
+      if (vars.action === 'delete') {
+        qc.invalidateQueries({ queryKey: ['bookings'] });
+        qc.invalidateQueries({ queryKey: ['memberPackages'] });
+      }
+      const msg = vars.action === 'add' ? 'Member berhasil ditambahkan' : vars.action === 'archive' ? 'Member berhasil diarsipkan' : vars.action === 'delete' ? 'Member berhasil dihapus' : 'Member berhasil diperbarui';
+      useToastStore.getState().addToast(msg, vars.action === 'delete' ? 'warning' : 'success');
     },
     onError: (e: Error) => { useToastStore.getState().addToast(e.message || 'Gagal menyimpan member', 'error'); },
   });

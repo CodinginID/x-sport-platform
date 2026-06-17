@@ -6,6 +6,8 @@ import type { PlatformConfig } from '@/types';
 export function usePlatformConfig() {
   return useQuery({
     queryKey: ['platformConfig'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<PlatformConfig | null> => {
       const { data, error } = await supabase.from('platform_config').select('*').eq('id', 1).maybeSingle();
       if (error) throw new Error(error.message);

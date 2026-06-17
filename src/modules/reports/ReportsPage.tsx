@@ -4,14 +4,17 @@ import {
   useMemberPackages, useCoachCommissions, useBookings, usePackages,
 } from '@/hooks';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useFeature } from '@/hooks/useFeature';
 import { formatCurrency, formatDate } from '@/utils';
 import { generateReport, previewPdf } from '@/utils/pdf';
+import { exportToExcel } from '@/utils/excel';
 import { BarChartH, TrendBars } from '@/components/ui';
 import { PrintPreview } from '@/components/PrintPreview';
+import { SalesChart, PaymentsChart, CommissionChart, ProfitChart } from './ReportCharts';
 import {
   ShoppingBag, CreditCard, User, Users, Award,
   TrendingUp, Download, ChevronRight, ArrowUpRight,
-  ArrowDownRight, Calendar,
+  ArrowDownRight, Calendar, FileSpreadsheet,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -98,15 +101,22 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
   );
 }
 
-function SectionHeader({ title, onExport }: { title: string; onExport?: () => void }) {
+function SectionHeader({ title, onExport, onExportExcel }: { title: string; onExport?: () => void; onExportExcel?: () => void }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-2">
       <h3 className="text-sm font-bold text-zen-ink">{title}</h3>
-      {onExport && (
-        <button onClick={onExport} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-bold text-zen-brand hover:text-zen-ink transition-colors py-2 px-3 rounded-xl hover:bg-zen-bg">
-          <Download size={13} /> Export PDF
-        </button>
-      )}
+      <div className="flex items-center gap-1">
+        {onExportExcel && (
+          <button onClick={onExportExcel} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-bold text-zen-brand hover:text-zen-ink transition-colors py-2 px-3 rounded-xl hover:bg-zen-bg">
+            <FileSpreadsheet size={13} /> Export Excel
+          </button>
+        )}
+        {onExport && (
+          <button onClick={onExport} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-bold text-zen-brand hover:text-zen-ink transition-colors py-2 px-3 rounded-xl hover:bg-zen-bg">
+            <Download size={13} /> Export PDF
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -170,7 +180,7 @@ function DateFilterBar({ preset, startDate, endDate, onChange }: {
 
 // ─── Report sections ──────────────────────────────────────────────────────────
 
-function SalesReport({ sales, onExport }: { sales: any[]; onExport: () => void }) {
+function SalesReport({ sales, isPro, onExport, onExportExcel }: { sales: any[]; isPro: boolean; onExport: () => void; onExportExcel: () => void }) {
   const total = sales.reduce((s, r) => s + r.total, 0);
   const avg = sales.length ? total / sales.length : 0;
   return (
@@ -180,8 +190,9 @@ function SalesReport({ sales, onExport }: { sales: any[]; onExport: () => void }
         <MetricCard label="Rata-rata" value={formatCurrency(avg)} icon={<TrendingUp size={16} />} />
         <MetricCard label="Transaksi" value={sales.length} icon={<ShoppingBag size={16} />} />
       </div>
+      {isPro && <SalesChart sales={sales} />}
       <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-        <SectionHeader title="Rincian Transaksi" onExport={onExport} />
+        <SectionHeader title="Rincian Transaksi" onExport={onExport} onExportExcel={isPro ? onExportExcel : undefined} />
         {sales.length === 0 ? <EmptyState label="Tidak ada transaksi di periode ini" /> : (
           <div className="mt-3 divide-y divide-zen-ink/5">
             {sales.map(s => (
@@ -201,7 +212,7 @@ function SalesReport({ sales, onExport }: { sales: any[]; onExport: () => void }
   );
 }
 
-function PaymentsReport({ payments, memberMap, onExport }: { payments: any[]; memberMap: Record<string, string>; onExport: () => void }) {
+function PaymentsReport({ payments, memberMap, isPro, onExport, onExportExcel }: { payments: any[]; memberMap: Record<string, string>; isPro: boolean; onExport: () => void; onExportExcel: () => void }) {
   const total = payments.reduce((s, r) => s + r.amount, 0);
   const methods = payments.reduce<Record<string, number>>((acc, p) => { acc[p.payment_method] = (acc[p.payment_method] || 0) + p.amount; return acc; }, {});
   return (
@@ -211,8 +222,9 @@ function PaymentsReport({ payments, memberMap, onExport }: { payments: any[]; me
         <MetricCard label="Tunai" value={formatCurrency(methods['cash'] || 0)} icon={<CreditCard size={16} />} color="green" />
         <MetricCard label="Transfer" value={formatCurrency(methods['transfer'] || 0)} icon={<CreditCard size={16} />} color="amber" />
       </div>
+      {isPro && <PaymentsChart payments={payments} />}
       <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-        <SectionHeader title="Rincian Pembayaran" onExport={onExport} />
+        <SectionHeader title="Rincian Pembayaran" onExport={onExport} onExportExcel={isPro ? onExportExcel : undefined} />
         {payments.length === 0 ? <EmptyState label="Tidak ada pembayaran di periode ini" /> : (
           <div className="mt-3 divide-y divide-zen-ink/5">
             {payments.map(p => (
@@ -296,7 +308,7 @@ function MemberDetailReport({ members, bookings, memberPackages, memberPayments,
   );
 }
 
-function MemberBalanceReport({ allMemberPackages, memberMap, packageMap, onExport }: any) {
+function MemberBalanceReport({ allMemberPackages, memberMap, packageMap, isPro, onExport, onExportExcel }: any) {
   const active = allMemberPackages.filter((p: any) => p.status === 'active').length;
   const expired = allMemberPackages.filter((p: any) => p.status === 'expired').length;
   const totalSessions = allMemberPackages.filter((p: any) => p.status === 'active').reduce((s: number, p: any) => s + p.remaining_sessions, 0);
@@ -309,7 +321,7 @@ function MemberBalanceReport({ allMemberPackages, memberMap, packageMap, onExpor
         <MetricCard label="Sisa Sesi" value={totalSessions} icon={<Calendar size={16} />} color="amber" />
       </div>
       <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-        <SectionHeader title="Saldo Semua Member" onExport={onExport} />
+        <SectionHeader title="Saldo Semua Member" onExport={onExport} onExportExcel={isPro ? onExportExcel : undefined} />
         {allMemberPackages.length === 0 ? <EmptyState label="Belum ada data paket" /> : (
           <div className="mt-4 space-y-4">
             {allMemberPackages.map((p: any) => {
@@ -343,7 +355,7 @@ function MemberBalanceReport({ allMemberPackages, memberMap, packageMap, onExpor
   );
 }
 
-function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedCoach, onSelect, onExport }: any) {
+function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedCoach, onSelect, isPro, onExport, onExportExcel }: any) {
   const total = commissions.reduce((s: number, r: any) => s + r.commission_amount, 0);
   const coachTotals = (commissions as any[]).reduce<Record<string, number>>((acc: Record<string, number>, c: any) => {
     acc[c.coach_id] = (acc[c.coach_id] || 0) + c.commission_amount; return acc;
@@ -368,6 +380,8 @@ function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedC
           <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-zen-ink/30 rotate-90 pointer-events-none" />
         </div>
       </div>
+
+      {isPro && <CommissionChart commissions={commissions} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <HeroMetric label="Total Komisi" value={formatCurrency(total)} sub={`${commissions.length} transaksi`} accent />
@@ -398,7 +412,7 @@ function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedC
       )}
 
       <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-        <SectionHeader title="Rincian Komisi" onExport={onExport} />
+        <SectionHeader title="Rincian Komisi" onExport={onExport} onExportExcel={isPro ? onExportExcel : undefined} />
         {commissions.length === 0 ? <EmptyState label="Tidak ada komisi di periode ini" /> : (
           <div className="mt-3 divide-y divide-zen-ink/5">
             {commissions.map((c: any) => (
@@ -418,7 +432,7 @@ function CommissionReport({ commissions, coaches, coachMap, memberMap, selectedC
   );
 }
 
-function ProfitReport({ payments, sales, commissions, onExport }: any) {
+function ProfitReport({ payments, sales, commissions, isPro, onExport, onExportExcel }: any) {
   const tp = payments.reduce((s: number, r: any) => s + r.amount, 0);
   const ts = sales.reduce((s: number, r: any) => s + r.total, 0);
   const tc = commissions.reduce((s: number, r: any) => s + r.commission_amount, 0);
@@ -456,9 +470,11 @@ function ProfitReport({ payments, sales, commissions, onExport }: any) {
         </div>
       </div>
 
+      {isPro && <ProfitChart payments={payments} sales={sales} commissions={commissions} />}
+
       {/* Breakdown */}
       <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
-        <SectionHeader title="Breakdown" onExport={onExport} />
+        <SectionHeader title="Breakdown" onExport={onExport} onExportExcel={isPro ? onExportExcel : undefined} />
         <div className="mt-4 space-y-3">
           {items.map(item => {
             const barPct = gross ? Math.abs(Math.round((Math.abs(item.value) / gross) * 100)) : 0;
@@ -490,6 +506,7 @@ function ProfitReport({ payments, sales, commissions, onExport }: any) {
 
 export default function ReportsPage() {
   const { t } = useTranslation();
+  const isPro = useFeature('pro');
 
   const tabs: Tab[] = [
     { id: 'profit',          label: 'Profit',            icon: <TrendingUp size={15} /> },
@@ -567,6 +584,55 @@ export default function ReportsPage() {
     setPdfUrl(previewPdf(doc)); setPdfFilename('profit.pdf');
   };
 
+  // Excel exports (premium) — rows rapi sesuai kolom tabel masing-masing tab
+  const excelSales = () => exportToExcel(
+    sales.map(s => ({
+      Tanggal: formatDate(s.transaction_date),
+      Pelanggan: s.customer_name || '-',
+      Items: s.items.map((i: any) => `${i.product_name} x${i.quantity}`).join(', '),
+      Total: s.total,
+    })),
+    `penjualan-${startDate}_${endDate}`, 'Penjualan');
+  const excelPayments = () => exportToExcel(
+    payments.map(p => ({
+      Tanggal: formatDate(p.payment_date),
+      Member: memberMap[p.member_id] || '-',
+      Paket: packageMap[p.package_id] || '-',
+      Jumlah: p.amount,
+      Metode: p.payment_method,
+    })),
+    `pembayaran-${startDate}_${endDate}`, 'Pembayaran');
+  const excelBalance = () => exportToExcel(
+    allMemberPackages.map(p => ({
+      Member: memberMap[p.member_id] || '-',
+      Paket: packageMap[p.package_id] || '-',
+      'Sisa Sesi': p.remaining_sessions,
+      'Total Sesi': p.total_sessions,
+      Status: p.status,
+      Expired: formatDate(p.expired_date),
+    })),
+    'saldo-member', 'Saldo Member');
+  const excelCommission = () => exportToExcel(
+    commissions.map(c => ({
+      Tanggal: formatDate(c.date),
+      Pelatih: coachMap[c.coach_id] || '-',
+      Member: memberMap[c.member_id] || '-',
+      'Harga Paket': c.package_price,
+      '%': c.commission_percentage,
+      Komisi: c.commission_amount,
+    })),
+    `komisi-${startDate}_${endDate}`, 'Komisi');
+  const excelProfit = () => {
+    const tp = payments.reduce((s, r) => s + r.amount, 0), ts = sales.reduce((s, r) => s + r.total, 0), tc = commissions.reduce((s, r) => s + r.commission_amount, 0);
+    exportToExcel([
+      { Keterangan: 'Pembayaran Member', Jumlah: tp },
+      { Keterangan: 'Penjualan Produk', Jumlah: ts },
+      { Keterangan: 'Komisi Pelatih', Jumlah: -tc },
+      { Keterangan: 'Gross', Jumlah: tp + ts },
+      { Keterangan: 'Net Profit', Jumlah: (tp + ts) - tc },
+    ], `profit-${startDate}_${endDate}`, 'Profit');
+  };
+
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">{t('reports.title')}</h1>
@@ -593,12 +659,12 @@ export default function ReportsPage() {
       )}
 
       {/* Content */}
-      {activeTab === 'profit'         && <ProfitReport payments={payments} sales={sales} commissions={commissions} onExport={exportProfit} />}
-      {activeTab === 'sales'          && <SalesReport sales={sales} onExport={exportSales} />}
-      {activeTab === 'payments'       && <PaymentsReport payments={payments} memberMap={memberMap} onExport={exportPayments} />}
-      {activeTab === 'member_balance' && <MemberBalanceReport allMemberPackages={allMemberPackages} memberMap={memberMap} packageMap={packageMap} onExport={exportBalance} />}
+      {activeTab === 'profit'         && <ProfitReport payments={payments} sales={sales} commissions={commissions} isPro={isPro} onExport={exportProfit} onExportExcel={excelProfit} />}
+      {activeTab === 'sales'          && <SalesReport sales={sales} isPro={isPro} onExport={exportSales} onExportExcel={excelSales} />}
+      {activeTab === 'payments'       && <PaymentsReport payments={payments} memberMap={memberMap} isPro={isPro} onExport={exportPayments} onExportExcel={excelPayments} />}
+      {activeTab === 'member_balance' && <MemberBalanceReport allMemberPackages={allMemberPackages} memberMap={memberMap} packageMap={packageMap} isPro={isPro} onExport={exportBalance} onExportExcel={excelBalance} />}
       {activeTab === 'member_detail'  && <MemberDetailReport members={members} bookings={bookings} memberPackages={memberPackages} memberPayments={memberPayments} packageMap={packageMap} selectedMember={selectedMember} onSelect={setSelectedMember} />}
-      {activeTab === 'commission'     && <CommissionReport commissions={commissions} coaches={coaches} coachMap={coachMap} memberMap={memberMap} selectedCoach={selectedCoach} onSelect={setSelectedCoach} onExport={exportCommission} />}
+      {activeTab === 'commission'     && <CommissionReport commissions={commissions} coaches={coaches} coachMap={coachMap} memberMap={memberMap} selectedCoach={selectedCoach} onSelect={setSelectedCoach} isPro={isPro} onExport={exportCommission} onExportExcel={excelCommission} />}
 
       <PrintPreview open={!!pdfUrl} onClose={() => setPdfUrl('')} pdfUrl={pdfUrl} filename={pdfFilename} />
     </div>

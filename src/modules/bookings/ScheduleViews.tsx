@@ -1,4 +1,5 @@
-import { Users, CheckCircle2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Users, CheckCircle2, Filter } from 'lucide-react';
 import { slotInfo } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { TrainingSession } from '@/types';
@@ -19,6 +20,25 @@ function groupByDate(sessions: TrainingSession[]): [string, TrainingSession[]][]
     map.set(s.session_date, arr);
   }
   return [...map.entries()];
+}
+
+/** Okupansi harian: total terisi vs total kapasitas + warna "heatmap". */
+function dayOccupancy(daySessions: TrainingSession[], counts: Record<string, number>) {
+  let filled = 0;
+  let capacity = 0;
+  for (const s of daySessions) {
+    filled += Math.min(counts[s.training_session_id] ?? 0, s.capacity);
+    capacity += s.capacity;
+  }
+  const ratio = capacity > 0 ? filled / capacity : 0;
+  const free = Math.max(0, capacity - filled);
+  // <50% hijau, 50–85% kuning, >85% merah
+  const heat = ratio > 0.85
+    ? { header: 'bg-gradient-to-r from-red-500/15 to-red-500/5', bar: 'bg-red-500', text: 'text-red-600' }
+    : ratio >= 0.5
+      ? { header: 'bg-gradient-to-r from-amber-400/20 to-amber-400/5', bar: 'bg-amber-500', text: 'text-amber-600' }
+      : { header: 'bg-gradient-to-r from-green-500/15 to-green-500/5', bar: 'bg-green-500', text: 'text-green-600' };
+  return { filled, capacity, free, ratio, ...heat };
 }
 
 function CategoryBadge({ category }: { category: TrainingSession['session_category'] }) {
@@ -67,18 +87,53 @@ export function ScheduleDefault({ sessions, counts, coachMap, onOpen }: Schedule
 
 // ─── Premium: kartu per tanggal + ringkasan slot kosong ───────────────────────
 export function SchedulePremium({ sessions, counts, coachMap, onOpen }: ScheduleViewProps) {
-  const groups = groupByDate(sessions);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
+
+  // Saat toggle aktif, sembunyikan sesi yang penuh; tanggal tanpa sisa sesi hilang.
+  const groups = useMemo(() => {
+    const filtered = onlyAvailable
+      ? sessions.filter(s => (counts[s.training_session_id] ?? 0) < s.capacity)
+      : sessions;
+    return groupByDate(filtered);
+  }, [sessions, counts, onlyAvailable]);
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-3">
+      {/* Toggle filter — hanya tampil di view premium */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={() => setOnlyAvailable(v => !v)}
+          aria-pressed={onlyAvailable}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all border ${onlyAvailable ? 'bg-green-600 text-white border-green-600' : 'bg-white border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}
+        >
+          <Filter size={12} /> Hanya ada slot kosong
+        </button>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-zen-ink/5 py-10 text-center text-sm text-zen-ink/40">
+          Tidak ada sesi dengan slot kosong
+        </div>
+      ) : (
+      <div className="grid gap-3 sm:grid-cols-2">
       {groups.map(([date, daySessions]) => {
         const withSlot = daySessions.filter(s => (counts[s.training_session_id] ?? 0) < s.capacity);
+        const occ = dayOccupancy(daySessions, counts);
         return (
           <div key={date} className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
-            {/* Header tanggal + ringkasan */}
-            <div className="px-5 py-3.5 bg-gradient-to-r from-zen-brand/10 to-zen-brand/5 border-b border-zen-ink/5">
+            {/* Header tanggal + okupansi heatmap */}
+            <div className={`px-5 py-3.5 border-b border-zen-ink/5 ${occ.header}`}>
               <p className="text-sm font-bold text-zen-ink">{formatDate(date)}</p>
               <p className="text-[11px] text-zen-ink/50 mt-0.5">
                 {daySessions.length} sesi · <span className={withSlot.length ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{withSlot.length} ada slot kosong</span>
+              </p>
+              {/* Bar okupansi harian */}
+              <div className="mt-2 h-1.5 rounded-full bg-zen-ink/10 overflow-hidden">
+                <div className={`h-full rounded-full ${occ.bar}`} style={{ width: `${Math.round(occ.ratio * 100)}%` }} />
+              </div>
+              <p className={`text-[10px] font-bold mt-1 ${occ.text}`}>
+                {occ.free} slot kosong dari {occ.capacity} total
               </p>
             </div>
             {/* Sesi */}
@@ -109,6 +164,8 @@ export function SchedulePremium({ sessions, counts, coachMap, onOpen }: Schedule
           </div>
         );
       })}
+      </div>
+      )}
     </div>
   );
 }

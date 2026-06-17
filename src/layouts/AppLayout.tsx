@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -8,7 +8,8 @@ import { PrinterConnectBanner } from '@/components/PrinterConnectBanner';
 import { cn } from '@/utils';
 import {
   LayoutDashboard, Users, UserCheck, Package, ShoppingBag,
-  Calendar, CreditCard, PieChart, DollarSign, LogOut, MoreHorizontal, Settings, ShieldCheck, Sparkles,
+  Calendar, CreditCard, PieChart, DollarSign, LogOut, MoreHorizontal, Settings, ShieldCheck, Sparkles, ListChecks,
+  Receipt, Tag, X,
 } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -19,6 +20,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   useSessionTimeout();
   usePrinterAutoReconnect();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const isOwner = user?.role === 'owner';
 
   const allNavItems = [
@@ -28,13 +36,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { label: t('nav.products'), icon: ShoppingBag, path: '/products', roles: ['owner', 'staff'] },
     { label: t('nav.packages'), icon: Package, path: '/packages', roles: ['owner', 'staff'] },
     { label: t('nav.bookings'), icon: Calendar, path: '/bookings', roles: ['owner', 'staff'] },
-    { label: t('nav.sales'), icon: CreditCard, path: '/sales', roles: ['owner', 'staff'] },
+    { label: t('nav.sales'), icon: Receipt, path: '/sales', roles: ['owner', 'staff'] },
     { label: t('nav.payments'), icon: CreditCard, path: '/payments', roles: ['owner', 'staff'] },
-    { label: 'Add-on', icon: Sparkles, path: '/addons', roles: ['owner'] },
+    { label: 'Add-ons', icon: Sparkles, path: '/addons', roles: ['owner'] },
     { label: t('nav.commissions'), icon: DollarSign, path: '/commissions', roles: ['owner'] },
     { label: t('nav.reports'), icon: PieChart, path: '/reports', roles: ['owner'] },
     { label: t('nav.settings'), icon: Settings, path: '/settings', roles: ['owner', 'staff'] },
-    { label: 'Manajemen Lisensi', icon: ShieldCheck, path: '/licenses', roles: ['superadmin'] },
+    { label: 'Katalog', icon: Tag, path: '/licenses/catalog', roles: ['superadmin'] },
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/licenses/dashboard', roles: ['superadmin'] },
+    { label: 'Lisensi', icon: ListChecks, path: '/licenses/list', roles: ['superadmin'] },
+    { label: 'Pengaturan', icon: Settings, path: '/licenses/settings', roles: ['superadmin'] },
   ];
 
   const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'staff'));
@@ -116,7 +127,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="fixed inset-0 z-50 bg-zen-ink/20 backdrop-blur-sm lg:hidden" onClick={() => setMoreOpen(false)} />
           <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden animate-slide-up">
             <div className="bg-white rounded-t-[32px] shadow-2xl px-6 pt-4 pb-8 pwa-bottom-safe">
-              <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mb-6" />
+              <div className="relative flex items-center justify-center mb-6">
+                <div className="w-10 h-1 bg-zen-ink/10 rounded-full" />
+                <button
+                  onClick={() => setMoreOpen(false)}
+                  aria-label="Tutup menu"
+                  className="absolute right-0 w-8 h-8 rounded-xl bg-zen-bg flex items-center justify-center text-zen-ink/40 hover:text-zen-ink hover:bg-zen-ink/5 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
               <div className="grid grid-cols-4 gap-4 mb-6">
                 {secondaryNav.map((item) => {
                   const active = location.pathname === item.path;

@@ -1,15 +1,15 @@
 // Sumber kebenaran daftar fitur premium add-on.
 // Harga, WA admin, & rekening dikonfigurasi superadmin (tabel platform_config), bukan di sini.
 export const FEATURES = {
-  premium_booking: {
-    label: 'Tampilan Booking Premium',
-    description: 'Cari tanggal & slot sesi kosong dengan lebih mudah.',
+  pro: {
+    label: 'Pro',
+    description: 'Buka semua tampilan premium: dashboard grafik, jadwal cantik, laporan, dan UI yang lebih mulus.',
     trial_days: 3,
     details: [
-      'Jadwal sesi tampil sebagai kartu per tanggal yang rapi',
-      'Ringkasan harian: jumlah sesi & berapa yang masih ada slot kosong',
-      'Sesi dengan slot kosong langsung disorot — cari jadwal jadi cepat',
-      'Bedakan sesi penuh vs tersedia secara visual',
+      'Dashboard grafik & insight: tren pendapatan, kehadiran, jam tersibuk, okupansi',
+      'Jadwal sesi tampilan premium: cari slot kosong lebih cepat',
+      'Dropdown & loading yang lebih mulus saat memuat data',
+      'Laporan dengan grafik + export PDF/Excel',
     ],
   },
 } as const;

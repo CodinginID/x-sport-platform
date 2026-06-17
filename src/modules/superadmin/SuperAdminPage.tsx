@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { FEATURES, FEATURE_KEYS } from '@/config/features';
 import type { PlatformConfig } from '@/types';
+import { ProAddonsDashboard } from './ProAddonsDashboard';
+import { FeatureCatalogManager } from './FeatureCatalogManager';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -316,22 +318,36 @@ interface ConfirmState {
 }
 
 // ─── Pengaturan Add-on (harga per fitur, WA admin, rekening) ──────────────────
-function AddonConfigCard({ adminClient, toast }: { adminClient: AdminClient; toast: ReturnType<typeof useLocalToast> }) {
-  const [cfg, setCfg] = useState<PlatformConfig | null>(null);
+function AddonConfigCard({ adminClient, config, onConfigChange, toast }: {
+  adminClient: AdminClient;
+  config: PlatformConfig | null;
+  onConfigChange: (cfg: PlatformConfig) => void;
+  toast: ReturnType<typeof useLocalToast>;
+}) {
   const [saving, setSaving] = useState(false);
+  const [cfg, setCfg] = useState<PlatformConfig | null>(config);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await adminClient.from('platform_config').select('*').eq('id', 1).maybeSingle();
-      setCfg((data as PlatformConfig) ?? {
-        id: 1, admin_wa: '', bank_name: '', bank_account_number: '', bank_account_holder: '', feature_prices: {},
-      });
-    })();
-  }, [adminClient]);
+    if (!cfg) {
+      (async () => {
+        const { data } = await adminClient.from('platform_config').select('*').eq('id', 1).maybeSingle();
+        const initial = (data as PlatformConfig) ?? {
+          id: 1, admin_wa: '', bank_name: '', bank_account_number: '', bank_account_holder: '', feature_prices: {},
+        };
+        setCfg(initial);
+        onConfigChange(initial);
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminClient, cfg]);
 
   if (!cfg) return null;
 
-  const setField = (k: keyof PlatformConfig, v: string) => setCfg({ ...cfg, [k]: v });
+  const setField = (k: keyof PlatformConfig, v: string) => {
+    const next = { ...cfg, [k]: v };
+    setCfg(next);
+    onConfigChange(next);
+  };
   const setPrice = (key: string, v: number) => setCfg({ ...cfg, feature_prices: { ...cfg.feature_prices, [key]: v } });
 
   const save = async () => {
@@ -399,6 +415,7 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [approvedLicense, setApprovedLicense] = useState<License | null>(null);
+  const [cfg, setCfg] = useState<PlatformConfig | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState>({
     open: false, title: '', message: '', variant: 'danger', onConfirm: () => {},
   });
@@ -538,8 +555,14 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
           </div>
         </div>
 
+        {/* Monitoring Add-on Pro — prioritas di atas karena ada aksi pending */}
+        <ProAddonsDashboard adminClient={adminClient} config={cfg} toast={toast} />
+
+        {/* Pengelola Katalog Fitur */}
+        <FeatureCatalogManager adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
+
         {/* Pengaturan Add-on */}
-        <AddonConfigCard adminClient={adminClient} toast={toast} />
+        <AddonConfigCard adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
 
         {/* Table */}
         <div className="glass-card rounded-3xl overflow-hidden">
@@ -552,7 +575,7 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0}>
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b border-zen-ink/5">
@@ -655,7 +678,8 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
                               <button
                                 onClick={() => handleApprove(license)}
                                 disabled={isProcessing}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+                                aria-label={`Setujui ${license.studio_name || license.owner_email}`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                               >
                                 {isProcessing ? (
                                   <Loader2 size={11} className="animate-spin" />
@@ -667,7 +691,8 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
                               <button
                                 onClick={() => handleReject(license)}
                                 disabled={isProcessing}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-red-200 text-red-500 hover:bg-red-50 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+                                aria-label={`Tolak ${license.studio_name || license.owner_email}`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-red-200 text-red-500 hover:bg-red-50 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                               >
                                 {isProcessing ? (
                                   <Loader2 size={11} className="animate-spin" />

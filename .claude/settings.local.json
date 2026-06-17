@@ -73,7 +73,14 @@
       "Bash(lsof -ti:5173)",
       "Bash(lsof -ti:5174)",
       "Bash(sed -n '/interface LicenseRow/,/^}/p' src/modules/superadmin/LicensesPage.tsx)",
-      "Bash(sed -n '507,525p' src/modules/superadmin/LicensesPage.tsx)"
+      "Bash(sed -n '507,525p' src/modules/superadmin/LicensesPage.tsx)",
+      "Bash(npm install *)",
+      "Bash(sed -n '/export interface Coach {/,/^}/p' src/types/index.ts)",
+      "Bash(sed -n '/export interface Member {/,/^}/p' src/types/index.ts)",
+      "Bash(claude mcp *)",
+      "Bash(python3 /Users/anonymous/.ccs/instances/hamas_office/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"sports studio management SaaS dashboard admin B2B\" --design-system -p \"XSport Platform\")",
+      "Read(//Users/anonymous/.claude/plugins/cache/ui-ux-pro-max-skill/**)",
+      "Bash(python3 *)"
     ]
   },
   "enabledMcpjsonServers": [
