@@ -107,9 +107,10 @@ function FeatureEditor({
           {/* Toggle publish */}
           <button
             onClick={onToggle}
+            aria-label={entry.is_publish ? 'Sembunyikan fitur' : 'Publikasikan fitur'}
             className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${entry.is_publish ? 'bg-zen-brand' : 'bg-zen-ink/20'}`}
           >
-            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${entry.is_publish ? 'left-4' : 'left-0.5'}`} />
+            <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${entry.is_publish ? 'translate-x-[14px]' : 'translate-x-0'}`} />
           </button>
 
           <div className="flex-1 min-w-0">
@@ -152,7 +153,9 @@ function FeatureEditor({
           </button>
 
           {/* Delete */}
-          <button onClick={onDelete}
+          <button
+            onClick={() => { if (window.confirm(`Hapus fitur "${entry.label || featureKey}"?`)) onDelete(); }}
+            aria-label={`Hapus fitur ${entry.label || featureKey}`}
             className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors">
             <Trash2 size={14} className="text-red-400" />
           </button>
@@ -232,7 +235,7 @@ function FeatureEditor({
                       next[i] = e.target.value;
                       onChange({ details: next });
                     }}
-                    placeholder="Benefit ke-{i + 1}"
+                    placeholder={`Benefit ke-${i + 1}`}
                     className="flex-1 px-3 py-2 text-xs bg-zen-bg border border-zen-ink/10 rounded-xl outline-none focus:border-zen-brand transition-colors"
                   />
                   <button onClick={() => {
@@ -278,12 +281,15 @@ export function FeatureCatalogManager({ adminClient, config, onConfigChange, toa
   const [loading, setLoading] = useState(true);
   const [usageData, setUsageData] = useState<Record<string, FeatureUsage>>({});
 
+  const [unsaved, setUnsaved] = useState(false);
+
   // Load feature catalog from config
   useEffect(() => {
-    if (config?.feature_catalog) {
+    if (config?.feature_catalog && Object.keys(config.feature_catalog).length > 0) {
       setCatalog(config.feature_catalog);
+      setUnsaved(false);
     } else {
-      // Default: seed with 'pro' if empty
+      // DB kosong — seed default 'pro', tampilkan banner simpan
       setCatalog({
         pro: {
           label: 'Pro',
@@ -300,7 +306,9 @@ export function FeatureCatalogManager({ adminClient, config, onConfigChange, toa
           ],
         },
       });
+      setUnsaved(true);
     }
+    setLoading(false);
   }, [config]);
 
   // Fetch usage stats
@@ -399,6 +407,7 @@ export function FeatureCatalogManager({ adminClient, config, onConfigChange, toa
         });
       }
 
+      setUnsaved(false);
       toast.add('Katalog fitur disimpan', 'success');
       await fetchUsage();
     } catch (err: any) {
@@ -438,6 +447,17 @@ export function FeatureCatalogManager({ adminClient, config, onConfigChange, toa
 
   return (
     <div className="space-y-5">
+      {/* Banner: katalog belum tersimpan di DB */}
+      {unsaved && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+          <RefreshCw size={14} className="flex-shrink-0 text-amber-500" />
+          <span className="flex-1">Katalog belum ada di database — data default sudah dimuat. Klik <strong>Simpan Katalog</strong> untuk menyimpannya ke DB.</span>
+          <button onClick={handleSave} disabled={saving}
+            className="px-3 py-1.5 rounded-xl bg-amber-500 text-white font-bold text-[11px] hover:bg-amber-600 transition-colors disabled:opacity-50 flex-shrink-0">
+            {saving ? 'Menyimpan...' : 'Simpan Sekarang'}
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

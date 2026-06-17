@@ -9,7 +9,7 @@ import { CoachDetailSheet } from "./CoachDetailSheet";
 import { useFeature } from "@/hooks/useFeature";
 import { Coach } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Plus, Dumbbell } from "lucide-react";
+import { Plus, Dumbbell, Trash2 } from "lucide-react";
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -59,6 +59,15 @@ export default function CoachesPage() {
     if (editing) mutation.mutate({ action: "update", coach: { coach_id: editing.coach_id, ...form } });
     else mutation.mutate({ action: "add", coach: form });
     setOpen(false);
+  };
+
+  const deleteCoach = (coach: Coach) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Coach?',
+      message: `Coach "${coach.full_name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => mutation.mutate({ action: 'delete', coach: { coach_id: coach.coach_id } }),
+    });
   };
 
   const toggleActive = (coach: Coach) => {
@@ -143,12 +152,21 @@ export default function CoachesPage() {
                       ✏
                     </button>
                     {useAuthStore.getState().user?.role === 'owner' && (
-                      <button
-                        onClick={() => toggleActive(coach)}
-                        className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-colors ${coach.active_status ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
-                      >
-                        {coach.active_status ? 'Nonaktifkan' : 'Aktifkan'}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => toggleActive(coach)}
+                          className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-colors ${coach.active_status ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                        >
+                          {coach.active_status ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                        <button
+                          onClick={() => deleteCoach(coach)}
+                          className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors"
+                          title="Hapus coach"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

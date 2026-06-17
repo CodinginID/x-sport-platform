@@ -555,14 +555,14 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
           </div>
         </div>
 
+        {/* Monitoring Add-on Pro — prioritas di atas karena ada aksi pending */}
+        <ProAddonsDashboard adminClient={adminClient} config={cfg} toast={toast} />
+
         {/* Pengelola Katalog Fitur */}
         <FeatureCatalogManager adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
 
         {/* Pengaturan Add-on */}
         <AddonConfigCard adminClient={adminClient} config={cfg} onConfigChange={setCfg} toast={toast} />
-
-        {/* Monitoring Add-on Pro */}
-        <ProAddonsDashboard adminClient={adminClient} config={cfg} toast={toast} />
 
         {/* Table */}
         <div className="glass-card rounded-3xl overflow-hidden">
@@ -575,7 +575,7 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0}>
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b border-zen-ink/5">
@@ -678,7 +678,8 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
                               <button
                                 onClick={() => handleApprove(license)}
                                 disabled={isProcessing}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+                                aria-label={`Setujui ${license.studio_name || license.owner_email}`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                               >
                                 {isProcessing ? (
                                   <Loader2 size={11} className="animate-spin" />
@@ -690,7 +691,8 @@ function Dashboard({ adminClient, onLogout, toast }: DashboardProps) {
                               <button
                                 onClick={() => handleReject(license)}
                                 disabled={isProcessing}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-red-200 text-red-500 hover:bg-red-50 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+                                aria-label={`Tolak ${license.studio_name || license.owner_email}`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-red-200 text-red-500 hover:bg-red-50 text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                               >
                                 {isProcessing ? (
                                   <Loader2 size={11} className="animate-spin" />

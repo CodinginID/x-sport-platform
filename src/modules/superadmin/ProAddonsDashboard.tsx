@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createAdminClient } from '@/lib/supabaseAdmin';
 import {
   Sparkles, Clock, CheckCircle2, AlertCircle, RefreshCw,
-  Users, TrendingUp, XCircle, MessageCircle, Eye,
+  Users, TrendingUp, XCircle, MessageCircle,
 } from 'lucide-react';
 import type { PlatformConfig } from '@/types';
 
@@ -20,18 +20,22 @@ interface StudioWithFeatures {
 }
 
 interface FeatureStatus {
-  status: 'trial' | 'active' | 'trial_expired';
+  status: 'trial' | 'active' | 'trial_expired' | 'pending_payment';
   trial_ends_at?: string;
   activated_at?: string;
+  invoice?: string;
+  requested_at?: string;
 }
 
-type AddonStatus = 'never_tried' | 'trial' | 'trial_expired' | 'active';
+type AddonStatus = 'never_tried' | 'trial' | 'trial_expired' | 'active' | 'pending_payment';
 
 interface StudioAddonState {
   studio: StudioWithFeatures;
   proStatus: AddonStatus;
   trialEndsAt?: string;
   daysLeft?: number;
+  invoice?: string;
+  requestedAt?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -40,6 +44,7 @@ function getProStatus(features: Record<string, FeatureStatus> | null): AddonStat
   if (!features?.pro) return 'never_tried';
   const pro = features.pro;
   if (pro.status === 'active') return 'active';
+  if (pro.status === 'pending_payment') return 'pending_payment';
   if (pro.status === 'trial') {
     if (pro.trial_ends_at && new Date(pro.trial_ends_at) > new Date()) return 'trial';
     return 'trial_expired';
@@ -71,6 +76,8 @@ function statusConfig(status: AddonStatus) {
       return { label: 'Trial Aktif', color: 'text-blue-600', bg: 'bg-blue-100', icon: Clock };
     case 'trial_expired':
       return { label: 'Trial Habis', color: 'text-amber-600', bg: 'bg-amber-100', icon: AlertCircle };
+    case 'pending_payment':
+      return { label: 'Menunggu Konfirmasi', color: 'text-orange-600', bg: 'bg-orange-100', icon: Clock };
     case 'active':
       return { label: 'Aktif', color: 'text-green-600', bg: 'bg-green-100', icon: CheckCircle2 };
   }
@@ -113,6 +120,8 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
           proStatus: status,
           trialEndsAt: pro?.trial_ends_at,
           daysLeft: pro?.trial_ends_at ? daysLeft(pro.trial_ends_at) : undefined,
+          invoice: pro?.invoice,
+          requestedAt: pro?.requested_at,
         };
       });
 
@@ -126,6 +135,15 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Realtime: auto-refresh ketika ada update license (misalnya pending_payment baru masuk)
+  useEffect(() => {
+    const ch = adminClient.channel('admin-licenses-watch')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'licenses' },
+        () => { fetchData(); })
+      .subscribe();
+    return () => { adminClient.removeChannel(ch); };
+  }, [adminClient, fetchData]);
+
   // Activate Pro for a studio
   const handleActivate = async (studioId: string) => {
     setActionLoading(studioId);
@@ -138,6 +156,7 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
       const updatedFeatures = {
         ...currentFeatures,
         pro: {
+          ...currentFeatures.pro,   // preserve trial_ends_at, invoice, etc.
           status: 'active',
           activated_at: new Date().toISOString(),
         },
@@ -164,6 +183,8 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
   const totalTrial = studios.filter(s => s.proStatus === 'trial').length;
   const totalExpired = studios.filter(s => s.proStatus === 'trial_expired').length;
   const totalNever = studios.filter(s => s.proStatus === 'never_tried').length;
+  const totalPendingPayment = studios.filter(s => s.proStatus === 'pending_payment').length;
+  const pendingPaymentStudios = studios.filter(s => s.proStatus === 'pending_payment');
 
   // Filtered list
   const filtered = filter === 'all' ? studios : studios.filter(s => s.proStatus === filter);
@@ -203,7 +224,7 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="glass-card rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 size={14} className="text-green-500" />
@@ -232,6 +253,13 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
           </div>
           <p className="text-2xl font-bold text-zen-ink/40">{totalNever}</p>
         </div>
+        <div className={`glass-card rounded-2xl p-4 ${totalPendingPayment > 0 ? 'border border-orange-200 bg-orange-50/60' : ''}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock size={14} className={totalPendingPayment > 0 ? 'text-orange-500 animate-pulse' : 'text-zen-ink/20'} />
+            <p className={`text-[9px] uppercase tracking-widest font-bold ${totalPendingPayment > 0 ? 'text-orange-600/80' : 'text-zen-ink/40'}`}>Menunggu Konfirmasi</p>
+          </div>
+          <p className={`text-2xl font-bold ${totalPendingPayment > 0 ? 'text-orange-600' : 'text-zen-ink/40'}`}>{totalPendingPayment}</p>
+        </div>
       </div>
 
       {/* Revenue estimate */}
@@ -252,16 +280,58 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
         </div>
       </div>
 
+      {/* Priority: Studio yang sudah transfer, menunggu konfirmasi */}
+      {pendingPaymentStudios.length > 0 && (
+        <div className="rounded-3xl border-2 border-orange-200 bg-orange-50/60 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+            <p className="text-xs font-bold text-orange-700 uppercase tracking-widest">
+              {pendingPaymentStudios.length} Studio Menunggu Konfirmasi Pembayaran
+            </p>
+          </div>
+          <div className="space-y-2">
+            {pendingPaymentStudios.map(({ studio, invoice, requestedAt }) => (
+              <div key={studio.id} className="bg-white rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-zen-ink truncate">{studio.studio_name || '—'}</p>
+                  <p className="text-[10px] text-zen-ink/40 truncate">{studio.owner_email}</p>
+                  {invoice && (
+                    <p className="text-[10px] font-mono font-bold text-orange-600 mt-1">{invoice}</p>
+                  )}
+                  {requestedAt && (
+                    <p className="text-[10px] text-zen-ink/30">Diminta: {formatDate(requestedAt)}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleActivate(studio.id)}
+                  disabled={actionLoading === studio.id}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-zen-brand text-white text-[10px] font-bold hover:bg-zen-brand/90 transition-colors disabled:opacity-50 shrink-0"
+                >
+                  {actionLoading === studio.id ? (
+                    <RefreshCw size={12} className="animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={12} />
+                  )}
+                  Aktifkan
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="flex gap-1.5 flex-wrap">
         {[
           { key: 'all' as const, label: 'Semua', count: studios.length },
+          { key: 'pending_payment' as const, label: 'Menunggu Konfirmasi', count: totalPendingPayment },
           { key: 'trial' as const, label: 'Trial', count: totalTrial },
           { key: 'trial_expired' as const, label: 'Trial Habis', count: totalExpired },
           { key: 'never_tried' as const, label: 'Belum Coba', count: totalNever },
           { key: 'active' as const, label: 'Aktif', count: totalActive },
         ].map(({ key, label, count }) => (
           <button key={key} onClick={() => setFilter(key)}
+            aria-pressed={filter === key}
             className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
               filter === key
                 ? 'bg-zen-brand text-white'
@@ -277,7 +347,7 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-sm text-zen-ink/40">Tidak ada studio dengan status ini</div>
         ) : (
-          filtered.map(({ studio, proStatus, daysLeft }) => {
+          filtered.map(({ studio, proStatus, daysLeft, invoice }) => {
             const cfg = statusConfig(proStatus);
             const Icon = cfg.icon;
             const isProcessing = actionLoading === studio.id;
@@ -305,6 +375,9 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
                     <p className="text-[10px] text-amber-600 font-bold mt-1">
                       Trial berakhir {studio.features?.pro?.trial_ends_at ? formatDate(studio.features.pro.trial_ends_at) : '—'}
                     </p>
+                  )}
+                  {proStatus === 'pending_payment' && invoice && (
+                    <p className="text-[10px] font-mono font-bold text-orange-600 mt-1">{invoice}</p>
                   )}
                 </div>
 
@@ -335,7 +408,7 @@ export function ProAddonsDashboard({ adminClient, config, toast }: ProAddonsDash
                   )}
                   {proStatus === 'active' && (
                     <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold">
-                      <Eye size={12} /> Lihat
+                      <CheckCircle2 size={12} /> Pro Aktif
                     </span>
                   )}
                 </div>

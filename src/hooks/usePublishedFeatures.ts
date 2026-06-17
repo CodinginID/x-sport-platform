@@ -13,32 +13,29 @@ export function usePublishedFeatures() {
   const features = useMemo(() => {
     const catalog = config?.feature_catalog;
 
-    // Jika ada catalog, gunakan itu
+    // Jika catalog sudah ada, gunakan itu (walaupun semua disabled)
     if (catalog && Object.keys(catalog).length > 0) {
       const published = Object.entries(catalog)
         .filter(([, entry]) => entry.is_publish)
         .sort((a, b) => a[1].sort_order - b[1].sort_order);
 
-      if (published.length > 0) {
-        // Convert to FEATURES-like structure
-        const result: Record<string, typeof FEATURES[keyof typeof FEATURES]> = {};
-        const keys: string[] = [];
+      const result: Record<string, typeof FEATURES[keyof typeof FEATURES]> = {};
+      const keys: string[] = [];
 
-        for (const [key, entry] of published) {
-          result[key] = {
-            label: entry.label,
-            description: entry.description,
-            trial_days: entry.trial_days,
-            details: entry.details,
-          };
-          keys.push(key);
-        }
-
-        return { features: result, keys: keys as FeatureKey[] };
+      for (const [key, entry] of published) {
+        result[key] = {
+          label: entry.label,
+          description: entry.description,
+          trial_days: entry.trial_days,
+          details: entry.details,
+        };
+        keys.push(key);
       }
+
+      return { features: result, keys: keys as FeatureKey[] };
     }
 
-    // Fallback ke hardcoded
+    // Fallback ke hardcoded hanya jika belum ada catalog sama sekali
     return { features: FEATURES, keys: FEATURE_KEYS };
   }, [config]);
 

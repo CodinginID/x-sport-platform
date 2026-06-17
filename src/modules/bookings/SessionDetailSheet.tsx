@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { DetailSheet, DetailSection } from '@/components/DetailSheet';
 import { SmartSelect } from '@/components/ui/SmartSelect';
-import { CheckCircle2, XCircle, UserPlus, Pencil } from 'lucide-react';
+import { CheckCircle2, XCircle, UserPlus, Pencil, Trash2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth';
+import { useConfirmStore } from '@/components/ConfirmDialog';
 import { useMembers, useCoaches, usePackages, useActiveMemberPackages, useSessionParticipants, useRegisterParticipant, useBookingMutation, useTrainingSessionMutation, slotInfo } from '@/hooks';
 import { formatCurrency } from '@/utils';
 import type { TrainingSession } from '@/types';
@@ -30,6 +32,16 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
   const coachMap = Object.fromEntries(coaches.map(c => [c.coach_id, c.full_name]));
   const pkgMap = Object.fromEntries(packages.map(p => [p.package_id, p.package_name]));
   const slot = slotInfo(participants.length, session.capacity);
+  const isOwner = useAuthStore.getState().user?.role === 'owner';
+
+  const deleteBooking = (bookingId: string, memberName: string) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Booking?',
+      message: `Booking "${memberName}" akan dihapus permanen dari sesi ini. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => bookingMutation.mutate({ action: 'delete', booking: { booking_id: bookingId } }),
+    });
+  };
   const coachName = session.coach_id ? (coachMap[session.coach_id] ?? '—') : null;
 
   const resetForm = () => setForm(emptyForm);
@@ -117,9 +129,25 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
                         className="w-8 h-8 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center disabled:opacity-50" title="Batalkan">
                         <XCircle size={15} />
                       </button>
+                      {isOwner && (
+                        <button onClick={() => deleteBooking(p.booking_id, memberMap[p.member_id] ?? '?')}
+                          disabled={bookingMutation.isPending}
+                          className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors disabled:opacity-50" title="Hapus booking">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </>
                   ) : (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-green-600"><CheckCircle2 size={13} /> Hadir</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-green-600"><CheckCircle2 size={13} /> Hadir</span>
+                      {isOwner && (
+                        <button onClick={() => deleteBooking(p.booking_id, memberMap[p.member_id] ?? '?')}
+                          disabled={bookingMutation.isPending}
+                          className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors disabled:opacity-50" title="Hapus booking">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

@@ -1,7 +1,9 @@
 export interface FeatureEntry {
-  status: 'trial' | 'active';
+  status: 'trial' | 'active' | 'pending_payment';
   trial_ends_at?: string;
   trial_used?: boolean;
+  invoice?: string;
+  requested_at?: string;
 }
 
 export interface PlatformConfig {
@@ -125,8 +127,8 @@ export interface Booking {
   booking_date: string;
   booking_time: string;
   member_id: string;
-  coach_id: string;
-  package_id: string;
+  coach_id: string | null;
+  package_id: string | null;
   member_package_id: string | null;
   training_session_id: string | null;
   package_price: number;

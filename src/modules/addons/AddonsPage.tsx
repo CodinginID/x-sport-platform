@@ -3,7 +3,7 @@ import {
   Sparkles, Check, Clock, MessageCircle, X, Eye, RefreshCw,
   ArrowRight, FileSpreadsheet, LayoutList, MousePointerClick, Shield,
   CreditCard, ArrowDownLeft, Smartphone, Copy, ExternalLink,
-  TrendingUp, Users, Package, Star,
+  TrendingUp, Users, Package, Star, Info,
 } from 'lucide-react';
 import { FEATURES, type FeatureKey } from '@/config/features';
 import { usePublishedFeatures, useFeaturePrice } from '@/hooks/usePublishedFeatures';
@@ -11,6 +11,7 @@ import { featureState } from '@/lib/featureState';
 import { useFeatureTrial } from '@/hooks/useFeatureTrial';
 import { usePlatformConfig } from '@/hooks/usePlatformConfig';
 import { validateLicense } from '@/services/license';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { formatCurrency } from '@/utils';
@@ -90,6 +91,7 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
           { key: 'uiux', label: 'UI/UX', icon: <MousePointerClick size={12} /> },
         ].map((t) => (
           <button key={t.key} onClick={() => onTabChange(t.key)}
+            aria-pressed={activeTabKey === t.key}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all ${activeTabKey === t.key ? 'bg-zen-brand text-white shadow-sm' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
             {t.icon} {t.label}
           </button>
@@ -108,28 +110,22 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
             <p className="text-[9px] uppercase tracking-widest font-bold text-zen-ink/30">Tanpa Pro</p>
           </div>
           <div className="p-4">
-            {/* Mini mockup: flat list */}
-            <div className="space-y-2">
-              {[
-                { time: '08:00', label: 'Reguler · Coach Budi', status: 'full' },
-                { time: '10:00', label: 'Private · Coach Sinta', status: 'full' },
-                { time: '16:00', label: 'Reguler · Coach Budi', status: 'full' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2 py-2 border-b border-zen-ink/5 last:border-0">
-                  <span className="text-[10px] font-mono font-bold text-zen-ink/30 w-10">{item.time}</span>
-                  <span className="text-[10px] text-zen-ink/30 flex-1 truncate">{item.label}</span>
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100/60 text-red-400">Penuh</span>
+            <div className="space-y-2.5">
+              {[72, 55, 65].map((w, i) => (
+                <div key={i} className="flex items-center gap-2 py-1.5 border-b border-zen-ink/5 last:border-0">
+                  <div className="w-8 h-2 rounded bg-zen-ink/10 shrink-0" />
+                  <div className={`h-2 rounded bg-zen-ink/8`} style={{ width: `${w}%` }} />
                 </div>
               ))}
             </div>
-            <p className="text-[9px] text-zen-ink/25 mt-3 text-center italic">{active.beforeDesc.split('.')[0]}.</p>
+            <p className="text-[9px] text-zen-ink/35 mt-3 text-center italic leading-snug">{active.beforeDesc.split('.')[0]}.</p>
           </div>
         </div>
 
         {/* AFTER mockup — with gradient border + glow */}
         <div className="rounded-3xl border-2 border-zen-brand/25 bg-gradient-to-b from-zen-brand/5 to-white overflow-hidden relative">
           {/* Glow effect */}
-          <div className="absolute inset-0 bg-zen-brand/5 animate-pulse pointer-events-none rounded-3xl" />
+          <div className="absolute inset-0 bg-zen-brand/5 pointer-events-none rounded-3xl" />
 
           <div className="relative px-4 py-2.5 bg-zen-brand/10 border-b border-zen-brand/10 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-zen-brand animate-pulse" />
@@ -162,7 +158,7 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
       {/* Insight bridge */}
       <div className="flex items-center gap-2 justify-center py-1">
         <div className="w-8 h-8 rounded-full bg-zen-brand/10 flex items-center justify-center">
-          <ArrowRight size={14} className="text-zen-brand animate-pulse" />
+          <ArrowRight size={14} className="text-zen-brand" />
         </div>
         <span className="text-[11px] text-zen-ink/50">Dari tampilan biasa <span className="text-zen-brand font-bold">→</span> insight yang bisa ditindaklanjuti</span>
       </div>
@@ -201,6 +197,7 @@ export default function AddonsPage() {
   const [previewKey, setPreviewKey] = useState<FeatureKey | null>(null);
   const [previewTab, setPreviewTab] = useState<(typeof PRO_PREVIEW_TABS)[number]['key']>('jadwal');
   const [refreshing, setRefreshing] = useState(false);
+  const [requestingPayment, setRequestingPayment] = useState(false);
   const nowISO = new Date().toISOString();
   const [invoice] = useState(() => generateInvoice(licenseInfo?.license_key ?? 'DEMO'));
   const countdown = useCountdown(24);
@@ -219,6 +216,37 @@ export default function AddonsPage() {
   };
   useEffect(() => { refreshEntitlement(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
+  const requestPayment = async (key: FeatureKey, inv: string) => {
+    const { licenseInfo: li } = useAuthStore.getState();
+    if (!li?.id) return;
+    setRequestingPayment(true);
+    try {
+      await supabase.rpc('request_addon_payment', {
+        p_license_id: li.id, p_feature: key, p_invoice: inv, p_studio_id: li.id,
+      });
+      const fresh = await validateLicense(li.license_key);
+      const { updateLicenseInfo } = useAuthStore.getState();
+      if (fresh.ok && fresh.data) await updateLicenseInfo(fresh.data);
+    } catch { /* Tetap buka WA meski RPC gagal */ } finally { setRequestingPayment(false); }
+  };
+
+  // Realtime: auto-refresh saat superadmin aktivasi dari dashboard
+  useEffect(() => {
+    const { licenseInfo: li } = useAuthStore.getState();
+    if (!li?.id) return;
+    const ch = supabase
+      .channel(`addon-status:${li.id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'licenses', filter: `id=eq.${li.id}` },
+        async () => {
+          const { licenseInfo: l, updateLicenseInfo } = useAuthStore.getState();
+          if (!l?.license_key) return;
+          const res = await validateLicense(l.license_key);
+          if (res.ok && res.data) await updateLicenseInfo(res.data);
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fmtPrice = (key: FeatureKey): string => {
     const catalog = config?.feature_catalog;
     const price = catalog?.[key]?.price ?? config?.feature_prices?.[key] ?? null;
@@ -232,6 +260,10 @@ export default function AddonsPage() {
 
   // Social proof — mock data (in production, fetch from server)
   const activeStudios = 47;
+
+  const getPreviewNode = () => PRO_PREVIEW_TABS.find(t => t.key === previewTab)?.node ?? null;
+  const getBeforeDesc = () => PRO_PREVIEW_TABS.find(t => t.key === previewTab)?.beforeDesc ?? '';
+  const getCaption = () => PRO_PREVIEW_TABS.find(t => t.key === previewTab)?.caption ?? '';
 
   return (
     <div className="space-y-5">
@@ -247,17 +279,24 @@ export default function AddonsPage() {
       </div>
 
       {/* Add-on cards grid — dynamic from catalog */}
+      {featureKeys.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-zen-ink/30">
+          <Sparkles size={32} className="mb-3 opacity-20" />
+          <p className="text-sm">Belum ada add-on yang tersedia saat ini.</p>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         {featureKeys.map((key) => {
           const f = features[key];
           if (!f) return null;
           const { state, trialDaysLeft } = featureState(licenseInfo?.features, key, nowISO);
           const isActive = state === 'active';
+          const isPending = state === 'pending_payment';
 
           return (
-            <div key={key} className={`rounded-3xl border p-0 overflow-hidden transition-all ${isActive ? 'border-zen-brand/30 shadow-lg shadow-zen-brand/5' : 'border-zen-ink/5 bg-white hover:shadow-md'}`}>
+            <div key={key} className={`rounded-3xl border p-0 overflow-hidden transition-all ${isActive ? 'border-zen-brand/30 shadow-lg shadow-zen-brand/5' : isPending ? 'border-amber-200 bg-amber-50/30' : 'border-zen-ink/5 bg-white hover:shadow-md'}`}>
               {/* Header */}
-              <div className={`px-5 py-4 ${isActive ? 'bg-gradient-to-r from-zen-brand/10 to-zen-brand/5' : 'bg-white'}`}>
+              <div className={`px-5 py-4 ${isActive ? 'bg-gradient-to-r from-zen-brand/10 to-zen-brand/5' : isPending ? 'bg-amber-50' : 'bg-white'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles size={18} className={isActive ? 'text-zen-brand animate-pulse' : 'text-zen-ink/20'} />
@@ -266,6 +305,11 @@ export default function AddonsPage() {
                   {isActive && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zen-brand text-white text-[10px] font-bold uppercase tracking-widest">
                       <Check size={11} className="animate-check-bounce" /> Aktif
+                    </span>
+                  )}
+                  {isPending && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-600 text-[10px] font-bold uppercase tracking-widest">
+                      <Clock size={11} className="animate-pulse" /> Menunggu
                     </span>
                   )}
                 </div>
@@ -333,6 +377,19 @@ export default function AddonsPage() {
                     <button onClick={() => setBuyKey(key)} className="w-full py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold hover:bg-zen-brand/90 active:scale-[0.98] transition-all">Beli Sekarang</button>
                   </div>
                 )}
+                {state === 'pending_payment' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-xs font-bold text-amber-600">Menunggu Verifikasi Admin</span>
+                    </div>
+                    <p className="text-[10px] text-zen-ink/40 leading-snug">Pembayaran sedang dikonfirmasi. Biasanya dalam 1×24 jam.</p>
+                    <button onClick={() => refreshEntitlement(true)} disabled={refreshing}
+                      className="w-full py-3 rounded-2xl border border-amber-200 text-amber-600 text-sm font-bold hover:bg-amber-50 transition-colors disabled:opacity-50">
+                      Sudah Dikonfirmasi? Perbarui Status
+                    </button>
+                  </div>
+                )}
                 {state === 'locked' && (
                   <button onClick={() => startTrial(key)} disabled={pending === key}
                     className="w-full py-3 rounded-2xl bg-zen-brand/10 text-zen-brand text-sm font-bold disabled:opacity-50 hover:bg-zen-brand/20 transition-colors">
@@ -347,14 +404,14 @@ export default function AddonsPage() {
 
       {/* Preview Sheet — slide-up */}
       {previewKey && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-zen-bg/60 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
-          <div className="relative w-full sm:max-w-3xl sm:mx-4 bg-white sm:rounded-[28px] rounded-t-[28px] max-h-[90dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-page-in">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-6">
+          <div className="absolute inset-0 bg-zen-ink/50 backdrop-blur-sm" onClick={() => setPreviewKey(null)} />
+          <div className="relative z-10 w-full sm:max-w-3xl bg-white sm:rounded-[28px] rounded-t-[28px] h-[90dvh] sm:h-[88dvh] flex flex-col overflow-hidden animate-slide-up sm:animate-page-in">
             {/* Drag handle */}
             <div className="w-10 h-1 bg-zen-ink/10 rounded-full mx-auto mt-3 sm:hidden shrink-0" />
             <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-5 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                <button onClick={() => setPreviewKey(null)} aria-label="Tutup preview" className="sm:hidden w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                 </button>
                 <div>
@@ -362,12 +419,13 @@ export default function AddonsPage() {
                   <p className="text-base font-bold text-white">{features[previewKey].label}</p>
                 </div>
               </div>
-              <button onClick={() => setPreviewKey(null)} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
+              <button onClick={() => setPreviewKey(null)} aria-label="Tutup preview" className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
             </div>
             <div className="shrink-0 bg-gradient-to-b from-green-50/60 to-white px-5 py-4">
               <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
                 {PRO_PREVIEW_TABS.map((t) => (
                   <button key={t.key} onClick={() => setPreviewTab(t.key)}
+                    aria-pressed={previewTab === t.key}
                     className={`shrink-0 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
                       previewTab === t.key
                         ? 'bg-zen-brand text-white shadow-sm'
@@ -378,8 +436,8 @@ export default function AddonsPage() {
                 ))}
               </div>
             </div>
-            <div className="overflow-y-auto flex-1">
-              <div className="px-5 pb-32 space-y-5">
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <div className="px-5 pb-6 space-y-5">
                 <div className="rounded-3xl overflow-hidden shadow-lg border border-zen-ink/5">{getPreviewNode()}</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-3xl border border-zen-ink/10 bg-white p-4">
@@ -402,7 +460,7 @@ export default function AddonsPage() {
                   <span className="italic">"{getBeforeDesc().split(',')[0]}" → insight yang bisa ditindaklanjuti</span>
                 </div>
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2.5">
-                  <Eye size={13} className="text-amber-600 shrink-0 mt-0.5" />
+                  <Info size={13} className="text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-amber-700/80 leading-snug">Data di atas adalah contoh. Setelah Pro aktif, grafik akan diisi dari data studio Anda.</p>
                 </div>
               </div>
@@ -410,10 +468,10 @@ export default function AddonsPage() {
             <div className="shrink-0 bg-white border-t border-zen-ink/10 px-5 py-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-bold text-zen-ink">Mau seperti ini?</p>
-                <p className="text-[10px] text-zen-ink/40">{fmtPrice('pro')} · selamanya</p>
+                <p className="text-[10px] text-zen-ink/40">{fmtPrice(previewKey)} · selamanya</p>
               </div>
-              <button onClick={() => { setPreviewKey(null); setBuyKey('pro'); }}
-                className="px-6 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold shadow-sm hover:bg-zen-brand/90 active:scale-[0.98] transition-all">
+              <button onClick={() => { setPreviewKey(null); setBuyKey(previewKey); }}
+                className="px-6 py-3 rounded-2xl bg-zen-brand text-white text-sm font-bold shadow-lg shadow-zen-brand/30 hover:bg-zen-brand/90 active:scale-[0.98] transition-all min-h-[44px]">
                 Beli Sekarang
               </button>
             </div>
@@ -429,7 +487,7 @@ export default function AddonsPage() {
 
             {/* Header gradient */}
             <div className="shrink-0 bg-gradient-to-r from-zen-brand to-green-400 px-6 py-6 text-center relative">
-              <button onClick={() => setBuyKey(null)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
+              <button onClick={() => setBuyKey(null)} aria-label="Tutup pembayaran" className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"><X size={16} className="text-white" /></button>
 
               {/* Progress stepper */}
               <div className="flex items-center justify-center gap-2 mb-4">
@@ -531,7 +589,7 @@ export default function AddonsPage() {
 
               {/* Warning */}
               <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2.5">
-                <Eye size={12} className="text-amber-600 shrink-0 mt-0.5" />
+                <Info size={12} className="text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-amber-700/80 leading-snug">Sertakan nomor invoice saat konfirmasi agar kami bisa mencocokkan pembayaran Anda.</p>
               </div>
             </div>
@@ -539,13 +597,18 @@ export default function AddonsPage() {
             {/* Sticky bottom CTA */}
             {config?.admin_wa ? (
               <div className="shrink-0 bg-white border-t border-zen-ink/10 px-6 py-5">
-                <a
-                  href={buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', features[buyKey].label, invoice, priceOf(buyKey) ?? 0)}
-                  target="_blank" rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 active:scale-[0.98] transition-all shadow-lg shadow-green-500/20"
+                <button
+                  onClick={async () => {
+                    await requestPayment(buyKey, invoice);
+                    window.open(buyWaLink(config.admin_wa, licenseInfo?.studio_name ?? '-', licenseInfo?.license_key ?? '-', features[buyKey].label, invoice, priceOf(buyKey) ?? 0), '_blank', 'noreferrer');
+                    setBuyKey(null);
+                  }}
+                  disabled={requestingPayment}
+                  className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 active:scale-[0.98] transition-all shadow-lg shadow-green-500/20 disabled:opacity-60"
                 >
-                  <MessageCircle size={18} /> Konfirmasi via WhatsApp
-                </a>
+                  {requestingPayment ? <RefreshCw size={18} className="animate-spin" /> : <MessageCircle size={18} />}
+                  {requestingPayment ? 'Memproses...' : 'Konfirmasi via WhatsApp'}
+                </button>
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                   <ExternalLink size={10} className="text-zen-ink/20" />
                   <p className="text-[9px] text-zen-ink/30">Anda akan diarahkan ke WhatsApp → kirim bukti transfer</p>

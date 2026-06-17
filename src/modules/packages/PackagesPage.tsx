@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { usePackages, usePackageMutation, useSearchPaginate } from "@/hooks";
+import { useAuthStore } from "@/stores/auth";
+import { useConfirmStore } from "@/components/ConfirmDialog";
 import { formatCurrency } from "@/utils";
 import { Button, Modal, Input, Select, NumericInput, SearchBar } from "@/components/ui";
 import { ListSkeleton } from "@/components/Skeleton";
@@ -8,7 +10,7 @@ import { Pagination } from "@/components/Pagination";
 import { useFeature } from "@/hooks/useFeature";
 import { Package } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Plus, Boxes, Calendar, Hash } from "lucide-react";
+import { Plus, Boxes, Calendar, Hash, Trash2 } from "lucide-react";
 
 const CATEGORY_LABEL: Record<Package["package_category"], string> = {
   reguler: "Reguler",
@@ -64,6 +66,17 @@ export default function PackagesPage() {
 
   const toggleActive = (pkg: Package) => {
     mutation.mutate({ action: "update", pkg: { package_id: pkg.package_id, active_status: !pkg.active_status } });
+  };
+
+  const isOwner = useAuthStore(s => s.user?.role === 'owner');
+
+  const deletePkg = (pkg: Package) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Paket?',
+      message: `Paket "${pkg.package_name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => mutation.mutate({ action: 'delete', pkg: { package_id: pkg.package_id } }),
+    });
   };
 
   return (
@@ -140,6 +153,15 @@ export default function PackagesPage() {
                     >
                       {pkg.active_status ? 'Off' : 'On'}
                     </button>
+                    {isOwner && (
+                      <button
+                        onClick={() => deletePkg(pkg)}
+                        className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors"
+                        title="Hapus paket"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -195,6 +217,15 @@ export default function PackagesPage() {
             >
               Edit Paket
             </button>
+            {isOwner && (
+              <button
+                onClick={() => { setDetail(null); deletePkg(detail); }}
+                className="w-12 py-3 bg-red-50 text-red-500 hover:bg-red-100 rounded-2xl flex items-center justify-center transition-colors"
+                title="Hapus paket"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </DetailSheet>
       )}

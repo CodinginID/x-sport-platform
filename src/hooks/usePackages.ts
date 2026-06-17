@@ -24,9 +24,19 @@ export function usePackages() {
 export function usePackageMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { action: 'add' | 'update'; pkg: Partial<Package> }) => {
+    mutationFn: async (data: { action: 'add' | 'update' | 'delete'; pkg: Partial<Package> }) => {
       const studioId = requireStudioId();
       const now = new Date().toISOString();
+
+      if (data.action === 'delete') {
+        // DB CASCADE: member_packages ikut terhapus; bookings & payments SET NULL pada package_id
+        const { error } = await supabase.from('packages')
+          .delete()
+          .eq('package_id', data.pkg.package_id!)
+          .eq('studio_id', studioId);
+        if (error) throw new Error(error.message);
+        return;
+      }
 
       if (data.action === 'add') {
         const pkg: Package & { studio_id: string } = {
@@ -53,9 +63,19 @@ export function usePackageMutation() {
         .eq('studio_id', studioId);
       if (error) throw new Error(error.message);
     },
+    onMutate: (vars) => {
+      if (vars.action === 'delete') {
+        useToastStore.getState().addToast('Menghapus paket dan data pembeliannya...', 'info');
+      }
+    },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['packages'] });
-      useToastStore.getState().addToast(vars.action === 'add' ? 'Paket berhasil ditambahkan' : 'Paket berhasil diperbarui', 'success');
+      if (vars.action === 'delete') {
+        qc.invalidateQueries({ queryKey: ['memberPackages'] });
+        qc.invalidateQueries({ queryKey: ['bookings'] });
+      }
+      const msg = vars.action === 'add' ? 'Paket berhasil ditambahkan' : vars.action === 'delete' ? 'Paket berhasil dihapus' : 'Paket berhasil diperbarui';
+      useToastStore.getState().addToast(msg, vars.action === 'delete' ? 'warning' : 'success');
     },
     onError: (e: Error) => { useToastStore.getState().addToast(e.message || 'Gagal menyimpan paket', 'error'); },
   });

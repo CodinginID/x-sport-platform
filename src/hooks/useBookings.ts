@@ -26,7 +26,7 @@ export function useBookings(filters?: { date?: string; status?: string; member_i
 export function useBookingMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { action: 'create' | 'attend' | 'cancel'; booking: Partial<Booking> }) => {
+    mutationFn: async (data: { action: 'create' | 'attend' | 'cancel' | 'delete'; booking: Partial<Booking> }) => {
       const studioId = requireStudioId();
       const now = new Date().toISOString();
 
@@ -65,6 +65,15 @@ export function useBookingMutation() {
         return booking;
       }
 
+      if (data.action === 'delete') {
+        const { error } = await supabase.from('bookings')
+          .delete()
+          .eq('booking_id', data.booking.booking_id!)
+          .eq('studio_id', studioId);
+        if (error) throw new Error(error.message);
+        return;
+      }
+
       if (data.action === 'cancel') {
         const { error } = await supabase.from('bookings')
           .update({ booking_status: 'cancelled', updated_at: now })
@@ -91,8 +100,8 @@ export function useBookingMutation() {
       // Refresh tampilan sesi latihan (peserta + badge slot) saat hadir/batal dari sheet sesi
       qc.invalidateQueries({ queryKey: ['sessionParticipants'] });
       qc.invalidateQueries({ queryKey: ['sessionCounts'] });
-      const msg = vars.action === 'create' ? 'Booking berhasil dibuat' : vars.action === 'attend' ? 'Check-in berhasil' : 'Booking dibatalkan';
-      useToastStore.getState().addToast(msg, vars.action === 'cancel' ? 'warning' : 'success');
+      const msg = vars.action === 'create' ? 'Booking berhasil dibuat' : vars.action === 'attend' ? 'Check-in berhasil' : vars.action === 'delete' ? 'Booking dihapus' : 'Booking dibatalkan';
+      useToastStore.getState().addToast(msg, vars.action === 'cancel' || vars.action === 'delete' ? 'warning' : 'success');
     },
     onError: (e: Error) => { useToastStore.getState().addToast(e.message || 'Gagal memproses booking', 'error'); },
   });

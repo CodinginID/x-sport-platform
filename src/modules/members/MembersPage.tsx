@@ -12,7 +12,7 @@ import type { Member } from '@/types';
 import { formatDate, formatCurrency } from '@/utils';
 import { memberSchema, type MemberFormData } from '@/utils/schemas';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Plus, ChevronRight, UserRound, Package } from 'lucide-react';
+import { Plus, ChevronRight, UserRound, Package, Trash2 } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 import { MemberDetailSheet } from './MemberDetailSheet';
 
@@ -97,6 +97,15 @@ export default function MembersPage() {
     });
   };
 
+  const deleteMember = (row: Member) => {
+    useConfirmStore.getState().show({
+      title: 'Hapus Member Permanen?',
+      message: `Member "${row.full_name}" beserta semua booking dan paket terkait akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+      variant: 'danger',
+      onConfirm: () => mutation.mutate({ action: 'delete', member: { member_id: row.member_id } }),
+    });
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -175,13 +184,22 @@ export default function MembersPage() {
                         ✏
                       </button>
                       {useAuthStore.getState().user?.role === 'owner' && (
-                        <button
-                          onClick={e => { e.stopPropagation(); archive(m); }}
-                          className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-400 transition-colors text-xs"
-                          title={t('members.archive')}
-                        >
-                          🗃
-                        </button>
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); archive(m); }}
+                            className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-amber-50 flex items-center justify-center text-zen-ink/30 hover:text-amber-500 transition-colors text-xs"
+                            title="Arsipkan (sembunyikan)"
+                          >
+                            🗃
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); deleteMember(m); }}
+                            className="w-8 h-8 rounded-xl bg-zen-bg hover:bg-red-50 flex items-center justify-center text-zen-ink/30 hover:text-red-500 transition-colors"
+                            title="Hapus permanen"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
                       )}
                     </div>
                     <ChevronRight size={14} className="text-zen-ink/20" />
