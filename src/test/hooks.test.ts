@@ -14,6 +14,16 @@ import React from 'react';
 // Mock backup to avoid supabase dependency
 vi.mock('@/utils/backup', () => ({ scheduleBackup: vi.fn() }));
 
+// Mock Supabase with Dexie bridge so hooks work without a live DB
+vi.mock('@/lib/supabase', () => import('./mocks/supabase'));
+
+// Provide a test studio ID so requireStudioId() and getStudioId() succeed
+vi.mock('@/utils/studioContext', () => ({
+  getStudioId: () => 'test-studio',
+  requireStudioId: () => 'test-studio',
+  setStudioId: vi.fn(),
+}));
+
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) =>
@@ -149,7 +159,7 @@ describe('useBookingMutation attend', () => {
       phone_number: '08123',
       email: 'coach@test.com',
       active_status: true,
-      commission_regular_pct: 0,
+      commission_regular_pct: 20,
       commission_private_pct: 0,
       notes: '',
       created_at: '2024-01-01',

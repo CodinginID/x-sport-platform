@@ -28,7 +28,7 @@ export function usePublishedFeatures() {
           description: entry.description,
           trial_days: entry.trial_days,
           details: entry.details,
-        };
+        } as unknown as typeof FEATURES[keyof typeof FEATURES];
         keys.push(key);
       }
 
