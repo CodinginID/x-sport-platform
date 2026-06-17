@@ -113,7 +113,7 @@ export function SessionDetailSheet({ session, onClose }: { session: TrainingSess
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{memberMap[p.member_id] ?? '?'}</p>
                     <p className="text-[11px] text-zen-ink/40 truncate">
-                      {(pkgMap[p.package_id] ?? '—')} · {formatCurrency(p.package_price)}
+                      {(p.package_id ? pkgMap[p.package_id] : null) ?? '—'} · {formatCurrency(p.package_price)}
                     </p>
                     <p className="text-[11px] text-zen-ink/40">{p.booking_status === 'attended' ? 'Hadir' : 'Terdaftar'}</p>
                   </div>

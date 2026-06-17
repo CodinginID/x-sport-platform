@@ -2,6 +2,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { useAuthStore } from '@/stores/auth';
 import { seedDatabase } from '@/database/seed';
 
+// Mock Supabase for auth — uses in-memory test data (no live DB needed)
+vi.mock('@/lib/supabase', () => import('./mocks/supabase'));
+
 describe('useAuthStore', () => {
   beforeAll(async () => {
     await seedDatabase();
@@ -30,8 +33,8 @@ describe('useAuthStore', () => {
     expect(result).toBe(false);
   });
 
-  it('logout clears state', () => {
-    useAuthStore.getState().logout();
+  it('logout clears state', async () => {
+    await useAuthStore.getState().logout();
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(useAuthStore.getState().user).toBeNull();
   });

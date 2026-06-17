@@ -90,7 +90,7 @@ function ProPreviewTabs({ activeTabKey, onTabChange }: { activeTabKey: (typeof P
           { key: 'laporan', label: 'Laporan', icon: <FileSpreadsheet size={12} /> },
           { key: 'uiux', label: 'UI/UX', icon: <MousePointerClick size={12} /> },
         ].map((t) => (
-          <button key={t.key} onClick={() => onTabChange(t.key)}
+          <button key={t.key} onClick={() => onTabChange(t.key as (typeof PRO_PREVIEW_TABS)[number]['key'])}
             aria-pressed={activeTabKey === t.key}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all ${activeTabKey === t.key ? 'bg-zen-brand text-white shadow-sm' : 'bg-white border border-zen-ink/10 text-zen-ink/50 hover:text-zen-ink'}`}>
             {t.icon} {t.label}
