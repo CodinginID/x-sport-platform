@@ -42,7 +42,7 @@ describe('Escpos primitives', () => {
   });
 });
 
-import { buildSaleReceipt, buildPaymentReceipt, buildTestReceipt, wrapText } from '@/services/escpos';
+import { buildSaleReceipt, buildPaymentReceipt, buildPayoutSlip, buildTestReceipt, wrapText } from '@/services/escpos';
 
 const SALE = {
   studioName: 'X-Sport Studio',
@@ -91,6 +91,34 @@ describe('Escpos receipt builders', () => {
     expect(text).toContain('STRUK PEMBAYARAN');
     expect(text).toContain('Andi');
     expect(text).toContain('Bulanan');
+  });
+
+  it('payout slip contains coach, class breakdown, and totals', () => {
+    const bytes = buildPayoutSlip(
+      {
+        studioName: 'X-Sport Studio', studioAddress: 'Jl. Olahraga No. 1',
+        payoutId: 'pay12345abcd', coachName: 'Citra',
+        periodStart: '01 Jun 2026', periodEnd: '30 Jun 2026', paidAt: '03 Jul 2026',
+        items: [
+          { label: 'Yoga Reguler', count: 12, amount: 600000 },
+          { label: 'Privat', count: 5, amount: 500000 },
+        ],
+        sessionCount: 17, total: 1100000, notes: 'Gajian Juni',
+      },
+      '58',
+    );
+    const text = new TextDecoder().decode(bytes);
+    expect(Array.from(bytes).slice(-3)).toEqual([0x1d, 0x56, 0x01]); // cut
+    expect(text).toContain('SLIP KOMISI COACH');
+    expect(text).toContain('PAY12345'); // payout id, 8 chars uppercased
+    expect(text).toContain('Citra');
+    expect(text).toContain('01 Jun 2026 - 30 Jun 2026');
+    expect(text).toContain('Yoga Reguler');
+    expect(text).toContain('12 sesi');
+    expect(text).toContain('Total sesi');
+    expect(text).toContain('17');
+    expect(text).toContain('TOTAL');
+    expect(text).toContain('Gajian Juni');
   });
 
   it('test receipt is non-empty and ends with cut', () => {

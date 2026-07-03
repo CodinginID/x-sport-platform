@@ -158,6 +158,40 @@ export function buildPaymentReceipt(d: PaymentReceiptData, paper: PaperSize): Ui
   return foot(e, paper);
 }
 
+export interface PayoutSlipData {
+  studioName: string;
+  studioAddress: string;
+  payoutId: string;
+  coachName: string;
+  periodStart: string; // sudah diformat oleh pemanggil
+  periodEnd: string;
+  paidAt: string;      // tanggal bayar, sudah diformat
+  /** Breakdown per kelas/paket: label + jumlah sesi + subtotal komisi. */
+  items: { label: string; count: number; amount: number }[];
+  sessionCount: number;
+  total: number;
+  notes?: string;
+}
+
+export function buildPayoutSlip(d: PayoutSlipData, paper: PaperSize): Uint8Array {
+  const e = new Escpos();
+  head(e, paper, d.studioName, d.studioAddress, 'SLIP KOMISI COACH');
+  e.row('No', d.payoutId.slice(0, 8).toUpperCase(), paper);
+  e.row('Coach', d.coachName, paper);
+  e.row('Periode', `${d.periodStart} - ${d.periodEnd}`, paper);
+  e.row('Dibayar', d.paidAt, paper);
+  e.divider(paper);
+  for (const it of d.items) {
+    for (const ln of wrapText(it.label, COLUMNS[paper])) e.line(ln);
+    e.row(`  ${it.count} sesi`, formatCurrency(it.amount), paper);
+  }
+  e.divider(paper);
+  e.row('Total sesi', String(d.sessionCount), paper);
+  e.bold(true).row('TOTAL', formatCurrency(d.total), paper).bold(false);
+  if (d.notes) e.line(`Catatan: ${d.notes}`);
+  return foot(e, paper);
+}
+
 export function buildTestReceipt(paper: PaperSize): Uint8Array {
   const e = new Escpos();
   head(e, paper, 'TEST PRINT', 'X-Sport Platform', 'TEST PRINTER');

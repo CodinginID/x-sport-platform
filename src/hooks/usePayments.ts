@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getStudioId, requireStudioId } from '@/utils/studioContext';
-import type { Booking, MemberPackage, MemberPayment, ProductSale, ProductSaleItem, CoachCommission } from '@/types';
+import type { Booking, MemberPackage, MemberPayment, ProductSale, ProductSaleItem, CoachCommission, CoachPayout } from '@/types';
 import { addDays } from 'date-fns';
 import { productSaleSchema, memberPaymentSchema } from '@/utils/schemas';
 
@@ -269,19 +269,73 @@ export function useProductSaleMutation() {
   });
 }
 
-export function useCoachCommissions(filters?: { coach_id?: string; startDate?: string; endDate?: string }) {
+export function useCoachCommissions(filters?: { coach_id?: string; startDate?: string; endDate?: string; unpaidOnly?: boolean }) {
   return useQuery({
     queryKey: ['coachCommissions', filters],
     queryFn: async () => {
       const studioId = getStudioId();
       if (!studioId) return [];
-      let q = supabase.from('coach_commissions').select('*').eq('studio_id', studioId).order('date', { ascending: false });
-      if (filters?.coach_id)  q = q.eq('coach_id', filters.coach_id);
-      if (filters?.startDate) q = q.gte('date', filters.startDate);
-      if (filters?.endDate)   q = q.lte('date', filters.endDate);
+      // Join ke bookings → packages untuk menampilkan kelas/paket yang diajar.
+      let q = supabase.from('coach_commissions')
+        .select('*, bookings(booking_time, packages(package_name, package_category))')
+        .eq('studio_id', studioId).order('date', { ascending: false });
+      if (filters?.coach_id)   q = q.eq('coach_id', filters.coach_id);
+      if (filters?.startDate)  q = q.gte('date', filters.startDate);
+      if (filters?.endDate)    q = q.lte('date', filters.endDate);
+      if (filters?.unpaidOnly) q = q.is('payout_id', null);
       const { data, error } = await q;
       if (error) throw new Error(error.message);
       return (data ?? []) as CoachCommission[];
+    },
+  });
+}
+
+/** Ambil komisi milik satu slip — untuk cetak ulang breakdown per kelas. */
+export async function fetchPayoutCommissions(payout_id: string): Promise<CoachCommission[]> {
+  const studioId = getStudioId();
+  if (!studioId) return [];
+  const { data, error } = await supabase.from('coach_commissions')
+    .select('*, bookings(booking_time, packages(package_name, package_category))')
+    .eq('studio_id', studioId).eq('payout_id', payout_id);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CoachCommission[];
+}
+
+/** Riwayat slip gaji/komisi. Tanpa coach_id → semua coach di studio. */
+export function useCoachPayouts(coach_id?: string) {
+  return useQuery({
+    queryKey: ['coachPayouts', coach_id],
+    queryFn: async () => {
+      const studioId = getStudioId();
+      if (!studioId) return [];
+      let q = supabase.from('coach_payouts').select('*').eq('studio_id', studioId).order('paid_at', { ascending: false });
+      if (coach_id) q = q.eq('coach_id', coach_id);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return (data ?? []) as CoachPayout[];
+    },
+  });
+}
+
+/** Buat slip: tandai semua komisi belum dibayar pada rentang → satu payout (atomik via RPC). */
+export function useCreateCoachPayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { coach_id: string; period_start: string; period_end: string; notes?: string }) => {
+      const studioId = requireStudioId();
+      const { data, error } = await supabase.rpc('create_coach_payout', {
+        p_studio_id: studioId,
+        p_coach_id: vars.coach_id,
+        p_period_start: vars.period_start,
+        p_period_end: vars.period_end,
+        p_notes: vars.notes ?? '',
+      });
+      if (error) throw new Error(error.message);
+      return data as { ok: boolean; payout_id: string; total_amount: number; session_count: number };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coachCommissions'] });
+      qc.invalidateQueries({ queryKey: ['coachPayouts'] });
     },
   });
 }

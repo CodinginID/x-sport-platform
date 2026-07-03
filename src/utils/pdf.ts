@@ -124,6 +124,56 @@ export async function generateSaleReceipt(sale: {
   return doc;
 }
 
+export async function generatePayoutSlip(payout: {
+  payout_id: string; coach_name: string; period_start: string; period_end: string;
+  paid_at: string; items: { label: string; count: number; amount: number }[];
+  session_count: number; total_amount: number; notes?: string;
+}) {
+  const { jsPDF } = await getJsPDF();
+  const s = studio();
+  // Tinggi menyesuaikan jumlah baris breakdown (min 120mm).
+  const height = Math.max(120, 70 + payout.items.length * 9);
+  const doc = new jsPDF({ format: [80, height], unit: 'mm' });
+  const DIV = '--------------------------------';
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(s.name, 40, 8, { align: 'center' });
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text(s.address, 40, 12, { align: 'center' });
+  doc.text(DIV, 40, 16, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SLIP KOMISI COACH', 40, 21, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  let y = 27;
+  const rows = [
+    ['No', payout.payout_id.slice(0, 8).toUpperCase()],
+    ['Coach', payout.coach_name],
+    ['Periode', `${formatDate(payout.period_start)} - ${formatDate(payout.period_end)}`],
+    ['Dibayar', formatDate(payout.paid_at)],
+  ];
+  rows.forEach(([k, v]) => { doc.text(k, 5, y); doc.text(v, 75, y, { align: 'right' }); y += 5; });
+  doc.text(DIV, 40, y, { align: 'center' }); y += 4;
+  payout.items.forEach(it => {
+    for (const ln of doc.splitTextToSize(it.label, 70) as string[]) { doc.text(ln, 5, y); y += 4; }
+    doc.text(`  ${it.count} sesi`, 5, y);
+    doc.text(formatCurrency(it.amount), 75, y, { align: 'right' }); y += 5;
+  });
+  doc.text(DIV, 40, y, { align: 'center' }); y += 5;
+  doc.text('Total sesi', 5, y); doc.text(String(payout.session_count), 75, y, { align: 'right' }); y += 5;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL', 5, y);
+  doc.text(formatCurrency(payout.total_amount), 75, y, { align: 'right' }); y += 7;
+  doc.setFont('helvetica', 'normal');
+  if (payout.notes) { doc.setFontSize(6); doc.text(`Catatan: ${payout.notes}`, 5, y); y += 5; }
+  doc.setFontSize(6);
+  doc.text('Terima kasih!', 40, y + 3, { align: 'center' });
+  return doc;
+}
+
 export async function generateReport(title: string, columns: string[], rows: string[][], summary?: { label: string; value: string }[]) {
   const { jsPDF, autoTable } = await getJsPDF();
   const doc = new jsPDF();
