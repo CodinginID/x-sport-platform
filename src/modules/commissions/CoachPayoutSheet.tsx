@@ -29,6 +29,18 @@ function breakdownByClass(rows: CoachCommission[]) {
   return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
 }
 
+/** Kelompokkan komisi per tanggal untuk tabel "Per Tanggal" di slip. */
+function breakdownByDate(rows: CoachCommission[]) {
+  const map = new Map<string, { label: string; count: number; amount: number }>();
+  for (const c of rows) {
+    const cur = map.get(c.date) ?? { label: formatDate(c.date), count: 0, amount: 0 };
+    cur.count += 1;
+    cur.amount += c.commission_amount;
+    map.set(c.date, cur);
+  }
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
+}
+
 function monthRange() {
   const now = new Date();
   const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -40,6 +52,7 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
   const [endDate, setEndDate] = useState(() => monthRange().end);
   const [unpaidOnly, setUnpaidOnly] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [deductionInput, setDeductionInput] = useState('');
   const [pdfUrl, setPdfUrl] = useState('');
 
   const { data: commissions = [], isLoading } = useCoachCommissions({ coach_id: coachId, startDate, endDate, unpaidOnly });
@@ -52,10 +65,16 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
   const memberMap = Object.fromEntries(members.map(m => [m.member_id, m.full_name]));
   const total = commissions.reduce((s, c) => s + c.commission_amount, 0);
   const items = breakdownByClass(commissions);
-  const unpaidCount = commissions.filter(c => !c.payout_id).length;
+  const unpaidRows = commissions.filter(c => !c.payout_id);
+  const unpaidCount = unpaidRows.length;
+  const unpaidTotal = unpaidRows.reduce((s, c) => s + c.commission_amount, 0);
+  const deduction = Math.max(0, Number(deductionInput) || 0);
 
   const printSlip = async (payout: CoachPayout, rows: CoachCommission[]) => {
-    const { printed, fallbackUrl } = await printPayout(payout, breakdownByClass(rows));
+    const { printed, fallbackUrl } = await printPayout(payout, {
+      perClass: breakdownByClass(rows),
+      perDate: breakdownByDate(rows),
+    });
     if (fallbackUrl) setPdfUrl(fallbackUrl);
     return printed;
   };
@@ -63,7 +82,9 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
   const handlePay = async () => {
     setConfirming(false);
     try {
-      const res = await createPayout.mutateAsync({ coach_id: coachId, period_start: startDate, period_end: endDate });
+      const res = await createPayout.mutateAsync({
+        coach_id: coachId, period_start: startDate, period_end: endDate, deduction,
+      });
       const payout: CoachPayout = {
         payout_id: res.payout_id,
         coach_id: coachId,
@@ -72,14 +93,16 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
         period_end: endDate,
         total_amount: res.total_amount,
         session_count: res.session_count,
+        deduction: res.deduction ?? deduction,
         notes: '',
         paid_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       };
-      const printed = await printSlip(payout, commissions.filter(c => !c.payout_id));
-      addToast(`Slip komisi dibuat${printed ? ' & dicetak' : ''}`, 'success');
+      setDeductionInput('');
+      const printed = await printSlip(payout, unpaidRows);
+      addToast(`Slip gaji dibuat${printed ? ' & dicetak' : ''}`, 'success');
     } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Gagal membuat slip komisi.', 'error');
+      addToast(e instanceof Error ? e.message : 'Gagal membuat slip gaji.', 'error');
     }
   };
 
@@ -112,13 +135,13 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
       <label className="flex items-center gap-2 text-xs text-zen-ink/60">
         <input type="checkbox" checked={unpaidOnly} onChange={e => setUnpaidOnly(e.target.checked)}
           className="rounded border-zen-ink/20 text-zen-brand focus:ring-zen-brand/20" />
-        Belum dibayar saja
+        Belum digaji saja
       </label>
 
       {/* Total */}
       <div className="bg-zen-brand rounded-3xl p-5 text-white">
         <p className="text-[10px] uppercase tracking-widest font-bold text-white/60 mb-1">
-          {unpaidOnly ? 'Komisi Belum Dibayar' : 'Total Komisi Periode Ini'}
+          {unpaidOnly ? 'Komisi Belum Digaji' : 'Total Komisi Periode Ini'}
         </p>
         <p className="text-3xl font-bold tracking-tight">{formatCurrency(total)}</p>
         <p className="text-xs text-white/50 mt-1">{commissions.length} sesi</p>
@@ -156,7 +179,7 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
             <div className="text-right shrink-0">
               <p className="text-xs font-bold text-zen-brand">{formatCurrency(c.commission_amount)}</p>
               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.payout_id ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                {c.payout_id ? 'Lunas' : 'Belum dibayar'}
+                {c.payout_id ? 'Sudah digaji' : 'Belum digaji'}
               </span>
             </div>
           </div>
@@ -168,13 +191,21 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
         confirming ? (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
             <p className="text-xs text-amber-800">
-              Tandai <b>{unpaidCount} sesi</b> ({formatCurrency(commissions.filter(c => !c.payout_id).reduce((s, c) => s + c.commission_amount, 0))})
-              periode {formatDate(startDate)} – {formatDate(endDate)} sebagai <b>sudah dibayar</b> dan cetak slip? Tindakan ini tidak bisa dibatalkan dari aplikasi.
+              Gaji <b>{unpaidCount} sesi</b> ({formatCurrency(unpaidTotal)}) periode {formatDate(startDate)} – {formatDate(endDate)} dan cetak slip?
+              Tindakan ini tidak bisa dibatalkan dari aplikasi.
             </p>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-bold text-amber-800/60">Potongan (Rp, opsional)</label>
+              <input type="number" min="0" value={deductionInput} onChange={e => setDeductionInput(e.target.value)} placeholder="0"
+                className="w-full mt-1 px-3 py-2.5 text-sm bg-white border border-amber-200 rounded-2xl focus:outline-none focus:border-zen-brand focus:ring-2 focus:ring-zen-brand/20" />
+              <p className="text-[10px] text-amber-800/70 mt-1 font-semibold">
+                Total Akhir: {formatCurrency(Math.max(0, unpaidTotal - deduction))}
+              </p>
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setConfirming(false)}
                 className="flex-1 py-2.5 bg-white border border-zen-ink/10 text-sm font-bold rounded-2xl">Batal</button>
-              <button onClick={handlePay} disabled={createPayout.isPending}
+              <button onClick={handlePay} disabled={createPayout.isPending || deduction > unpaidTotal}
                 className="flex-1 py-2.5 bg-zen-brand text-white text-sm font-bold rounded-2xl disabled:opacity-50">
                 {createPayout.isPending ? 'Memproses…' : 'Ya, Bayar'}
               </button>
@@ -194,7 +225,7 @@ export function CoachPayoutSheet({ coachId, coachName, isAdmin, onClose }: Props
           {payouts.map(p => (
             <div key={p.payout_id} className="flex items-center justify-between gap-3 py-2.5 border-b border-zen-ink/5 last:border-0">
               <div className="min-w-0">
-                <p className="text-xs font-semibold">{formatCurrency(p.total_amount)} · {p.session_count} sesi</p>
+                <p className="text-xs font-semibold">{formatCurrency(p.total_amount - (p.deduction || 0))} · {p.session_count} sesi{p.deduction ? ` · potongan ${formatCurrency(p.deduction)}` : ''}</p>
                 <p className="text-[10px] text-zen-ink/40 truncate">
                   {formatDate(p.period_start)} – {formatDate(p.period_end)} · dibayar {formatDate(p.paid_at)}
                 </p>

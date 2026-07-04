@@ -321,7 +321,7 @@ export function useCoachPayouts(coach_id?: string) {
 export function useCreateCoachPayout() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { coach_id: string; period_start: string; period_end: string; notes?: string }) => {
+    mutationFn: async (vars: { coach_id: string; period_start: string; period_end: string; notes?: string; deduction?: number }) => {
       const studioId = requireStudioId();
       const { data, error } = await supabase.rpc('create_coach_payout', {
         p_studio_id: studioId,
@@ -329,9 +329,10 @@ export function useCreateCoachPayout() {
         p_period_start: vars.period_start,
         p_period_end: vars.period_end,
         p_notes: vars.notes ?? '',
+        p_deduction: vars.deduction ?? 0,
       });
       if (error) throw new Error(error.message);
-      return data as { ok: boolean; payout_id: string; total_amount: number; session_count: number };
+      return data as { ok: boolean; payout_id: string; total_amount: number; session_count: number; deduction: number };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['coachCommissions'] });

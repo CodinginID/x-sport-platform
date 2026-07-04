@@ -158,6 +158,8 @@ export function buildPaymentReceipt(d: PaymentReceiptData, paper: PaperSize): Ui
   return foot(e, paper);
 }
 
+export interface PayoutBreakdownItem { label: string; count: number; amount: number }
+
 export interface PayoutSlipData {
   studioName: string;
   studioAddress: string;
@@ -166,28 +168,40 @@ export interface PayoutSlipData {
   periodStart: string; // sudah diformat oleh pemanggil
   periodEnd: string;
   paidAt: string;      // tanggal bayar, sudah diformat
-  /** Breakdown per kelas/paket: label + jumlah sesi + subtotal komisi. */
-  items: { label: string; count: number; amount: number }[];
+  /** Rekap per tanggal: tanggal + jumlah member + subtotal komisi. */
+  perDate: PayoutBreakdownItem[];
+  /** Rekap per kelas/paket: label + jumlah member + subtotal komisi. */
+  items: PayoutBreakdownItem[];
   sessionCount: number;
   total: number;
+  /** Potongan; Total Akhir = total - deduction. */
+  deduction: number;
   notes?: string;
 }
 
 export function buildPayoutSlip(d: PayoutSlipData, paper: PaperSize): Uint8Array {
   const e = new Escpos();
-  head(e, paper, d.studioName, d.studioAddress, 'SLIP KOMISI COACH');
+  head(e, paper, d.studioName, d.studioAddress, 'SLIP GAJI COACH');
   e.row('No', d.payoutId.slice(0, 8).toUpperCase(), paper);
   e.row('Coach', d.coachName, paper);
   e.row('Periode', `${d.periodStart} - ${d.periodEnd}`, paper);
   e.row('Dibayar', d.paidAt, paper);
   e.divider(paper);
-  for (const it of d.items) {
-    for (const ln of wrapText(it.label, COLUMNS[paper])) e.line(ln);
-    e.row(`  ${it.count} sesi`, formatCurrency(it.amount), paper);
+  e.bold(true).line('PER TANGGAL').bold(false);
+  for (const it of d.perDate) {
+    e.row(`${it.label} (${it.count})`, formatCurrency(it.amount), paper);
   }
   e.divider(paper);
-  e.row('Total sesi', String(d.sessionCount), paper);
-  e.bold(true).row('TOTAL', formatCurrency(d.total), paper).bold(false);
+  e.bold(true).line('PER KELAS').bold(false);
+  for (const it of d.items) {
+    for (const ln of wrapText(it.label, COLUMNS[paper])) e.line(ln);
+    e.row(`  ${it.count} member`, formatCurrency(it.amount), paper);
+  }
+  e.divider(paper);
+  e.row('Jumlah Member', String(d.sessionCount), paper);
+  e.row('Total Pendapatan', formatCurrency(d.total), paper);
+  e.row('Potongan', formatCurrency(d.deduction), paper);
+  e.bold(true).row('TOTAL AKHIR', formatCurrency(d.total - d.deduction), paper).bold(false);
   if (d.notes) e.line(`Catatan: ${d.notes}`);
   return foot(e, paper);
 }

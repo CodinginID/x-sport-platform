@@ -154,9 +154,9 @@ export default function CommissionsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{coachMap[cid] || '—'}</p>
                   {coachUnpaid[cid] ? (
-                    <p className="text-xs font-semibold text-amber-600">Belum dibayar {formatCurrency(coachUnpaid[cid])}</p>
+                    <p className="text-xs font-semibold text-amber-600">Belum digaji {formatCurrency(coachUnpaid[cid])}</p>
                   ) : (
-                    <p className="text-xs text-green-600 font-semibold">Semua sudah dibayar</p>
+                    <p className="text-xs text-green-600 font-semibold">Semua sudah digaji</p>
                   )}
                 </div>
                 <div className="text-right shrink-0">
@@ -220,7 +220,7 @@ export default function CommissionsPage() {
                   <p className="text-sm font-bold text-zen-brand">{formatCurrency(c.commission_amount)}</p>
                   <p className="text-[10px] text-zen-ink/30">{c.commission_percentage}% dari {formatCurrency(c.package_price)}</p>
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.payout_id ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {c.payout_id ? 'Lunas' : 'Belum dibayar'}
+                    {c.payout_id ? 'Sudah digaji' : 'Belum digaji'}
                   </span>
                 </div>
               </div>

@@ -124,53 +124,66 @@ export async function generateSaleReceipt(sale: {
   return doc;
 }
 
+/** Slip gaji coach format A4 — mengikuti format slip client:
+ *  header ringkasan + tabel rekap per tanggal & per kelas berdampingan. */
 export async function generatePayoutSlip(payout: {
   payout_id: string; coach_name: string; period_start: string; period_end: string;
-  paid_at: string; items: { label: string; count: number; amount: number }[];
-  session_count: number; total_amount: number; notes?: string;
+  paid_at: string;
+  perDate: { label: string; count: number; amount: number }[];
+  items: { label: string; count: number; amount: number }[];
+  session_count: number; total_amount: number; deduction: number; notes?: string;
 }) {
-  const { jsPDF } = await getJsPDF();
-  const s = studio();
-  // Tinggi menyesuaikan jumlah baris breakdown (min 120mm).
-  const height = Math.max(120, 70 + payout.items.length * 9);
-  const doc = new jsPDF({ format: [80, height], unit: 'mm' });
-  const DIV = '--------------------------------';
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text(s.name, 40, 8, { align: 'center' });
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.text(s.address, 40, 12, { align: 'center' });
-  doc.text(DIV, 40, 16, { align: 'center' });
+  const { jsPDF, autoTable } = await getJsPDF();
+  const doc = new jsPDF();
+  let y = header(doc, 'Slip Gaji Coach');
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text('SLIP KOMISI COACH', 40, 21, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  let y = 27;
-  const rows = [
-    ['No', payout.payout_id.slice(0, 8).toUpperCase()],
+  doc.text(`No: ${payout.payout_id.slice(0, 8).toUpperCase()}`, 196, 38, { align: 'right' });
+
+  // Blok info + ringkasan (Total Pendapatan - Potongan = Total Akhir)
+  y += 2;
+  doc.setFontSize(9);
+  const info: [string, string, boolean?][] = [
     ['Coach', payout.coach_name],
     ['Periode', `${formatDate(payout.period_start)} - ${formatDate(payout.period_end)}`],
     ['Dibayar', formatDate(payout.paid_at)],
+    ['Total Pendapatan', formatCurrency(payout.total_amount)],
+    ['Potongan', formatCurrency(payout.deduction)],
+    ['Total Akhir', formatCurrency(payout.total_amount - payout.deduction), true],
   ];
-  rows.forEach(([k, v]) => { doc.text(k, 5, y); doc.text(v, 75, y, { align: 'right' }); y += 5; });
-  doc.text(DIV, 40, y, { align: 'center' }); y += 4;
-  payout.items.forEach(it => {
-    for (const ln of doc.splitTextToSize(it.label, 70) as string[]) { doc.text(ln, 5, y); y += 4; }
-    doc.text(`  ${it.count} sesi`, 5, y);
-    doc.text(formatCurrency(it.amount), 75, y, { align: 'right' }); y += 5;
+  info.forEach(([k, v, bold]) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.text(`${k}`, 14, y);
+    doc.text(`: ${v}`, 50, y);
+    y += 6;
   });
-  doc.text(DIV, 40, y, { align: 'center' }); y += 5;
-  doc.text('Total sesi', 5, y); doc.text(String(payout.session_count), 75, y, { align: 'right' }); y += 5;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL', 5, y);
-  doc.text(formatCurrency(payout.total_amount), 75, y, { align: 'right' }); y += 7;
+  y += 2;
+
+  // Dua tabel berdampingan: kiri per tanggal, kanan per kelas/paket.
+  const styles = { fontSize: 8, cellPadding: 2 } as const;
+  const headStyles = { fillColor: [139, 92, 246] as [number, number, number], textColor: 255 as const, fontStyle: 'bold' as const };
+  const footStyles = { fillColor: [248, 250, 252] as [number, number, number], textColor: 20 as const, fontStyle: 'bold' as const };
+  autoTable(doc, {
+    startY: y,
+    head: [['Tanggal', 'Jml Member', 'Komisi']],
+    body: payout.perDate.map(d => [d.label, String(d.count), formatCurrency(d.amount)]),
+    foot: [['Total', String(payout.session_count), formatCurrency(payout.total_amount)]],
+    styles, headStyles, footStyles,
+    margin: { left: 14 }, tableWidth: 86,
+  });
+  autoTable(doc, {
+    startY: y,
+    head: [['Kelas / Paket', 'Jml Member', 'Komisi']],
+    body: payout.items.map(it => [it.label, String(it.count), formatCurrency(it.amount)]),
+    foot: [['Total', String(payout.session_count), formatCurrency(payout.total_amount)]],
+    styles, headStyles, footStyles,
+    margin: { left: 106 }, tableWidth: 90,
+  });
+
+  const finalY = Math.max((doc as any).lastAutoTable?.finalY ?? y, y) + 10;
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  if (payout.notes) { doc.setFontSize(6); doc.text(`Catatan: ${payout.notes}`, 5, y); y += 5; }
-  doc.setFontSize(6);
-  doc.text('Terima kasih!', 40, y + 3, { align: 'center' });
+  if (payout.notes) doc.text(`Catatan: ${payout.notes}`, 14, finalY);
+  doc.text(`Dicetak: ${formatDate(new Date().toISOString())}`, 196, finalY, { align: 'right' });
   return doc;
 }
 

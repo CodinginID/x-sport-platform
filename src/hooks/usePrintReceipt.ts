@@ -95,10 +95,13 @@ export function usePrintReceipt() {
     }
   }, [printBytes]);
 
-  /** Cetak slip gaji/komisi coach; `items` = breakdown per kelas dari pemanggil. */
+  /** Cetak slip gaji coach; breakdown per kelas + per tanggal dari pemanggil. */
   const printPayout = useCallback(async (
     payout: CoachPayout,
-    items: { label: string; count: number; amount: number }[],
+    breakdown: {
+      perClass: { label: string; count: number; amount: number }[];
+      perDate: { label: string; count: number; amount: number }[];
+    },
   ): Promise<PrintResult> => {
     const studio = useStudioStore.getState();
     const paperSize = usePrinterStore.getState().paperSize;
@@ -110,14 +113,22 @@ export function usePrintReceipt() {
       periodStart: formatDate(payout.period_start),
       periodEnd: formatDate(payout.period_end),
       paidAt: formatDate(payout.paid_at),
-      items,
+      perDate: breakdown.perDate,
+      items: breakdown.perClass,
       sessionCount: payout.session_count,
       total: payout.total_amount,
+      deduction: payout.deduction ?? 0,
       notes: payout.notes || undefined,
     }, paperSize);
     if (await printBytes(bytes)) return { printed: true, fallbackUrl: '' };
     try {
-      const doc = await generatePayoutSlip({ ...payout, items, notes: payout.notes || undefined });
+      const doc = await generatePayoutSlip({
+        ...payout,
+        deduction: payout.deduction ?? 0,
+        perDate: breakdown.perDate,
+        items: breakdown.perClass,
+        notes: payout.notes || undefined,
+      });
       return { printed: false, fallbackUrl: previewPdf(doc) };
     } catch (e) {
       console.error('[print] gagal membuat PDF slip:', e);

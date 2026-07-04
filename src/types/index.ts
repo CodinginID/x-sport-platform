@@ -218,6 +218,8 @@ export interface CoachPayout {
   period_end: string;
   total_amount: number;
   session_count: number;
+  /** Potongan; Total Akhir = total_amount - deduction. */
+  deduction: number;
   notes: string;
   paid_at: string;
   created_at: string;
