@@ -7,7 +7,7 @@ import { BarChartH, TrendBars } from '@/components/ui';
 import { SmartSelect } from '@/components/ui/SmartSelect';
 import { ListSkeleton } from '@/components/Skeleton';
 import { formatCurrency, formatDate } from '@/utils';
-import { Calendar, Award, ChevronRight, ReceiptText } from 'lucide-react';
+import { Calendar, Award, ChevronRight } from 'lucide-react';
 import { CoachPayoutSheet } from './CoachPayoutSheet';
 
 type Preset = '7d' | '30d' | 'month' | 'custom';
@@ -138,8 +138,8 @@ export default function CommissionsPage() {
         </div>
       )}
 
-      {/* Rekap per coach — klik untuk detail, bayar & cetak slip */}
-      {isAdmin && Object.keys(coachTotals).length > 0 && (
+      {/* Rekap per coach (fitur Pro) — klik untuk detail, bayar & cetak slip */}
+      {isAdmin && isPro && Object.keys(coachTotals).length > 0 && (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
           <div className="px-5 py-4 border-b border-zen-ink/5">
             <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Rekap per Coach</p>
@@ -167,14 +167,6 @@ export default function CommissionsPage() {
             ))}
           </div>
         </div>
-      )}
-
-      {/* Coach: rekap & riwayat slip milik sendiri */}
-      {!isAdmin && user && (
-        <button onClick={() => setPayoutCoach({ id: user.id, name: user.full_name || 'Saya' })}
-          className="w-full py-3 bg-white border border-zen-ink/10 text-sm font-bold rounded-2xl flex items-center justify-center gap-2 text-zen-brand">
-          <ReceiptText size={15} /> Rekap & Riwayat Slip Saya
-        </button>
       )}
 
       {/* Komisi per pelatih — bar chart */}
