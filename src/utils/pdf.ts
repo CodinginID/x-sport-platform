@@ -124,6 +124,69 @@ export async function generateSaleReceipt(sale: {
   return doc;
 }
 
+/** Slip gaji coach format A4 — mengikuti format slip client:
+ *  header ringkasan + tabel rekap per tanggal & per kelas berdampingan. */
+export async function generatePayoutSlip(payout: {
+  payout_id: string; coach_name: string; period_start: string; period_end: string;
+  paid_at: string;
+  perDate: { label: string; count: number; amount: number }[];
+  items: { label: string; count: number; amount: number }[];
+  session_count: number; total_amount: number; deduction: number; notes?: string;
+}) {
+  const { jsPDF, autoTable } = await getJsPDF();
+  const doc = new jsPDF();
+  let y = header(doc, 'Slip Gaji Coach');
+  doc.setFontSize(8);
+  doc.text(`No: ${payout.payout_id.slice(0, 8).toUpperCase()}`, 196, 38, { align: 'right' });
+
+  // Blok info + ringkasan (Total Pendapatan - Potongan = Total Akhir)
+  y += 2;
+  doc.setFontSize(9);
+  const info: [string, string, boolean?][] = [
+    ['Coach', payout.coach_name],
+    ['Periode', `${formatDate(payout.period_start)} - ${formatDate(payout.period_end)}`],
+    ['Dibayar', formatDate(payout.paid_at)],
+    ['Total Pendapatan', formatCurrency(payout.total_amount)],
+    ['Potongan', formatCurrency(payout.deduction)],
+    ['Total Akhir', formatCurrency(payout.total_amount - payout.deduction), true],
+  ];
+  info.forEach(([k, v, bold]) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.text(`${k}`, 14, y);
+    doc.text(`: ${v}`, 50, y);
+    y += 6;
+  });
+  y += 2;
+
+  // Dua tabel berdampingan: kiri per tanggal, kanan per kelas/paket.
+  const styles = { fontSize: 8, cellPadding: 2 } as const;
+  const headStyles = { fillColor: [139, 92, 246] as [number, number, number], textColor: 255 as const, fontStyle: 'bold' as const };
+  const footStyles = { fillColor: [248, 250, 252] as [number, number, number], textColor: 20 as const, fontStyle: 'bold' as const };
+  autoTable(doc, {
+    startY: y,
+    head: [['Tanggal', 'Jml Member', 'Komisi']],
+    body: payout.perDate.map(d => [d.label, String(d.count), formatCurrency(d.amount)]),
+    foot: [['Total', String(payout.session_count), formatCurrency(payout.total_amount)]],
+    styles, headStyles, footStyles,
+    margin: { left: 14 }, tableWidth: 86,
+  });
+  autoTable(doc, {
+    startY: y,
+    head: [['Kelas / Paket', 'Jml Member', 'Komisi']],
+    body: payout.items.map(it => [it.label, String(it.count), formatCurrency(it.amount)]),
+    foot: [['Total', String(payout.session_count), formatCurrency(payout.total_amount)]],
+    styles, headStyles, footStyles,
+    margin: { left: 106 }, tableWidth: 90,
+  });
+
+  const finalY = Math.max((doc as any).lastAutoTable?.finalY ?? y, y) + 10;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  if (payout.notes) doc.text(`Catatan: ${payout.notes}`, 14, finalY);
+  doc.text(`Dicetak: ${formatDate(new Date().toISOString())}`, 196, finalY, { align: 'right' });
+  return doc;
+}
+
 export async function generateReport(title: string, columns: string[], rows: string[][], summary?: { label: string; value: string }[]) {
   const { jsPDF, autoTable } = await getJsPDF();
   const doc = new jsPDF();

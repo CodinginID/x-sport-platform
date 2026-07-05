@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 import { useStudioStore } from '@/stores/studio';
 import { usePrinterStore } from '@/stores/printer';
 import { useAuthStore } from '@/stores/auth';
-import { formatDateTime } from '@/utils';
-import { buildSaleReceipt, buildPaymentReceipt, type SaleReceiptData, type PaymentReceiptData } from '@/services/escpos';
+import { formatDate, formatDateTime } from '@/utils';
+import { buildSaleReceipt, buildPaymentReceipt, buildPayoutSlip, type SaleReceiptData, type PaymentReceiptData } from '@/services/escpos';
 import * as bt from '@/services/btPrinter';
-import { generateSaleReceipt, generatePaymentReceipt, previewPdf } from '@/utils/pdf';
-import type { ProductSale } from '@/types';
+import { generateSaleReceipt, generatePaymentReceipt, generatePayoutSlip, previewPdf } from '@/utils/pdf';
+import type { CoachPayout, ProductSale } from '@/types';
 
 /** Hasil cetak: `printed` = berhasil via printer Bluetooth; `fallbackUrl` = PDF preview bila tidak. */
 export interface PrintResult {
@@ -95,5 +95,46 @@ export function usePrintReceipt() {
     }
   }, [printBytes]);
 
-  return { printSale, printPayment };
+  /** Cetak slip gaji coach; breakdown per kelas + per tanggal dari pemanggil. */
+  const printPayout = useCallback(async (
+    payout: CoachPayout,
+    breakdown: {
+      perClass: { label: string; count: number; amount: number }[];
+      perDate: { label: string; count: number; amount: number }[];
+    },
+  ): Promise<PrintResult> => {
+    const studio = useStudioStore.getState();
+    const paperSize = usePrinterStore.getState().paperSize;
+    const bytes = buildPayoutSlip({
+      studioName: studio.name,
+      studioAddress: studio.address,
+      payoutId: payout.payout_id,
+      coachName: payout.coach_name,
+      periodStart: formatDate(payout.period_start),
+      periodEnd: formatDate(payout.period_end),
+      paidAt: formatDate(payout.paid_at),
+      perDate: breakdown.perDate,
+      items: breakdown.perClass,
+      sessionCount: payout.session_count,
+      total: payout.total_amount,
+      deduction: payout.deduction ?? 0,
+      notes: payout.notes || undefined,
+    }, paperSize);
+    if (await printBytes(bytes)) return { printed: true, fallbackUrl: '' };
+    try {
+      const doc = await generatePayoutSlip({
+        ...payout,
+        deduction: payout.deduction ?? 0,
+        perDate: breakdown.perDate,
+        items: breakdown.perClass,
+        notes: payout.notes || undefined,
+      });
+      return { printed: false, fallbackUrl: previewPdf(doc) };
+    } catch (e) {
+      console.error('[print] gagal membuat PDF slip:', e);
+      return { printed: false, fallbackUrl: '' };
+    }
+  }, [printBytes]);
+
+  return { printSale, printPayment, printPayout };
 }

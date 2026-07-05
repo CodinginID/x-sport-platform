@@ -42,7 +42,7 @@ describe('Escpos primitives', () => {
   });
 });
 
-import { buildSaleReceipt, buildPaymentReceipt, buildTestReceipt, wrapText } from '@/services/escpos';
+import { buildSaleReceipt, buildPaymentReceipt, buildPayoutSlip, buildTestReceipt, wrapText } from '@/services/escpos';
 
 const SALE = {
   studioName: 'X-Sport Studio',
@@ -91,6 +91,44 @@ describe('Escpos receipt builders', () => {
     expect(text).toContain('STRUK PEMBAYARAN');
     expect(text).toContain('Andi');
     expect(text).toContain('Bulanan');
+  });
+
+  it('payout slip contains coach, per-date & per-class breakdown, deduction and totals', () => {
+    const bytes = buildPayoutSlip(
+      {
+        studioName: 'X-Sport Studio', studioAddress: 'Jl. Olahraga No. 1',
+        payoutId: 'pay12345abcd', coachName: 'Citra',
+        periodStart: '01 Jun 2026', periodEnd: '30 Jun 2026', paidAt: '03 Jul 2026',
+        perDate: [
+          { label: '16 Jun 2026', count: 10, amount: 650000 },
+          { label: '17 Jun 2026', count: 7, amount: 450000 },
+        ],
+        items: [
+          { label: 'Yoga Reguler', count: 12, amount: 600000 },
+          { label: 'Privat', count: 5, amount: 500000 },
+        ],
+        sessionCount: 17, total: 1100000, deduction: 100000, notes: 'Gajian Juni',
+      },
+      '58',
+    );
+    const text = new TextDecoder().decode(bytes);
+    expect(Array.from(bytes).slice(-3)).toEqual([0x1d, 0x56, 0x01]); // cut
+    expect(text).toContain('SLIP GAJI COACH');
+    expect(text).toContain('PAY12345'); // payout id, 8 chars uppercased
+    expect(text).toContain('Citra');
+    expect(text).toContain('01 Jun 2026 - 30 Jun 2026');
+    expect(text).toContain('PER TANGGAL');
+    expect(text).toContain('16 Jun 2026 (10)');
+    expect(text).toContain('PER KELAS');
+    expect(text).toContain('Yoga Reguler');
+    expect(text).toContain('12 member');
+    expect(text).toContain('Jumlah Member');
+    expect(text).toContain('17');
+    expect(text).toContain('Total Pendapatan');
+    expect(text).toContain('Potongan');
+    expect(text).toContain('TOTAL AKHIR');
+    expect(text).toContain('1.000.000'); // 1.100.000 - 100.000
+    expect(text).toContain('Gajian Juni');
   });
 
   it('test receipt is non-empty and ends with cut', () => {

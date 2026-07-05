@@ -200,4 +200,27 @@ export interface CoachCommission {
   commission_amount: number;
   date: string;
   created_at: string;
+  /** NULL = belum dibayar; terisi = sudah masuk slip payout tsb. */
+  payout_id: string | null;
+  /** Relasi hasil join Supabase — info kelas/paket yang diajar. */
+  bookings?: {
+    booking_time: string;
+    packages?: { package_name: string; package_category: 'reguler' | 'pribadi' } | null;
+  } | null;
+}
+
+/** Satu baris = satu slip gaji/komisi coach. */
+export interface CoachPayout {
+  payout_id: string;
+  coach_id: string | null;
+  coach_name: string;
+  period_start: string;
+  period_end: string;
+  total_amount: number;
+  session_count: number;
+  /** Potongan; Total Akhir = total_amount - deduction. */
+  deduction: number;
+  notes: string;
+  paid_at: string;
+  created_at: string;
 }

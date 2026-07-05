@@ -7,7 +7,8 @@ import { BarChartH, TrendBars } from '@/components/ui';
 import { SmartSelect } from '@/components/ui/SmartSelect';
 import { ListSkeleton } from '@/components/Skeleton';
 import { formatCurrency, formatDate } from '@/utils';
-import { Calendar, Award } from 'lucide-react';
+import { Calendar, Award, ChevronRight } from 'lucide-react';
+import { CoachPayoutSheet } from './CoachPayoutSheet';
 
 type Preset = '7d' | '30d' | 'month' | 'custom';
 
@@ -32,6 +33,7 @@ export default function CommissionsPage() {
   const isPro = useFeature('pro');
 
   const [coachFilter, setCoachFilter] = useState('');
+  const [payoutCoach, setPayoutCoach] = useState<{ id: string; name: string } | null>(null);
   const [preset, setPreset] = useState<Preset>('month');
   const [startDate, setStartDate] = useState(() => getPresetDates('month').start);
   const [endDate, setEndDate] = useState(() => getPresetDates('month').end);
@@ -47,6 +49,11 @@ export default function CommissionsPage() {
 
   const coachTotals = (commissions as any[]).reduce<Record<string, number>>((acc: Record<string, number>, c: any) => {
     acc[c.coach_id] = (acc[c.coach_id] || 0) + c.commission_amount; return acc;
+  }, {});
+  // Nominal belum dibayar per coach (payout_id null = belum masuk slip).
+  const coachUnpaid = (commissions as any[]).reduce<Record<string, number>>((acc: Record<string, number>, c: any) => {
+    if (!c.payout_id) acc[c.coach_id] = (acc[c.coach_id] || 0) + c.commission_amount;
+    return acc;
   }, {});
 
   const coachChartData = Object.entries(coachTotals).map(([cid, amt]) => ({ label: coachMap[cid] || '—', value: amt as number }));
@@ -131,6 +138,37 @@ export default function CommissionsPage() {
         </div>
       )}
 
+      {/* Rekap per coach — klik untuk detail, bayar & cetak slip */}
+      {isAdmin && Object.keys(coachTotals).length > 0 && (
+        <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
+          <div className="px-5 py-4 border-b border-zen-ink/5">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Rekap per Coach</p>
+          </div>
+          <div className="divide-y divide-zen-ink/5">
+            {Object.entries(coachTotals).sort((a, b) => b[1] - a[1]).map(([cid, amt]) => (
+              <button key={cid} onClick={() => setPayoutCoach({ id: cid, name: coachMap[cid] || '—' })}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-zen-bg transition-colors">
+                <div className="w-10 h-10 rounded-2xl bg-zen-brand/10 text-zen-brand font-bold text-xs flex items-center justify-center shrink-0">
+                  {initials(coachMap[cid] || '?')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{coachMap[cid] || '—'}</p>
+                  {coachUnpaid[cid] ? (
+                    <p className="text-xs font-semibold text-amber-600">Belum digaji {formatCurrency(coachUnpaid[cid])}</p>
+                  ) : (
+                    <p className="text-xs text-green-600 font-semibold">Semua sudah digaji</p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-zen-brand">{formatCurrency(amt)}</p>
+                </div>
+                <ChevronRight size={16} className="text-zen-ink/20 shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Komisi per pelatih — bar chart */}
       {isAdmin && coachChartData.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-zen-ink/5">
@@ -166,17 +204,27 @@ export default function CommissionsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{coachMap[c.coach_id] || '—'}</p>
-                  <p className="text-xs text-zen-ink/40 truncate">{memberMap[c.member_id] || '—'} · {formatDate(c.date)}</p>
+                  <p className="text-xs text-zen-ink/40 truncate">
+                    {c.bookings?.packages?.package_name ? `${c.bookings.packages.package_name} · ` : ''}{memberMap[c.member_id] || '—'} · {formatDate(c.date)}
+                  </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold text-zen-brand">{formatCurrency(c.commission_amount)}</p>
                   <p className="text-[10px] text-zen-ink/30">{c.commission_percentage}% dari {formatCurrency(c.package_price)}</p>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${c.payout_id ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {c.payout_id ? 'Sudah digaji' : 'Belum digaji'}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>}
+
+      {payoutCoach && (
+        <CoachPayoutSheet coachId={payoutCoach.id} coachName={payoutCoach.name}
+          isAdmin={isAdmin} onClose={() => setPayoutCoach(null)} />
+      )}
     </div>
   );
 }
