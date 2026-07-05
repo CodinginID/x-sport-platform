@@ -138,8 +138,8 @@ export default function CommissionsPage() {
         </div>
       )}
 
-      {/* Rekap per coach (fitur Pro) — klik untuk detail, bayar & cetak slip */}
-      {isAdmin && isPro && Object.keys(coachTotals).length > 0 && (
+      {/* Rekap per coach — klik untuk detail, bayar & cetak slip */}
+      {isAdmin && Object.keys(coachTotals).length > 0 && (
         <div className="bg-white rounded-3xl border border-zen-ink/5 overflow-hidden">
           <div className="px-5 py-4 border-b border-zen-ink/5">
             <p className="text-[10px] uppercase tracking-widest font-bold text-zen-ink/40">Rekap per Coach</p>

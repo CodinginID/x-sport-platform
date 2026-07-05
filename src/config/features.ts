@@ -7,7 +7,6 @@ export const FEATURES = {
     trial_days: 3,
     details: [
       'Dashboard grafik & insight: tren pendapatan, kehadiran, jam tersibuk, okupansi',
-      'Rekap gaji coach: komisi per rentang tanggal, potongan, cetak slip gaji',
       'Jadwal sesi tampilan premium: cari slot kosong lebih cepat',
       'Dropdown & loading yang lebih mulus saat memuat data',
       'Laporan dengan grafik + export PDF/Excel',
