@@ -80,9 +80,13 @@
       "Bash(claude mcp *)",
       "Bash(python3 /Users/anonymous/.ccs/instances/hamas_office/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/scripts/search.py \"sports studio management SaaS dashboard admin B2B\" --design-system -p \"XSport Platform\")",
       "Read(//Users/anonymous/.claude/plugins/cache/ui-ux-pro-max-skill/**)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(python3 -c ' *)",
+      "Bash(git commit -q -m 'feat\\(commissions\\): slip gaji format client — rekap per tanggal, potongan, istilah Belum digaji *)",
+      "Bash(git commit -q -m 'feat\\(commissions\\): jadikan rekap gaji coach fitur Pro *)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "claude-flow"
   ]
